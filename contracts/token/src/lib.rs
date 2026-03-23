@@ -9,13 +9,6 @@ enum DataKey {
     Balance(Address),
 }
 
-pub trait TokenTrait {
-    fn initialize(e: Env, admin: Address, decimal: u32, name: String, symbol: String);
-    fn mint(e: Env, to: Address, amount: i128);
-    fn balance(e: Env, id: Address) -> i128;
-    // SEP-41 functions will be implemented by contributors
-}
-
 #[contract]
 pub struct SoroMintToken;
 
@@ -29,20 +22,50 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Supply, &0i128);
     }
 
+    /// Mints `amount` tokens to `to`. Requires Admin auth.
+    /// Panics if `amount <= 0` or if supply would overflow.
     pub fn mint(e: Env, to: Address, amount: i128) {
+        if amount <= 0 {
+            panic!("mint amount must be positive");
+        }
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
+        let balance = Self::balance(e.clone(), to.clone());
+        let new_balance = balance.checked_add(amount).expect("balance overflow");
+        e.storage().persistent().set(&DataKey::Balance(to), &new_balance);
+        let supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap();
+        let new_supply = supply.checked_add(amount).expect("supply overflow");
+        e.storage().instance().set(&DataKey::Supply, &new_supply);
+    }
 
-        let mut balance = Self::balance(e.clone(), to.clone());
-        balance += amount;
-        e.storage().persistent().set(&DataKey::Balance(to), &balance);
+    /// Burns `amount` tokens from `from`. Requires Admin auth.
+    /// Panics if `amount <= 0`, insufficient balance, or supply underflow.
+    pub fn burn(e: Env, from: Address, amount: i128) {
+        if amount <= 0 {
+            panic!("burn amount must be positive");
+        }
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        let balance = Self::balance(e.clone(), from.clone());
+        if balance < amount {
+            panic!("insufficient balance");
+        }
+        let new_balance = balance.checked_sub(amount).expect("balance underflow");
+        e.storage().persistent().set(&DataKey::Balance(from), &new_balance);
+        let supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap();
+        let new_supply = supply.checked_sub(amount).expect("supply underflow");
+        e.storage().instance().set(&DataKey::Supply, &new_supply);
+    }
 
-        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap();
-        supply += amount;
-        e.storage().instance().set(&DataKey::Supply, &supply);
+    /// Returns the total number of tokens currently in circulation.
+    pub fn total_supply(e: Env) -> i128 {
+        e.storage().instance().get(&DataKey::Supply).unwrap()
     }
 
     pub fn balance(e: Env, id: Address) -> i128 {
         e.storage().persistent().get(&DataKey::Balance(id)).unwrap_or(0)
     }
 }
+
+#[cfg(test)]
+mod test;
