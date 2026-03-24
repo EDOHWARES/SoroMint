@@ -133,29 +133,6 @@ fn test_mint_updates_supply() {
     assert_eq!(client.supply(), 1500);
 }
 
-#[test]
-fn test_mint_zero_amount() {
-    let (e, admin, user, client) = setup();
-
-    client.mint(&user, &0);
-
-    assert_eq!(client.balance(&user), 0);
-    assert_eq!(client.supply(), 0);
-
-    // Verify the mint event still emits with zero values.
-    // Use find_event_by_action since the SDK may or may not include it
-    // alongside other internal events.
-    let action: Val = symbol_short!("mint").into_val(&e);
-    if let Some(event_data) = find_event_by_action(&e, action) {
-        let data: (Address, Address, i128, i128, i128) = event_data.into_val(&e);
-        assert_eq!(data.0, admin);
-        assert_eq!(data.1, user);
-        assert_eq!(data.2, 0); // amount
-        assert_eq!(data.3, 0); // new_balance
-        assert_eq!(data.4, 0); // new_supply
-    }
-    // If no event found, the SDK optimized it away — acceptable behavior.
-}
 
 #[test]
 fn test_sequential_mints_carry_running_totals() {
@@ -277,40 +254,40 @@ fn test_transfer_ownership_emits_event_with_payload() {
 
 #[test]
 fn test_total_supply_zero_after_initialize() {
-    let (_e, _admin, client) = setup();
-    assert_eq!(client.total_supply(), 0);
+    let (_e, _admin, _user, client) = setup();
+    assert_eq!(client.supply(), 0);
 }
 
 #[test]
 fn test_total_supply_increases_on_mint() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &500);
-    assert_eq!(client.total_supply(), 500);
+    assert_eq!(client.supply(), 500);
     client.mint(&user, &300);
-    assert_eq!(client.total_supply(), 800);
+    assert_eq!(client.supply(), 800);
 }
 
 #[test]
 fn test_total_supply_decreases_on_burn() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &1000);
     client.burn(&user, &400);
-    assert_eq!(client.total_supply(), 600);
+    assert_eq!(client.supply(), 600);
     assert_eq!(client.balance(&user), 600);
 }
 
 #[test]
 fn test_supply_equals_sum_of_balances() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user1 = Address::generate(&e);
     let user2 = Address::generate(&e);
     client.mint(&user1, &700);
     client.mint(&user2, &300);
     client.burn(&user1, &200);
     let sum = client.balance(&user1) + client.balance(&user2);
-    assert_eq!(client.total_supply(), sum);
+    assert_eq!(client.supply(), sum);
 }
 
 // The Soroban host wraps contract panics in a HostError envelope.
@@ -319,7 +296,7 @@ fn test_supply_equals_sum_of_balances() {
 #[test]
 #[should_panic(expected = "balance overflow")]
 fn test_mint_overflow() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &i128::MAX);
     client.mint(&user, &1);
@@ -328,7 +305,7 @@ fn test_mint_overflow() {
 #[test]
 #[should_panic(expected = "insufficient balance")]
 fn test_burn_exceeds_balance() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &100);
     client.burn(&user, &101);
@@ -340,7 +317,7 @@ fn test_burn_exceeds_balance() {
 #[test]
 #[should_panic(expected = "insufficient balance")]
 fn test_burn_exceeds_balance_guard() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &100);
     client.burn(&user, &200);
@@ -349,7 +326,7 @@ fn test_burn_exceeds_balance_guard() {
 #[test]
 #[should_panic(expected = "mint amount must be positive")]
 fn test_mint_zero_panics() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &0);
 }
@@ -357,8 +334,42 @@ fn test_mint_zero_panics() {
 #[test]
 #[should_panic(expected = "burn amount must be positive")]
 fn test_burn_zero_panics() {
-    let (e, _admin, client) = setup();
+    let (e, _admin, _user, client) = setup();
     let user = Address::generate(&e);
     client.mint(&user, &100);
     client.burn(&user, &0);
+}
+
+// ===========================================================================
+// Metadata Tests
+// ===========================================================================
+
+#[test]
+fn test_metadata_getters() {
+    let (e, _admin, _user, client) = setup();
+    assert_eq!(client.name(), String::from_str(&e, "SoroMint"));
+    assert_eq!(client.symbol(), String::from_str(&e, "SMT"));
+    assert_eq!(client.decimals(), 7);
+}
+
+#[test]
+fn test_update_metadata() {
+    let (e, admin, _user, client) = setup();
+
+    let new_name = String::from_str(&e, "NewSoroMint");
+    let new_symbol = String::from_str(&e, "NSMT");
+
+    client.update_metadata(&new_name, &new_symbol);
+
+    // Verify data payload: (admin, old_name, old_symbol, new_name, new_symbol)
+    let data: (Address, String, String, String, String) = last_event_data(&e).into_val(&e);
+    assert_eq!(data.0, admin);
+    assert_eq!(data.1, String::from_str(&e, "SoroMint"));
+    assert_eq!(data.2, String::from_str(&e, "SMT"));
+    assert_eq!(data.3, new_name.clone());
+    assert_eq!(data.4, new_symbol.clone());
+
+    assert_eq!(client.name(), new_name);
+    assert_eq!(client.symbol(), new_symbol);
+    assert_eq!(client.decimals(), 7); // Should be unchanged
 }

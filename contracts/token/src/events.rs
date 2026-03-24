@@ -11,6 +11,7 @@
 /// | `mint`               | `("SoroMint", "mint")`                       | `(admin, to, amount, new_balance, new_supply)`            |
 /// | `burn`               | `("SoroMint", "burn")`                       | `(admin, from, amount, new_balance, new_supply)`          |
 /// | `ownership_transfer` | `("SoroMint", "xfer_own")`                   | `(prev_admin, new_admin)`                                 |
+/// | `metadata_updated`   | `("SoroMint", "upd_meta")`                   | `(admin, old_name, old_symbol, new_name, new_symbol)`     |
 ///
 /// Each function accepts the environment and the relevant parameters,
 /// then publishes the event with the appropriate topic tuple and data payload.
@@ -106,4 +107,38 @@ pub fn emit_ownership_transfer(env: &Env, prev_admin: &Address, new_admin: &Addr
     let topics = (symbol_short!("SoroMint"), symbol_short!("xfer_own"));
     env.events()
         .publish(topics, (prev_admin.clone(), new_admin.clone()));
+}
+
+/// Emits a `metadata_updated` event when the token metadata is updated.
+///
+/// # Arguments
+/// * `env`        - The Soroban environment.
+/// * `admin`      - The administrator address authorizing the update.
+/// * `old_name`   - The previously set token name.
+/// * `old_symbol` - The previously set token symbol.
+/// * `new_name`   - The new token name.
+/// * `new_symbol` - The new token symbol.
+///
+/// # Event Structure
+/// - **Topics**: `("SoroMint", "upd_meta")`
+/// - **Data**:   `(admin, old_name, old_symbol, new_name, new_symbol)`
+pub fn emit_metadata_updated(
+    env: &Env,
+    admin: &Address,
+    old_name: &String,
+    old_symbol: &String,
+    new_name: &String,
+    new_symbol: &String,
+) {
+    let topics = (symbol_short!("SoroMint"), symbol_short!("upd_meta"));
+    env.events().publish(
+        topics,
+        (
+            admin.clone(),
+            old_name.clone(),
+            old_symbol.clone(),
+            new_name.clone(),
+            new_symbol.clone(),
+        ),
+    );
 }
