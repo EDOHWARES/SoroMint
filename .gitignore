@@ -18,6 +18,11 @@ client/dist/
 client/build/
 client/coverage/
 
+# Backend artifacts
+server/coverage/
+server/logs/
+server/test_output.txt
+
 # Misc
 .DS_Store
 *.log
