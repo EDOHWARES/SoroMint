@@ -47,9 +47,15 @@ function validateEnv() {
     }),
 
     // Stellar/Soroban Configuration
+    SOROBAN_RPC_URLS: envalid.str({
+      desc: "Comma-separated list of Soroban RPC endpoint URLs",
+      example: "https://soroban-testnet.stellar.org,https://another-rpc.stellar.org",
+      default: "",
+    }),
     SOROBAN_RPC_URL: envalid.url({
-      desc: "Soroban RPC endpoint URL",
+      desc: "Primary Soroban RPC endpoint URL (deprecated in favor of SOROBAN_RPC_URLS)",
       example: "https://soroban-testnet.stellar.org",
+      default: "https://soroban-testnet.stellar.org",
     }),
     NETWORK_PASSPHRASE: envalid.str({
       default: "Test SDF Network ; September 2015",
@@ -67,7 +73,7 @@ function validateEnv() {
     nodeEnv: cleanEnv.NODE_ENV,
     port: cleanEnv.PORT,
     mongoUri: cleanEnv.MONGO_URI.replace(/\/\/.*@/, "//***@"), // Hide credentials in logs
-    sorobanRpcUrl: cleanEnv.SOROBAN_RPC_URL,
+    sorobanRpcUrls: cleanEnv.SOROBAN_RPC_URLS || cleanEnv.SOROBAN_RPC_URL,
   });
 
   return cleanEnv;
