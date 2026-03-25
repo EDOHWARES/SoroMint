@@ -1340,6 +1340,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-access"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-compliance"
 version = "0.1.0"
 dependencies = [

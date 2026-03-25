@@ -1,0 +1,14 @@
+[package]
+name = "soromint-access"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/access.rs"
+
+[dependencies]
+soroban-sdk = "22.0.0"
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
