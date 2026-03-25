@@ -122,6 +122,33 @@ fn test_transfer_insufficient_balance() {
     client.transfer(&user1, &user2, &200);
 }
 
+#[test]
+#[should_panic(expected = "Contract is paused")]
+fn test_transfer_fails_when_paused() {
+    let (e, _, user1, client) = setup();
+    let user2 = Address::generate(&e);
+
+    client.mint(&user1, &1000);
+    client.pause();
+    
+    // This should panic
+    client.transfer(&user1, &user2, &300);
+}
+
+#[test]
+fn test_transfer_succeeds_after_unpause() {
+    let (e, _, user1, client) = setup();
+    let user2 = Address::generate(&e);
+
+    client.mint(&user1, &1000);
+    client.pause();
+    client.unpause();
+    
+    // This should succeed
+    client.transfer(&user1, &user2, &300);
+    assert_eq!(client.balance(&user1), 700);
+}
+
 // ===========================================================================
 // Allowance & TransferFrom Tests
 // ===========================================================================

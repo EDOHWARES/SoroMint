@@ -1576,6 +1576,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-lifecycle"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-ownership"
 version = "0.1.0"
 dependencies = [
@@ -1588,6 +1595,7 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "soroban-sdk",
+ "soromint-lifecycle",
 ]
 
 [[package]]

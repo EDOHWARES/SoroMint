@@ -126,6 +126,18 @@ impl SoroMintToken {
     pub fn status(e: Env) -> String {
         String::from_str(&e, "alive")
     }
+
+    /// Pauses the token contract.
+    pub fn pause(e: Env) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        soromint_lifecycle::pause(e, admin);
+    }
+
+    /// Unpauses the token contract.
+    pub fn unpause(e: Env) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        soromint_lifecycle::unpause(e, admin);
+    }
 }
 
 #[contractimpl]
@@ -160,6 +172,7 @@ impl token::TokenInterface for SoroMintToken {
 
     /// Transfers `amount` tokens from `from` to `to`.
     fn transfer(e: Env, from: Address, to: Address, amount: i128) {
+        soromint_lifecycle::require_not_paused(&e);
         from.require_auth();
         if amount <= 0 {
             panic!("transfer amount must be positive");
@@ -189,6 +202,7 @@ impl token::TokenInterface for SoroMintToken {
 
     /// Transfers `amount` tokens from `from` to `to` using allowance.
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
+        soromint_lifecycle::require_not_paused(&e);
         spender.require_auth();
         if amount <= 0 {
             panic!("transfer amount must be positive");
@@ -230,6 +244,7 @@ impl token::TokenInterface for SoroMintToken {
 
     /// Burns `amount` tokens from `from`.
     fn burn(e: Env, from: Address, amount: i128) {
+        soromint_lifecycle::require_not_paused(&e);
         from.require_auth();
         if amount <= 0 {
             panic!("burn amount must be positive");
@@ -257,6 +272,7 @@ impl token::TokenInterface for SoroMintToken {
 
     /// Burns `amount` tokens from `from` using allowance.
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
+        soromint_lifecycle::require_not_paused(&e);
         spender.require_auth();
         if amount <= 0 {
             panic!("burn amount must be positive");
