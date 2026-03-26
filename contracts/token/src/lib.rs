@@ -110,6 +110,22 @@ impl SoroMintToken {
     pub fn supply(e: Env) -> i128 {
         e.storage().instance().get(&DataKey::Supply).unwrap_or(0)
     }
+
+    /// Returns the current version of the contract.
+    ///
+    /// # Returns
+    /// A `String` representing the version (e.g., "1.0.0").
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+
+    /// Returns the health status of the contract.
+    ///
+    /// # Returns
+    /// A `String` representing the status (e.g., "alive").
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
 }
 
 #[contractimpl]

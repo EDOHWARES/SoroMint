@@ -98,6 +98,22 @@ impl TokenFactory {
         e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e))
     }
 
+    /// Returns the current version of the contract.
+    ///
+    /// # Returns
+    /// A `String` representing the version (e.g., "1.0.0").
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+
+    /// Returns the health status of the contract.
+    ///
+    /// # Returns
+    /// A `String` representing the status (e.g., "alive").
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
+
     /// Updates the WASM hash used for future deployments.
     /// Only the factory admin can call this.
     ///

@@ -1,5 +1,6 @@
 #![cfg(test)]
 use super::*;
+use proptest::prelude::*;
 use soroban_sdk::{
     symbol_short, testutils::Address as _, testutils::Events, Address, Env, IntoVal, String, Val,
     Vec,
@@ -209,4 +210,86 @@ fn test_transfer_ownership() {
     let user = Address::generate(&e);
     client.mint(&user, &100);
     assert_eq!(client.balance(&user), 100);
+}
+
+#[test]
+fn test_version_and_status() {
+    let (e, _, _, client) = setup();
+
+    assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+// ===========================================================================
+// Property-Based Tests
+// ===========================================================================
+
+// Feature: contract-versioning-health, Property 1: version idempotence
+proptest! {
+    #[test]
+    fn prop_version_idempotent(_seed: u64) {
+        let e = Env::default();
+        e.mock_all_auths();
+        let admin = Address::generate(&e);
+        let token_id = e.register_contract(None, SoroMintToken);
+        let client = SoroMintTokenClient::new(&e, &token_id);
+        client.initialize(&admin, &7, &String::from_str(&e, "SoroMint"), &String::from_str(&e, "SMT"));
+        prop_assert_eq!(client.version(), client.version());
+    }
+}
+
+// Feature: contract-versioning-health, Property 2: status idempotence
+proptest! {
+    #[test]
+    fn prop_status_idempotent(_seed: u64) {
+        let e = Env::default();
+        e.mock_all_auths();
+        let admin = Address::generate(&e);
+        let token_id = e.register_contract(None, SoroMintToken);
+        let client = SoroMintTokenClient::new(&e, &token_id);
+        client.initialize(&admin, &7, &String::from_str(&e, "SoroMint"), &String::from_str(&e, "SMT"));
+        prop_assert_eq!(client.status(), client.status());
+    }
+}
+
+// Feature: contract-versioning-health, Property 3: version conforms to semver format
+proptest! {
+    #[test]
+    fn prop_version_semver_format(_seed: u64) {
+        let e = Env::default();
+        e.mock_all_auths();
+        let admin = Address::generate(&e);
+        let token_id = e.register_contract(None, SoroMintToken);
+        let client = SoroMintTokenClient::new(&e, &token_id);
+        client.initialize(&admin, &7, &String::from_str(&e, "SoroMint"), &String::from_str(&e, "SMT"));
+        prop_assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+    }
+}
+
+// Feature: contract-versioning-health, Property 4: status is always "alive"
+proptest! {
+    #[test]
+    fn prop_status_is_alive(_seed: u64) {
+        let e = Env::default();
+        e.mock_all_auths();
+        let admin = Address::generate(&e);
+        let token_id = e.register_contract(None, SoroMintToken);
+        let client = SoroMintTokenClient::new(&e, &token_id);
+        client.initialize(&admin, &7, &String::from_str(&e, "SoroMint"), &String::from_str(&e, "SMT"));
+        prop_assert_eq!(client.status(), String::from_str(&e, "alive"));
+    }
+}
+
+// Feature: contract-versioning-health, Property 5: version and status require no authorization
+proptest! {
+    #[test]
+    fn prop_no_auth_required(_seed: u64) {
+        let e = Env::default();
+        // Deliberately do NOT call e.mock_all_auths()
+        let token_id = e.register_contract(None, SoroMintToken);
+        let client = SoroMintTokenClient::new(&e, &token_id);
+        // These must not panic even without mock_all_auths
+        let _ = client.version();
+        let _ = client.status();
+    }
 }

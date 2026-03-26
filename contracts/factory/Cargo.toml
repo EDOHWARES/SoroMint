@@ -13,3 +13,4 @@ soroban-sdk = "22.0.0"
 [dev-dependencies]
 soroban-sdk = { version = "22.0.0", features = ["testutils"] }
 soromint-token = { path = "../token" }
+proptest = "1"

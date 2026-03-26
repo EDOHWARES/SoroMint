@@ -1,0 +1,77 @@
+    Checking soromint-token v0.1.0 (/Users/victor/Desktop/SoroMint/contracts/token)
+warning: unused imports: `Vec` and `symbol_short`
+ --> contracts/token/src/test.rs:5:5
+  |
+5 |     symbol_short, testutils::Address as _, testutils::Events, Address, Env, IntoVal, String, Val,
+  |     ^^^^^^^^^^^^
+6 |     Vec,
+  |     ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+  --> contracts/token/src/test.rs:18:22
+   |
+18 |     let token_id = e.register_contract(None, SoroMintToken);
+   |                      ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+  --> contracts/token/src/test.rs:57:22
+   |
+57 |     let token_id = e.register_contract(None, SoroMintToken);
+   |                      ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+   --> contracts/token/src/test.rs:234:26
+    |
+234 |         let token_id = e.register_contract(None, SoroMintToken);
+    |                          ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+   --> contracts/token/src/test.rs:248:26
+    |
+248 |         let token_id = e.register_contract(None, SoroMintToken);
+    |                          ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+   --> contracts/token/src/test.rs:262:26
+    |
+262 |         let token_id = e.register_contract(None, SoroMintToken);
+    |                          ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+   --> contracts/token/src/test.rs:276:26
+    |
+276 |         let token_id = e.register_contract(None, SoroMintToken);
+    |                          ^^^^^^^^^^^^^^^^^
+
+warning: use of deprecated method `soroban_sdk::Env::register_contract`: use `register`
+   --> contracts/token/src/test.rs:289:26
+    |
+289 |         let token_id = e.register_contract(None, SoroMintToken);
+    |                          ^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `e`
+  --> contracts/token/src/test.rs:80:10
+   |
+80 |     let (e, _, user, client) = setup();
+   |          ^ help: if this is intentional, prefix it with an underscore: `_e`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e`
+   --> contracts/token/src/test.rs:181:10
+    |
+181 |     let (e, _, user, client) = setup();
+    |          ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `admin`
+   --> contracts/token/src/test.rs:204:13
+    |
+204 |     let (e, admin, _, client) = setup();
+    |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_admin`
+
+warning: `soromint-token` (lib test) generated 11 warnings (run `cargo fix --lib -p soromint-token --tests` to apply 4 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.35s

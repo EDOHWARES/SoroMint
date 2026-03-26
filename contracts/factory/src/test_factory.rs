@@ -84,3 +84,13 @@ fn test_update_wasm_hash_not_admin() {
     
     client.update_wasm_hash(&wasm_hash);
 }
+
+#[test]
+fn test_version_and_status() {
+    let (e, admin, client) = setup();
+    let wasm_hash = BytesN::from_array(&e, &[0; 32]);
+    client.initialize(&admin, &wasm_hash);
+
+    assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
