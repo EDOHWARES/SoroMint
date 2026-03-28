@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
 
 #[cfg(test)]
 mod test_access;
@@ -31,8 +31,6 @@ const ROLE_REVOKED: Symbol = symbol_short!("role_rv");
 /// # Panics
 /// Panics if an Admin has already been initialized.
 pub fn initialize_admin(e: &Env, admin: Address) {
-    // Check if any admin exists to prevent re-initialization
-    // (This is a simplified check for the library)
     e.storage().persistent().set(&DataKey::Role(admin.clone(), Role::Admin), &true);
 }
 
@@ -85,5 +83,62 @@ pub fn has_role(e: &Env, user: Address, role: Role) -> bool {
 pub fn require_role(e: &Env, user: Address, role: Role) {
     if !has_role(e, user, role) {
         panic!("Missing required role");
+    }
+}
+
+/// The deployable AccessContract exposing RBAC and versioning functions.
+#[contract]
+pub struct AccessContract;
+
+#[contractimpl]
+impl AccessContract {
+    /// Returns the contract version string in semver format.
+    /// @return "1.0.0"
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+
+    /// Returns the operational status of the contract.
+    /// @return "alive"
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
+
+    /// Seeds the initial administrator for the RBAC system.
+    /// @param admin The address to be set as the initial Admin.
+    pub fn initialize_admin(e: Env, admin: Address) {
+        initialize_admin(&e, admin);
+    }
+
+    /// Grants a role to a specific address.
+    /// @param granter The administrator granting the role (must be Admin).
+    /// @param user    The address to receive the role.
+    /// @param role    The role to grant (1=Admin, 2=Minter, 3=Pauser).
+    /// @auth Requires granter to authorize.
+    pub fn grant_role(e: Env, granter: Address, user: Address, role: Role) {
+        grant_role(e, granter, user, role);
+    }
+
+    /// Revokes a role from a specific address.
+    /// @param revoker The administrator revoking the role (must be Admin).
+    /// @param user    The address losing the role.
+    /// @param role    The role to revoke.
+    /// @auth Requires revoker to authorize.
+    pub fn revoke_role(e: Env, revoker: Address, user: Address, role: Role) {
+        revoke_role(e, revoker, user, role);
+    }
+
+    /// Returns whether an address holds a specific role.
+    /// @param user The address to check.
+    /// @param role The role to query.
+    pub fn has_role(e: Env, user: Address, role: Role) -> bool {
+        has_role(&e, user, role)
+    }
+
+    /// Panics if the address does not hold the required role.
+    /// @param user The address to check.
+    /// @param role The required role.
+    pub fn require_role(e: Env, user: Address, role: Role) {
+        require_role(&e, user, role);
     }
 }

@@ -54,6 +54,11 @@ function validateEnv() {
       default: "",
       desc: "Optional secret key for admin bypass",
     }),
+    SENTRY_DSN: envalid.str({
+      default: "",
+      desc: "Sentry DSN for error tracking (leave empty to disable)",
+      example: "https://<key>@o0.ingest.sentry.io/<project>",
+    }),
     LOGIN_RATE_LIMIT_WINDOW_MS: envalid.num({
       default: 15 * 60 * 1000,
       desc: "Login rate limit window in milliseconds",

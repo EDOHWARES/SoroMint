@@ -10,6 +10,7 @@ const {
   validatePagination,
   validateSearch,
 } = require("../validators/token-validator");
+const { dispatch } = require("../services/webhook-service");
 
 const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = {}) => {
   const router = express.Router();
@@ -132,6 +133,8 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
         contractId,
         status: "SUCCESS",
       });
+
+      dispatch('token.minted', { tokenId: newToken._id, name, symbol, contractId, ownerPublicKey });
 
       res.status(201).json(newToken);
     } catch (error) {
