@@ -7,3 +7,5 @@ process.env.JWT_SECRET = 'super-secret-test-key';
 process.env.JWT_EXPIRES_IN = '24h';
 process.env.SOROBAN_RPC_URL = 'https://soroban-testnet.stellar.org';
 process.env.NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
+process.env.SEP10_SERVER_SECRET = 'SCEZN3TA37JVWL6CW46JZFG3FHAKPXU2KMQIYUHFTGGWJGKWRRXSNCHU';
+process.env.SEP10_HOME_DOMAIN = 'soromint.app';
