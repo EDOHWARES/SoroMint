@@ -9,6 +9,7 @@
  */
 
 const { logger } = require('../utils/logger');
+const { captureException, addBreadcrumb } = require('../config/sentry');
 
 /**
  * @notice Custom error class for application-specific errors
@@ -179,8 +180,15 @@ const errorHandler = (err, req, res, next) => {
   // Log the error
   logError(processedError, req, isProduction);
 
-  // Send standardized response
   const statusCode = processedError.statusCode || 500;
+
+  // Capture unexpected server errors in Sentry
+  if (statusCode >= 500) {
+    addBreadcrumb(`${req.method} ${req.originalUrl}`, { correlationId: req.correlationId });
+    captureException(processedError, { req, user: req.user ? { id: req.user._id, publicKey: req.user.publicKey } : undefined });
+  }
+
+  // Send standardized response
   const responseBody = formatErrorResponse(processedError, isProduction);
 
   res.status(statusCode).json(responseBody);

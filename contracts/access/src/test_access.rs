@@ -64,16 +64,13 @@ fn test_successful_role_lifecycle() {
     let admin = Address::generate(&e);
     let minter = Address::generate(&e);
 
-    // 1. Initialize admin
     client.init_admin(&admin);
     assert!(client.has(&admin, &1));
 
-    // 2. Grant Minter role
     client.grant(&admin, &minter, &2);
     assert!(client.has(&minter, &2));
     client.check(&minter, &2);
 
-    // 3. Revoke Minter role
     client.revoke(&admin, &minter, &2);
     assert!(!client.has(&minter, &2));
 }
@@ -88,8 +85,6 @@ fn test_unauthorized_action_panics() {
     let client = AccessTestContractClient::new(&e, &contract_id);
 
     let user = Address::generate(&e);
-    
-    // Check for Minter role when none was granted
     client.check(&user, &2);
 }
 
@@ -105,7 +100,6 @@ fn test_non_admin_cannot_grant_roles() {
     let attacker = Address::generate(&e);
     let user = Address::generate(&e);
 
-    // Attacker tries to grant themselves or others roles
     client.grant(&attacker, &user, &1);
 }
 
@@ -121,19 +115,113 @@ fn test_events_emitted() {
     let user = Address::generate(&e);
 
     client.init_admin(&admin);
-    client.grant(&admin, &user, &2); // Grant Minter
+    client.grant(&admin, &user, &2);
 
     let events = e.events().all();
     let last_event = events.last().expect("Event should be emitted");
     
-    // Topics: [ROLE_GRANTED, granter]
     let t0: Symbol = last_event.1.get(0).unwrap().into_val(&e);
     let t1: Address = last_event.1.get(1).unwrap().into_val(&e);
     assert_eq!(t0, ROLE_GRANTED);
     assert_eq!(t1, admin);
 
-    // Values: [user, role_u32]
     let val: (Address, u32) = last_event.2.into_val(&e);
     assert_eq!(val.0, user);
     assert_eq!(val.1, 2);
+}
+
+// --- AccessContract unit tests (tasks 4.3) ---
+
+#[test]
+fn test_version_returns_expected() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.version(), soroban_sdk::String::from_str(&e, "1.0.0"));
+}
+
+#[test]
+fn test_status_returns_alive() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.status(), soroban_sdk::String::from_str(&e, "alive"));
+}
+
+#[test]
+fn test_version_idempotent() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.version(), client.version());
+}
+
+#[test]
+fn test_status_idempotent() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.status(), client.status());
+}
+
+// --- Property tests (tasks 4.4–4.8) ---
+
+use proptest::prelude::*;
+
+proptest! {
+    // Feature: contract-versioning-health, Property 1: version idempotence
+    #[test]
+    fn prop_version_idempotent(_seed: u64) {
+        let e = Env::default();
+        let id = e.register(AccessContract, ());
+        let client = AccessContractClient::new(&e, &id);
+        prop_assert_eq!(client.version(), client.version());
+    }
+
+    // Feature: contract-versioning-health, Property 2: status idempotence
+    #[test]
+    fn prop_status_idempotent(_seed: u64) {
+        let e = Env::default();
+        let id = e.register(AccessContract, ());
+        let client = AccessContractClient::new(&e, &id);
+        prop_assert_eq!(client.status(), client.status());
+    }
+
+    // Feature: contract-versioning-health, Property 3: version conforms to semver format
+    #[test]
+    fn prop_version_semver_format(_seed: u64) {
+        let e = Env::default();
+        let id = e.register(AccessContract, ());
+        let client = AccessContractClient::new(&e, &id);
+        let v = client.version();
+        let mut buf = [0u8; 32];
+        let len = v.len() as usize;
+        v.copy_into_slice(&mut buf[..len]);
+        // semver: three dot-separated numeric segments
+        let dot_count = buf[..len].iter().filter(|&&b| b == b'.').count();
+        prop_assert_eq!(dot_count, 2);
+        for &b in &buf[..len] {
+            prop_assert!(b == b'.' || b.is_ascii_digit());
+        }
+    }
+
+    // Feature: contract-versioning-health, Property 4: status is always "alive"
+    #[test]
+    fn prop_status_is_alive(_seed: u64) {
+        let e = Env::default();
+        let id = e.register(AccessContract, ());
+        let client = AccessContractClient::new(&e, &id);
+        prop_assert_eq!(client.status(), soroban_sdk::String::from_str(&e, "alive"));
+    }
+
+    // Feature: contract-versioning-health, Property 5: version and status require no authorization
+    #[test]
+    fn prop_no_auth_required(_seed: u64) {
+        let e = Env::default();
+        // Intentionally no e.mock_all_auths()
+        let id = e.register(AccessContract, ());
+        let client = AccessContractClient::new(&e, &id);
+        let _ = client.version();
+        let _ = client.status();
+    }
 }

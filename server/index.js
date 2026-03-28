@@ -13,6 +13,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
+const { initSentry } = require("./config/sentry");
 const { errorHandler, notFoundHandler } = require("./middleware/error-handler");
 const {
   logger,
@@ -29,6 +30,8 @@ const tokenRoutes = require("./routes/token-routes");
 
 const createApp = ({ authRouter = authRoutes, tokenRouter = tokenRoutes } = {}) => {
   const app = express();
+
+  initSentry(app);
 
   app.use(cors());
   app.use(express.json());
