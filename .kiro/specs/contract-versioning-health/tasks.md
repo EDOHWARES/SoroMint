@@ -70,12 +70,12 @@ The feature concludes with `docs/contract-api.md`.
 - [-] 3. Checkpoint — token and factory tests pass
   - Ensure all tests pass for `token` and `factory` crates, ask the user if questions arise.
 
-- [ ] 4. Implement `#[contract]` wrapper and `version()`/`status()` in `access`
-  - [~] 4.1 Update `contracts/access/Cargo.toml`
+- [x] 4. Implement `#[contract]` wrapper and `version()`/`status()` in `access`
+  - [x] 4.1 Update `contracts/access/Cargo.toml`
     - Add `crate-type = ["cdylib"]` under `[lib]`
     - Add `proptest = "1"` to `[dev-dependencies]`
     - _Requirements: 3.3_
-  - [~] 4.2 Add `AccessContract` wrapper struct and `#[contractimpl]` block to `contracts/access/src/access.rs`
+  - [x] 4.2 Add `AccessContract` wrapper struct and `#[contractimpl]` block to `contracts/access/src/access.rs`
     - Add `use soroban_sdk::{contract, contractimpl, String};` imports
     - Define `#[contract] pub struct AccessContract;`
     - Implement `#[contractimpl] impl AccessContract` with:
@@ -84,7 +84,7 @@ The feature concludes with `docs/contract-api.md`.
       - Delegating wrappers for `initialize_admin`, `grant_role`, `revoke_role`, `has_role`, `require_role` with NatSpec comments
     - Ensure all existing free functions retain their NatSpec comments
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 2.1, 2.2, 2.3, 2.5, 3.3, 6.1, 6.2, 6.3, 6.4, 6.5_
-  - [~] 4.3 Add unit tests for `version` and `status` to `contracts/access/src/test_access.rs`
+  - [x] 4.3 Add unit tests for `version` and `status` to `contracts/access/src/test_access.rs`
     - Add `test_version_returns_expected` — assert `client.version() == "1.0.0"` using `AccessContract`
     - Add `test_status_returns_alive` — assert `client.status() == "alive"`
     - Add `test_version_idempotent` — call `version()` twice, assert equal
@@ -114,12 +114,12 @@ The feature concludes with `docs/contract-api.md`.
     - **Property 5: Version and status require no authorization**
     - **Validates: Requirements 1.4, 2.3**
 
-- [ ] 5. Implement `#[contract]` wrapper and `version()`/`status()` in `compliance`
-  - [~] 5.1 Update `contracts/compliance/Cargo.toml`
+- [x] 5. Implement `#[contract]` wrapper and `version()`/`status()` in `compliance`
+  - [x] 5.1 Update `contracts/compliance/Cargo.toml`
     - Add `crate-type = ["cdylib"]` under `[lib]`
     - Add `proptest = "1"` to `[dev-dependencies]`
     - _Requirements: 3.4_
-  - [~] 5.2 Add `ComplianceContract` wrapper struct and `#[contractimpl]` block to `contracts/compliance/src/compliance.rs`
+  - [x] 5.2 Add `ComplianceContract` wrapper struct and `#[contractimpl]` block to `contracts/compliance/src/compliance.rs`
     - Add `use soroban_sdk::{contract, contractimpl, String};` imports
     - Define `#[contract] pub struct ComplianceContract;`
     - Implement `#[contractimpl] impl ComplianceContract` with:
@@ -128,7 +128,7 @@ The feature concludes with `docs/contract-api.md`.
       - Delegating wrappers for `set_blacklist_status`, `is_blacklisted`, `require_not_blacklisted` with NatSpec comments
     - Ensure all existing free functions retain their NatSpec comments
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 2.1, 2.2, 2.3, 2.5, 3.4, 6.1, 6.2, 6.3, 6.4, 6.5_
-  - [~] 5.3 Add unit tests for `version` and `status` to `contracts/compliance/src/test_compliance.rs`
+  - [x] 5.3 Add unit tests for `version` and `status` to `contracts/compliance/src/test_compliance.rs`
     - Add `test_version_returns_expected`, `test_status_returns_alive`, `test_version_idempotent`, `test_status_idempotent` using `ComplianceContract`
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
   - [ ]* 5.4 Write property test: version idempotence (Property 1)
@@ -153,12 +153,12 @@ The feature concludes with `docs/contract-api.md`.
     - **Property 5: Version and status require no authorization**
     - **Validates: Requirements 1.4, 2.3**
 
-- [ ] 6. Implement `#[contract]` wrapper and `version()`/`status()` in `ownership`
-  - [~] 6.1 Update `contracts/ownership/Cargo.toml`
+- [x] 6. Implement `#[contract]` wrapper and `version()`/`status()` in `ownership`
+  - [x] 6.1 Update `contracts/ownership/Cargo.toml`
     - Add `crate-type = ["cdylib"]` under `[lib]`
     - Add `proptest = "1"` to `[dev-dependencies]`
     - _Requirements: 3.5_
-  - [~] 6.2 Add `OwnershipContract` wrapper struct and `#[contractimpl]` block to `contracts/ownership/src/ownership.rs`
+  - [x] 6.2 Add `OwnershipContract` wrapper struct and `#[contractimpl]` block to `contracts/ownership/src/ownership.rs`
     - Add `use soroban_sdk::{contract, contractimpl, String};` imports
     - Define `#[contract] pub struct OwnershipContract;`
     - Implement `#[contractimpl] impl OwnershipContract` with:
@@ -167,7 +167,7 @@ The feature concludes with `docs/contract-api.md`.
       - Delegating wrappers for `initialize_owner`, `transfer_ownership`, `accept_ownership`, `get_owner`, `get_pending_owner` with NatSpec comments
     - Ensure all existing free functions retain their NatSpec comments
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 2.1, 2.2, 2.3, 2.5, 3.5, 6.1, 6.2, 6.3, 6.4, 6.5_
-  - [~] 6.3 Add unit tests for `version` and `status` to `contracts/ownership/src/test_ownership.rs`
+  - [x] 6.3 Add unit tests for `version` and `status` to `contracts/ownership/src/test_ownership.rs`
     - Add `test_version_returns_expected`, `test_status_returns_alive`, `test_version_idempotent`, `test_status_idempotent` using `OwnershipContract`
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
   - [ ]* 6.4 Write property test: version idempotence (Property 1)
@@ -192,11 +192,11 @@ The feature concludes with `docs/contract-api.md`.
     - **Property 5: Version and status require no authorization**
     - **Validates: Requirements 1.4, 2.3**
 
-- [~] 7. Checkpoint — all five contracts compile and tests pass
+- [x] 7. Checkpoint — all five contracts compile and tests pass
   - Ensure all tests pass across all five contract crates, ask the user if questions arise.
 
-- [ ] 8. Create `docs/contract-api.md`
-  - [~] 8.1 Create `docs/contract-api.md` at the repository root
+- [x] 8. Create `docs/contract-api.md`
+  - [x] 8.1 Create `docs/contract-api.md` at the repository root
     - Include a section per contract (`token`, `factory`, `access`, `compliance`, `ownership`)
     - Each section lists all public functions with: signature, parameters, return type, plain-English description
     - Document `version()` and `status()` for every contract with example return values

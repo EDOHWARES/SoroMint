@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
 
 #[cfg(test)]
 mod test_ownership;
@@ -77,4 +77,46 @@ pub fn accept_ownership(e: Env) {
 pub fn require_owner(e: &Env) {
     let owner: Address = get_owner(e);
     owner.require_auth();
+}
+
+/// The deployable contract wrapper for the ownership module.
+#[contract]
+pub struct OwnershipContract;
+
+#[contractimpl]
+impl OwnershipContract {
+    /// Returns the contract version string in semver format.
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+
+    /// Returns the operational status of the contract.
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
+
+    /// Sets the initial owner. Panics if already initialized.
+    pub fn initialize_owner(e: Env, owner: Address) {
+        initialize_owner(&e, owner);
+    }
+
+    /// Step 1 of ownership handover: sets a pending owner. Requires current owner auth.
+    pub fn transfer_ownership(e: Env, new_owner: Address) {
+        transfer_ownership(e, new_owner);
+    }
+
+    /// Step 2 of ownership handover: accepts pending ownership. Requires pending owner auth.
+    pub fn accept_ownership(e: Env) {
+        accept_ownership(e);
+    }
+
+    /// Returns the current owner address.
+    pub fn get_owner(e: Env) -> Address {
+        get_owner(&e)
+    }
+
+    /// Returns the pending owner address, if any.
+    pub fn get_pending_owner(e: Env) -> Option<Address> {
+        get_pending_owner(&e)
+    }
 }

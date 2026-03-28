@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal};
+use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal, String};
 
 #[contract]
 pub struct ComplianceTestContract;
@@ -89,4 +89,38 @@ fn test_event_emitted() {
     let val: (Address, bool) = last_event.2.into_val(&e);
     assert_eq!(val.0, user);
     assert_eq!(val.1, true);
+}
+
+// --- version / status tests for ComplianceContract ---
+
+#[test]
+fn test_version_returns_expected() {
+    let e = Env::default();
+    let id = e.register(ComplianceContract, ());
+    let client = ComplianceContractClient::new(&e, &id);
+    assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+}
+
+#[test]
+fn test_status_returns_alive() {
+    let e = Env::default();
+    let id = e.register(ComplianceContract, ());
+    let client = ComplianceContractClient::new(&e, &id);
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+#[test]
+fn test_version_idempotent() {
+    let e = Env::default();
+    let id = e.register(ComplianceContract, ());
+    let client = ComplianceContractClient::new(&e, &id);
+    assert_eq!(client.version(), client.version());
+}
+
+#[test]
+fn test_status_idempotent() {
+    let e = Env::default();
+    let id = e.register(ComplianceContract, ());
+    let client = ComplianceContractClient::new(&e, &id);
+    assert_eq!(client.status(), client.status());
 }

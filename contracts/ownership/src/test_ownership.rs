@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{contract, contractimpl, testutils::Address as _, Address, Env};
+use soroban_sdk::{contract, contractimpl, testutils::Address as _, Address, Env, String};
 
 #[contract]
 pub struct TestContract;
@@ -113,4 +113,38 @@ fn test_overwriting_pending_owner() {
 
     client.transfer(&second_pending);
     assert_eq!(client.get_pending(), Some(second_pending));
+}
+
+// --- version / status tests for OwnershipContract ---
+
+#[test]
+fn test_version_returns_expected() {
+    let e = Env::default();
+    let id = e.register(OwnershipContract, ());
+    let client = OwnershipContractClient::new(&e, &id);
+    assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+}
+
+#[test]
+fn test_status_returns_alive() {
+    let e = Env::default();
+    let id = e.register(OwnershipContract, ());
+    let client = OwnershipContractClient::new(&e, &id);
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+#[test]
+fn test_version_idempotent() {
+    let e = Env::default();
+    let id = e.register(OwnershipContract, ());
+    let client = OwnershipContractClient::new(&e, &id);
+    assert_eq!(client.version(), client.version());
+}
+
+#[test]
+fn test_status_idempotent() {
+    let e = Env::default();
+    let id = e.register(OwnershipContract, ());
+    let client = OwnershipContractClient::new(&e, &id);
+    assert_eq!(client.status(), client.status());
 }

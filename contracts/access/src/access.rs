@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
 
 #[cfg(test)]
 mod test_access;
@@ -85,5 +85,47 @@ pub fn has_role(e: &Env, user: Address, role: Role) -> bool {
 pub fn require_role(e: &Env, user: Address, role: Role) {
     if !has_role(e, user, role) {
         panic!("Missing required role");
+    }
+}
+
+/// The deployable contract wrapper for the access control module.
+#[contract]
+pub struct AccessContract;
+
+#[contractimpl]
+impl AccessContract {
+    /// Returns the contract version string in semver format.
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+
+    /// Returns the operational status of the contract.
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
+
+    /// Seeds the initial administrator for the RBAC system.
+    pub fn initialize_admin(e: Env, admin: Address) {
+        initialize_admin(&e, admin);
+    }
+
+    /// Grants a role to a specific address. Requires Admin authorization.
+    pub fn grant_role(e: Env, granter: Address, user: Address, role: Role) {
+        grant_role(e, granter, user, role);
+    }
+
+    /// Revokes a role from a specific address. Requires Admin authorization.
+    pub fn revoke_role(e: Env, revoker: Address, user: Address, role: Role) {
+        revoke_role(e, revoker, user, role);
+    }
+
+    /// Returns true if the address holds the given role.
+    pub fn has_role(e: Env, user: Address, role: Role) -> bool {
+        has_role(&e, user, role)
+    }
+
+    /// Panics if the address does not hold the given role.
+    pub fn require_role(e: Env, user: Address, role: Role) {
+        require_role(&e, user, role);
     }
 }

@@ -1556,6 +1556,7 @@ dependencies = [
 name = "soromint-access"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -1563,6 +1564,7 @@ dependencies = [
 name = "soromint-compliance"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -1586,6 +1588,7 @@ dependencies = [
 name = "soromint-ownership"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 

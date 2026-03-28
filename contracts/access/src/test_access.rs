@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal};
+use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal, String};
 
 #[contract]
 pub struct AccessTestContract;
@@ -136,4 +136,38 @@ fn test_events_emitted() {
     let val: (Address, u32) = last_event.2.into_val(&e);
     assert_eq!(val.0, user);
     assert_eq!(val.1, 2);
+}
+
+// --- version / status tests for AccessContract ---
+
+#[test]
+fn test_version_returns_expected() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.version(), String::from_str(&e, "1.0.0"));
+}
+
+#[test]
+fn test_status_returns_alive() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+#[test]
+fn test_version_idempotent() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.version(), client.version());
+}
+
+#[test]
+fn test_status_idempotent() {
+    let e = Env::default();
+    let id = e.register(AccessContract, ());
+    let client = AccessContractClient::new(&e, &id);
+    assert_eq!(client.status(), client.status());
 }
