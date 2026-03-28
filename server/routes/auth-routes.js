@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { generateToken, authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { loginRateLimiter } = require('../middleware/rate-limiter');
+const { buildChallenge, verifyChallenge } = require('../services/sep10-service');
 
 /**
  * @title Authentication Routes
@@ -13,6 +14,36 @@ const { loginRateLimiter } = require('../middleware/rate-limiter');
  */
 const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   const router = express.Router();
+
+  /**
+   * @route GET /api/auth/challenge
+   * @description Generate a SEP-10 challenge transaction for wallet-native authentication
+   * @access Public
+   *
+   * @query {string} publicKey - Client's Stellar public key (G-address)
+   *
+   * @returns {Object} 200 - { transaction, network_passphrase }
+   * @returns {Object} 400 - Validation error
+   */
+  router.get('/challenge', asyncHandler(async (req, res) => {
+    const { publicKey } = req.query;
+
+    if (!publicKey) {
+      throw new AppError('publicKey query parameter is required', 400, 'VALIDATION_ERROR');
+    }
+
+    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
+      throw new AppError(
+        'Invalid Stellar public key format. Must be a valid G-address (Ed25519 public key)',
+        400,
+        'INVALID_PUBLIC_KEY'
+      );
+    }
+
+    const challenge = buildChallenge(publicKey.toUpperCase());
+
+    res.json({ success: true, data: challenge });
+  }));
 
   /**
    * @route POST /api/auth/register
@@ -101,7 +132,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
    * @returns {Object} 403 - Account suspended/deleted
    */
   router.post('/login', authLoginRateLimiter, asyncHandler(async (req, res) => {
-  const { publicKey, signature, challenge } = req.body;
+  const { publicKey, transaction } = req.body;
 
   // Validate public key is provided
   if (!publicKey) {
@@ -119,6 +150,20 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
 
   const normalizedPublicKey = publicKey.toUpperCase();
 
+  // SEP-10: verify signed challenge transaction if provided
+  if (transaction) {
+    let verifiedKey;
+    try {
+      verifiedKey = verifyChallenge(transaction);
+    } catch (err) {
+      throw new AppError(`SEP-10 verification failed: ${err.message}`, 401, 'INVALID_SIGNATURE');
+    }
+
+    if (verifiedKey.toUpperCase() !== normalizedPublicKey) {
+      throw new AppError('Challenge was signed by a different key', 401, 'INVALID_SIGNATURE');
+    }
+  }
+
   // Find user
   const user = await User.findByPublicKey(normalizedPublicKey);
 
@@ -129,21 +174,6 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   // Check account status
   if (!user.isActive()) {
     throw new AppError(`Account is ${user.status}. Please contact support.`, 403, 'ACCOUNT_INACTIVE');
-  }
-
-  // MVP: Simple public key check
-  // TODO: Implement challenge/response for enhanced security
-  // This would involve:
-  // 1. Server generates a random challenge string
-  // 2. Client signs the challenge with their secret key
-  // 3. Server verifies the signature using the stored public key
-  if (signature && challenge) {
-    // Future enhancement: Validate signature
-    // const isValidSignature = await verifySignature(publicKey, signature, challenge);
-    // if (!isValidSignature) {
-    //   throw new AppError('Invalid signature. Authentication failed.', 401, 'INVALID_SIGNATURE');
-    // }
-    console.log('[Login] Signature/challenge provided but not yet validated (MVP mode)');
   }
 
   // Update last login timestamp

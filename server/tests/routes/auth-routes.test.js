@@ -701,4 +701,68 @@ describe('Auth Routes', () => {
       expect(statuses).toEqual([201, 409]);
     });
   });
+
+  describe('SEP-10 Authentication', () => {
+    const { Keypair } = require('@stellar/stellar-sdk');
+    const { buildChallenge } = require('../../services/sep10-service');
+
+    it('GET /api/auth/challenge should return a challenge transaction', async () => {
+      const response = await request(app)
+        .get(`/api/auth/challenge?publicKey=${TEST_PUBLIC_KEY}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.transaction).toBeDefined();
+      expect(response.body.data.network_passphrase).toBe(process.env.NETWORK_PASSPHRASE);
+    });
+
+    it('GET /api/auth/challenge should return 400 if publicKey is missing', async () => {
+      const response = await request(app).get('/api/auth/challenge');
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('GET /api/auth/challenge should return 400 for invalid publicKey', async () => {
+      const response = await request(app)
+        .get('/api/auth/challenge?publicKey=INVALID');
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('INVALID_PUBLIC_KEY');
+    });
+
+    it('POST /api/auth/login should succeed with a valid signed SEP-10 transaction', async () => {
+      const { TransactionBuilder } = require('@stellar/stellar-sdk');
+      const knownKeypair = Keypair.fromSecret(process.env.SEP10_SERVER_SECRET);
+      const serverPubKey = knownKeypair.publicKey();
+
+      const existingUser = await User.findByPublicKey(serverPubKey);
+      if (!existingUser) {
+        const u = new User({ publicKey: serverPubKey, username: 'sep10user' });
+        await u.save();
+      }
+
+      const { transaction: challengeXdr } = buildChallenge(serverPubKey);
+      const tx = TransactionBuilder.fromXDR(challengeXdr, process.env.NETWORK_PASSPHRASE);
+      tx.sign(knownKeypair);
+      const signedXdr = tx.toEnvelope().toXDR('base64');
+
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ publicKey: serverPubKey, transaction: signedXdr });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.token).toBeDefined();
+    });
+
+    it('POST /api/auth/login should return 401 for tampered SEP-10 transaction', async () => {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .send({ publicKey: TEST_PUBLIC_KEY, transaction: 'not-a-valid-xdr' });
+
+      expect(response.status).toBe(401);
+      expect(response.body.code).toBe('INVALID_SIGNATURE');
+    });
+  });
 });

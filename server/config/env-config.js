@@ -54,6 +54,15 @@ function validateEnv() {
       default: "",
       desc: "Optional secret key for admin bypass",
     }),
+    SEP10_SERVER_SECRET: envalid.str({
+      default: "",
+      desc: "Stellar secret key used to sign SEP-10 challenge transactions",
+      example: "SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    }),
+    SEP10_HOME_DOMAIN: envalid.str({
+      default: "soromint.app",
+      desc: "Home domain used in SEP-10 manage_data operation name",
+    }),
     LOGIN_RATE_LIMIT_WINDOW_MS: envalid.num({
       default: 15 * 60 * 1000,
       desc: "Login rate limit window in milliseconds",
