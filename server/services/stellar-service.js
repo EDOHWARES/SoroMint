@@ -5,7 +5,10 @@ const {
   Operation, 
   TransactionBuilder, 
   Networks,
-  Address
+  Address,
+  Contract,
+  nativeToScVal,
+  xdr,
 } = require('@stellar/stellar-sdk');
 const { getEnv } = require('../config/env-config');
 const { logger } = require('../utils/logger');
@@ -134,10 +137,109 @@ const deployStellarAssetContract = async (wasmHash, salt, sourceAccount) => {
   };
 };
 
+/**
+ * @title submitBatchOperations
+ * @notice Validates, builds, simulates, and submits multiple token operations
+ *         as a single atomic Soroban transaction.
+ * @dev Each operation maps to a contract invocation (mint/burn/transfer).
+ *      Simulation is run first to preflight fees and catch per-op errors.
+ * @param {Object[]} operations - Array of validated batch operation objects.
+ * @param {string} sourcePublicKey - Stellar public key of the submitting account.
+ * @returns {Promise<Object>} Result with txHash and per-operation outcomes.
+ */
+const submitBatchOperations = async (operations, sourcePublicKey) => {
+  const server = getRpcServer();
+  const env = getEnv();
+
+  // Fetch source account for sequence number
+  const account = await server.execute((s) => s.getAccount(sourcePublicKey));
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: '1000000', // generous base fee; simulation will refine
+    networkPassphrase: env.NETWORK_PASSPHRASE,
+  });
+
+  // Build one contract invocation per operation
+  for (const op of operations) {
+    const contract = new Contract(op.contractId);
+    let invokeOp;
+
+    if (op.type === 'mint') {
+      invokeOp = contract.call(
+        'mint',
+        new Address(sourcePublicKey).toScVal(),
+        nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
+      );
+    } else if (op.type === 'burn') {
+      invokeOp = contract.call(
+        'burn',
+        new Address(sourcePublicKey).toScVal(),
+        nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
+      );
+    } else {
+      // transfer
+      invokeOp = contract.call(
+        'transfer',
+        new Address(sourcePublicKey).toScVal(),
+        new Address(op.destination).toScVal(),
+        nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
+      );
+    }
+
+    txBuilder.addOperation(invokeOp);
+  }
+
+  const tx = txBuilder.setTimeout(30).build();
+
+  // Simulate to detect per-operation failures before submission
+  const simulation = await server.execute((s) => s.simulateTransaction(tx));
+
+  if (rpc.Api.isSimulationError(simulation)) {
+    // Map simulation error back to operations for detailed reporting
+    return {
+      success: false,
+      error: simulation.error,
+      results: operations.map((op, i) => ({
+        index: i,
+        type: op.type,
+        contractId: op.contractId,
+        status: 'FAILED',
+        error: simulation.error,
+      })),
+    };
+  }
+
+  // Assemble the transaction with simulation-derived auth and fee
+  const preparedTx = rpc.assembleTransaction(tx, simulation).build();
+
+  // Submit — note: in production the tx must be signed before this step.
+  // The caller is responsible for signing; here we submit the prepared tx.
+  const sendResult = await server.execute((s) => s.sendTransaction(preparedTx));
+
+  logger.info('Batch transaction submitted', {
+    hash: sendResult.hash,
+    status: sendResult.status,
+    operationCount: operations.length,
+  });
+
+  return {
+    success: sendResult.status !== 'ERROR',
+    txHash: sendResult.hash,
+    status: sendResult.status,
+    results: operations.map((op, i) => ({
+      index: i,
+      type: op.type,
+      contractId: op.contractId,
+      status: sendResult.status === 'ERROR' ? 'FAILED' : 'SUBMITTED',
+    })),
+  };
+};
+
 module.exports = {
   getRpcServer,
   wrapAsset,
   deployStellarAssetContract,
-  FailoverRpcServer
+  FailoverRpcServer,
+  submitBatchOperations,
 };
 

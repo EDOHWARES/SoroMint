@@ -97,6 +97,58 @@ const validatePagination = (req, res, next) => {
   }
 };
 
+const SUPPORTED_OPS = ['mint', 'burn', 'transfer'];
+
+const batchOperationSchema = z.object({
+  type: z.enum(SUPPORTED_OPS, {
+    errorMap: () => ({ message: `type must be one of: ${SUPPORTED_OPS.join(', ')}` }),
+  }),
+  contractId: z
+    .string()
+    .length(56, 'contractId must be exactly 56 characters')
+    .startsWith('C', 'contractId must start with C'),
+  amount: z
+    .number({ invalid_type_error: 'amount must be a number' })
+    .positive('amount must be positive'),
+  destination: z
+    .string()
+    .length(56, 'destination must be exactly 56 characters')
+    .startsWith('G', 'destination must start with G')
+    .optional(),
+}).superRefine((op, ctx) => {
+  if (op.type === 'transfer' && !op.destination) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['destination'], message: 'destination is required for transfer' });
+  }
+});
+
+const batchSchema = z.object({
+  operations: z
+    .array(batchOperationSchema)
+    .min(1, 'operations must contain at least 1 item')
+    .max(20, 'operations must not exceed 20 items'),
+  sourcePublicKey: z
+    .string()
+    .length(56, 'sourcePublicKey must be exactly 56 characters')
+    .startsWith('G', 'sourcePublicKey must start with G'),
+});
+
+const validateBatch = (req, res, next) => {
+  const result = batchSchema.safeParse(req.body);
+  if (!result.success) {
+    const errors = result.error.errors.map((e) => ({
+      path: e.path.join('.'),
+      message: e.message,
+    }));
+    return next(new AppError(
+      errors.map((e) => `${e.path}: ${e.message}`).join('; '),
+      400,
+      'VALIDATION_ERROR'
+    ));
+  }
+  req.body = result.data;
+  next();
+};
+
 const validateSearch = (req, res, next) => {
   try {
     req.query = { ...req.query, ...searchSchema.parse(req.query) };
@@ -118,7 +170,10 @@ module.exports = {
   tokenSchema,
   paginationSchema,
   searchSchema,
+  batchSchema,
+  batchOperationSchema,
   validateToken,
   validatePagination,
   validateSearch,
+  validateBatch,
 };
