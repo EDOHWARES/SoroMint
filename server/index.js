@@ -25,6 +25,7 @@ const {
   logDatabaseConnection,
 } = require("./utils/logger");
 const { setupSwagger } = require("./config/swagger");
+const { sampler } = require("./services/resource-sampler");
 const authRoutes = require("./routes/auth-routes");
 const statusRoutes = require("./routes/status-routes");
 const auditRoutes = require("./routes/audit-routes");
@@ -74,6 +75,7 @@ const startServer = async () => {
 
   app.listen(env.PORT, () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
+    sampler.start();
     console.log(`Server running on http://localhost:${env.PORT}`);
     console.log(`API Documentation available at http://localhost:${env.PORT}/api-docs`);
     scheduleBackups();

@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { asyncHandler } = require('../middleware/error-handler');
+const { authenticate } = require('../middleware/auth');
+const { sampler } = require('../services/resource-sampler');
 const { version } = require('../package.json');
 
 const router = express.Router();
@@ -47,6 +49,22 @@ router.get('/health', asyncHandler(async (req, res) => {
   const statusCode = dbStatus === 'up' ? 200 : 503;
   
   res.status(statusCode).json(healthData);
+}));
+
+/**
+ * @route GET /api/metrics
+ * @description Returns the latest sampled CPU, memory, and disk usage.
+ *              Includes active alerts for any metrics exceeding configured thresholds.
+ * @access Private (JWT)
+ * @returns {Object} 200 - Latest resource sample with alert state.
+ * @returns {Object} 503 - Sampler not yet initialised.
+ */
+router.get('/metrics', authenticate, asyncHandler(async (req, res) => {
+  const sample = sampler.latest;
+  if (!sample) {
+    return res.status(503).json({ error: 'Metrics not yet available', code: 'METRICS_UNAVAILABLE' });
+  }
+  res.json(sample);
 }));
 
 module.exports = router;

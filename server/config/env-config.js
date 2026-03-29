@@ -70,6 +70,22 @@ function validateEnv() {
       default: 10,
       desc: "Maximum token deployments per rate limit window",
     }),
+    METRICS_INTERVAL_MS: envalid.num({
+      default: 30000,
+      desc: "Resource metrics sampling interval in milliseconds",
+    }),
+    ALERT_THRESHOLD_CPU: envalid.num({
+      default: 85,
+      desc: "CPU usage % that triggers an alert (0-100)",
+    }),
+    ALERT_THRESHOLD_MEMORY: envalid.num({
+      default: 85,
+      desc: "Memory usage % that triggers an alert (0-100)",
+    }),
+    ALERT_THRESHOLD_DISK: envalid.num({
+      default: 90,
+      desc: "Disk usage % that triggers an alert (0-100)",
+    }),
   }, {
     reporter: ({ errors, env }) => {
       if (Object.keys(errors).length > 0) {
