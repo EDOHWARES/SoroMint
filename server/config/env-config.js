@@ -70,6 +70,26 @@ function validateEnv() {
       default: 10,
       desc: "Maximum token deployments per rate limit window",
     }),
+    SENDGRID_API_KEY: envalid.str({
+      default: "",
+      desc: "SendGrid API key for email notifications",
+    }),
+    NOTIFICATION_FROM_EMAIL: envalid.str({
+      default: "noreply@soromint.io",
+      desc: "Sender email address for notifications",
+    }),
+    VAPID_PUBLIC_KEY: envalid.str({
+      default: "",
+      desc: "VAPID public key for Web Push notifications",
+    }),
+    VAPID_PRIVATE_KEY: envalid.str({
+      default: "",
+      desc: "VAPID private key for Web Push notifications",
+    }),
+    VAPID_SUBJECT: envalid.str({
+      default: "mailto:admin@soromint.io",
+      desc: "VAPID subject (mailto: or https: URL)",
+    }),
   }, {
     reporter: ({ errors, env }) => {
       if (Object.keys(errors).length > 0) {
