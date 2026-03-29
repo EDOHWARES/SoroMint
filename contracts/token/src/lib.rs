@@ -107,6 +107,23 @@ impl SoroMintToken {
         events::emit_mint(&e, &admin, &to, amount, balance, supply);
     }
 
+    pub fn v2_mint(e: Env, to: Address, amount: i128, memo: String) {
+        if memo.len() == 0 { panic!("memo must not be empty"); }
+        soromint_lifecycle::require_not_paused(&e);
+        if amount <= 0 { panic!("mint amount must be positive"); }
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+
+        let mut balance = Self::read_balance(&e, &to);
+        balance += amount;
+        Self::write_balance(&e, &to, balance);
+
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
+        supply += amount;
+        e.storage().instance().set(&DataKey::Supply, &supply);
+        events::emit_mint(&e, &admin, &to, amount, balance, supply);
+    }
+
     pub fn transfer_ownership(e: Env, new_admin: Address) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -138,7 +155,7 @@ impl SoroMintToken {
         e.storage().instance().get(&DataKey::FeeConfig)
     }
 
-    pub fn version(e: Env) -> String { String::from_str(&e, "1.0.0") }
+    pub fn version(e: Env) -> String { String::from_str(&e, "2.0.0") }
     pub fn status(e: Env) -> String { String::from_str(&e, "alive") }
     pub fn supply(e: Env) -> i128 { e.storage().instance().get(&DataKey::Supply).unwrap_or(0) }
     pub fn pause(e: Env) {

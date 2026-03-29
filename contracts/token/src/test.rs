@@ -105,3 +105,98 @@ fn test_panic_when_paused() {
     let res = client.try_mint(&user, &1000);
     assert!(res.is_err());
 }
+
+// --- Bug condition exploration tests ---
+// These tests confirm the bug exists on unfixed code.
+
+/// Validates: Requirements 2.1, 2.3
+/// Counterexample: version() returns "1.0.0" instead of "2.0.0"
+#[test]
+fn test_v2_version_token() {
+    let (e, _, _, client) = setup();
+    assert_eq!(client.version(), String::from_str(&e, "2.0.0"));
+}
+
+/// Validates: Requirements 2.1
+/// This test will be enabled after the fix is implemented.
+/// v2_mint does not exist on unfixed code — enabling it would cause a compile error.
+#[test]
+fn test_v2_mint_exists() {
+    let (e, _, user, client) = setup();
+    let memo = String::from_str(&e, "test memo");
+    client.v2_mint(&user, &1000, &memo);
+    assert_eq!(client.balance(&user), 1000);
+}
+
+// --- Preservation property tests ---
+// These tests verify that all existing v1 behavior is preserved after the versioning fix.
+// They PASS on both unfixed and fixed code.
+
+/// Validates: Requirements 3.1, 3.4
+/// mint(to, amount) produces balance delta == amount and supply delta == amount
+#[test]
+fn test_preservation_mint() {
+    let (_, _, user, client) = setup();
+
+    let balance_before = client.balance(&user);
+    let supply_before = client.supply();
+
+    let amount: i128 = 500;
+    client.mint(&user, &amount);
+
+    let balance_after = client.balance(&user);
+    let supply_after = client.supply();
+
+    assert_eq!(balance_after - balance_before, amount);
+    assert_eq!(supply_after - supply_before, amount);
+}
+
+/// Validates: Requirements 3.1, 3.4
+/// transfer(from, to, amount) moves tokens correctly with correct balance deltas
+#[test]
+fn test_preservation_transfer() {
+    let (e, _, user1, client) = setup();
+    let user2 = Address::generate(&e);
+
+    let mint_amount: i128 = 1000;
+    let transfer_amount: i128 = 300;
+
+    client.mint(&user1, &mint_amount);
+
+    let bal1_before = client.balance(&user1);
+    let bal2_before = client.balance(&user2);
+
+    client.transfer(&user1, &user2, &transfer_amount);
+
+    let bal1_after = client.balance(&user1);
+    let bal2_after = client.balance(&user2);
+
+    assert_eq!(bal1_before - bal1_after, transfer_amount);
+    assert_eq!(bal2_after - bal2_before, transfer_amount);
+}
+
+/// Validates: Requirements 3.3
+/// status() returns "alive" without auth
+#[test]
+fn test_preservation_status() {
+    let (e, _, _, client) = setup();
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+/// Validates: Requirements 3.1, 3.4
+/// set_fee_config then fee_config returns the same values
+#[test]
+fn test_preservation_fee_config_roundtrip() {
+    let (e, _, _, client) = setup();
+    let treasury = Address::generate(&e);
+
+    let enabled = true;
+    let fee_bps: u32 = 250;
+
+    client.set_fee_config(&enabled, &fee_bps, &treasury);
+
+    let config = client.fee_config().expect("fee config should be set");
+    assert_eq!(config.enabled, enabled);
+    assert_eq!(config.fee_bps, fee_bps);
+    assert_eq!(config.treasury, treasury);
+}

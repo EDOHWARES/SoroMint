@@ -52,3 +52,6 @@ contracts/factory/test_snapshots/test_integration/test_multiple_users_on_factory
 contracts/factory/test_snapshots/test_integration/test_supply_invariant_across_operations.1.json
 contracts/factory/test_snapshots/test_integration/test_token_events_through_factory_deployment.1.json
 contracts/factory/test_snapshots/test_integration/test_update_wasm_hash_and_deploy.1.json
+
+# Local backup archives
+server/.backups/

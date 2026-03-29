@@ -93,6 +93,72 @@ impl TokenFactory {
         address
     }
 
+    /// Deploys a new token contract (v2), initializes it, and sets a metadata hash.
+    ///
+    /// # Arguments
+    /// * `salt`          - A unique 32-byte salt for the contract deployment.
+    /// * `admin`         - The address that will be the administrator of the new token.
+    /// * `decimal`       - Number of decimal places for the new token.
+    /// * `name`          - The name of the new token.
+    /// * `symbol`        - The symbol of the new token.
+    /// * `metadata_hash` - An IPFS or content-addressed hash for off-chain metadata.
+    ///
+    /// # Returns
+    /// The address of the newly deployed token contract.
+    ///
+    /// # Events
+    /// Emits a `contract_deployed` event with the new contract address and admin.
+    pub fn v2_create_token(
+        e: Env,
+        salt: BytesN<32>,
+        admin: Address,
+        decimal: u32,
+        name: String,
+        symbol: String,
+        metadata_hash: String,
+    ) -> Address {
+        let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
+
+        let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
+
+        let init_args = soroban_sdk::vec![
+            &e,
+            admin.clone().into_val(&e),
+            decimal.into_val(&e),
+            name.clone().into_val(&e),
+            symbol.clone().into_val(&e),
+        ];
+
+        e.invoke_contract::<()>(
+            &address,
+            &Symbol::new(&e, "initialize"),
+            init_args,
+        );
+
+        // Set the metadata hash on the newly deployed token contract
+        let meta_args = soroban_sdk::vec![
+            &e,
+            metadata_hash.into_val(&e),
+        ];
+
+        e.invoke_contract::<()>(
+            &address,
+            &Symbol::new(&e, "set_metadata_hash"),
+            meta_args,
+        );
+
+        // Update the registry of deployed contract IDs
+        let mut tokens: Vec<Address> = e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e));
+        tokens.push_back(address.clone());
+        e.storage().instance().set(&DataKey::Tokens, &tokens);
+
+        // Emit success event for off-chain listeners to track new token deployments
+        let topics = (symbol_short!("factory"), symbol_short!("deploy"));
+        e.events().publish(topics, (address.clone(), admin));
+
+        address
+    }
+
     /// Returns the list of all token contracts deployed by this factory.
     pub fn get_tokens(e: Env) -> Vec<Address> {
         e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e))
@@ -103,7 +169,7 @@ impl TokenFactory {
     /// # Returns
     /// A `String` representing the version (e.g., "1.0.0").
     pub fn version(e: Env) -> String {
-        String::from_str(&e, "1.0.0")
+        String::from_str(&e, "2.0.0")
     }
 
     /// Returns the health status of the contract.
