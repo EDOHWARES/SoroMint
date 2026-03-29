@@ -46,6 +46,11 @@ function validateEnv() {
       example: "https://soroban-testnet.stellar.org",
       default: "https://soroban-testnet.stellar.org",
     }),
+    HORIZON_URL: envalid.url({
+      desc: "Horizon API endpoint URL for fee stats and network data",
+      example: "https://horizon-testnet.stellar.org",
+      default: "https://horizon-testnet.stellar.org",
+    }),
     NETWORK_PASSPHRASE: envalid.str({
       default: "Test SDF Network ; September 2015",
       desc: "Stellar network passphrase",
