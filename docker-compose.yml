@@ -8,6 +8,34 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: soromint
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: soromint-server
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/soromint
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: soromint-client
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
