@@ -11,9 +11,13 @@
   },
   "dependencies": {
     "axios": "^1.14.0",
+    "i18next": "^26.0.1",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-helmet-async": "^3.0.0",
+    "react-i18next": "^17.0.1",
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

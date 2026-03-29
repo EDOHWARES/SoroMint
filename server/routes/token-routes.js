@@ -10,6 +10,11 @@ const {
   validatePagination,
   validateSearch,
 } = require("../validators/token-validator");
+const {
+  notifyUser,
+  buildTokenMintedContent,
+  buildDeploymentFailedContent,
+} = require("../services/notification-service");
 
 const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = {}) => {
   const router = express.Router();
@@ -133,6 +138,8 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
         status: "SUCCESS",
       });
 
+      notifyUser(userId, 'tokenMinted', () => buildTokenMintedContent(newToken));
+
       res.status(201).json(newToken);
     } catch (error) {
       logger.error("Token creation failed", {
@@ -147,6 +154,8 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
         status: "FAIL",
         errorMessage: error.message,
       });
+
+      notifyUser(userId, 'deploymentFailed', () => buildDeploymentFailedContent(name, error.message));
 
       throw error;
     }
