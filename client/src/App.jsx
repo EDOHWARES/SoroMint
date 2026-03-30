@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { Wallet, Coins, Plus, List, ArrowRight, ShieldCheck } from 'lucide-react';
 
@@ -25,7 +25,13 @@ function App() {
   const fetchTokens = async (userAddress) => {
     try {
       const resp = await axios.get(`${API_BASE}/tokens/${userAddress}`);
-      setTokens(resp.data);
+      const tokenList = Array.isArray(resp.data?.data)
+        ? resp.data.data
+        : Array.isArray(resp.data)
+          ? resp.data
+          : [];
+
+      setTokens(tokenList);
     } catch (err) {
       console.error('Error fetching tokens', err);
     }
@@ -49,7 +55,11 @@ function App() {
         ownerPublicKey: address
       });
 
-      setTokens([...tokens, resp.data]);
+      const createdToken = resp.data?.data ?? resp.data;
+
+      if (createdToken) {
+        setTokens((currentTokens) => [...currentTokens, createdToken]);
+      }
       setFormData({ name: '', symbol: '', decimals: 7 });
       alert('Token Minted Successfully!');
     } catch (err) {
@@ -115,7 +125,7 @@ function App() {
                   type="number" 
                   className="w-full input-field"
                   value={formData.decimals}
-                  onChange={(e) => setFormData({...formData, decimals: parseInt(e.target.value)})}
+                  onChange={(e) => setFormData({...formData, decimals: parseInt(e.target.value, 10) || 0})}
                   required
                 />
               </div>
@@ -131,13 +141,27 @@ function App() {
           </div>
         </section>
 
-        {/* Assets Table */}
+        {/* Assets Grid */}
         <section className="lg:col-span-2">
-          <div className="glass-card min-h-[400px]">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <List size={20} className="text-stellar-blue" />
-              My Assets
-            </h2>
+          <div className="glass-card asset-panel min-h-[400px]">
+            <div className="assets-section-header">
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <List size={20} className="text-stellar-blue" />
+                  My Assets
+                </h2>
+                <p className="assets-section-copy">
+                  Browse your minted tokens in a mobile-first grid that stays readable from pocket screens to
+                  widescreen dashboards.
+                </p>
+              </div>
+
+              {address && tokens.length > 0 && (
+                <span className="asset-count-pill">
+                  {tokens.length} {tokens.length === 1 ? 'asset' : 'assets'}
+                </span>
+              )}
+            </div>
             
             {!address ? (
               <div className="flex flex-col items-center justify-center h-64 text-slate-500">
@@ -149,29 +173,49 @@ function App() {
                 <p>No tokens minted yet</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-white/10 text-slate-400 text-sm">
-                      <th className="pb-4 font-medium">Name</th>
-                      <th className="pb-4 font-medium">Symbol</th>
-                      <th className="pb-4 font-medium">Contract ID</th>
-                      <th className="pb-4 font-medium">Decimals</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {tokens.map((token, i) => (
-                      <tr key={i} className="hover:bg-white/5 transition-colors group">
-                        <td className="py-4 font-medium">{token.name}</td>
-                        <td className="py-4 text-slate-300">{token.symbol}</td>
-                        <td className="py-4 font-mono text-sm text-stellar-blue truncate max-w-[120px]">
-                          {token.contractId}
-                        </td>
-                        <td className="py-4 text-slate-400">{token.decimals}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="token-grid" role="list" aria-label="Token cards">
+                {tokens.map((token, index) => (
+                  <article
+                    key={token.contractId ?? `${token.symbol}-${index}`}
+                    className="token-card"
+                    role="listitem"
+                  >
+                    <div className="token-card-accent" aria-hidden="true" />
+
+                    <div className="token-card-header">
+                      <div className="token-card-brand">
+                        <div className="token-card-icon">
+                          <Coins size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="token-card-kicker">Token {String(index + 1).padStart(2, '0')}</p>
+                          <h3 className="token-card-title">{token.name}</h3>
+                        </div>
+                      </div>
+
+                      <span className="token-card-symbol">{token.symbol}</span>
+                    </div>
+
+                    <div className="token-card-body">
+                      <div className="token-card-stat-row">
+                        <div className="token-card-stat">
+                          <span className="token-card-label">Decimals</span>
+                          <span className="token-card-value">{token.decimals}</span>
+                        </div>
+
+                        <div className="token-card-stat">
+                          <span className="token-card-label">Network</span>
+                          <span className="token-card-value">Soroban</span>
+                        </div>
+                      </div>
+
+                      <div className="token-card-contract-block">
+                        <span className="token-card-label">Contract ID</span>
+                        <p className="token-card-contract">{token.contractId}</p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
           </div>
