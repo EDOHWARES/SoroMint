@@ -83,7 +83,9 @@ const startServer = async () => {
 if (require.main === module) {
   startServer().catch((error) => {
     logger.error("Server failed to start", { error: error.message });
-    process.exit(1);
+    setImmediate(() => {
+      throw error;
+    });
   });
 }
 
