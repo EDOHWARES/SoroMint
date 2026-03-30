@@ -32,3 +32,12 @@ body {
 .input-field {
   @apply bg-white/5 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-stellar-blue transition-colors;
 }
+
+:root {
+  --toastify-color-dark: #1a2030;
+  --toastify-color-progress-dark: #146EF5;
+}
+
+.Toastify__toast {
+  @apply backdrop-blur-lg border border-white/10 rounded-xl;
+}

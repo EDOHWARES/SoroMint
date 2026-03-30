@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { Wallet, Coins, Plus, List, ArrowRight, ShieldCheck } from 'lucide-react';
 import { SkeletonList, SkeletonTokenForm } from './components/Skeleton';
 import { useWalletStore, useTokenStore } from './store';
-import React from "react"
-import { useForm } from "react-hook-form"
-import axios from "axios"
 
-export default function App() {
-  const { register, handleSubmit, formState: { errors } } = useForm()
+const API_BASE = 'http://localhost:5000/api';
 
 function App() {
-  // Use Zustand stores for global state
+  const { t } = useTranslation();
   const { address, setWallet, disconnectWallet } = useWalletStore();
-  const { tokens, addToken, isLoading, setLoading, fetchTokens } = useTokenStore();
-  
+  const { tokens, addToken, isLoading, fetchTokens } = useTokenStore();
+
   const [formData, setFormData] = useState({
     name: '',
     symbol: '',
@@ -27,29 +24,14 @@ function App() {
   const connectWallet = async () => {
     const mockAddress = 'GB...' + Math.random().toString(36).substring(7).toUpperCase();
     setWallet(mockAddress);
+    toast.success(t('app.walletConnected') || 'Wallet connected');
     fetchTokens(mockAddress);
-  };
-
-    setAddress(mockAddress);
-    setStatusMessage('Wallet connected');
-    fetchTokens(mockAddress);
-  };
-
-  const fetchTokens = async (userAddress) => {
-    try {
-      const resp = await axios.get(`${API_BASE}/tokens/${userAddress}`);
-      setTokens(resp.data);
-    } catch (err) {
-      console.error('Error fetching tokens', err);
-      setStatusMessage('Error fetching tokens');
-    }
   };
 
   const handleMint = async (e) => {
     e.preventDefault();
-
     if (!address) {
-      setStatusMessage('Please connect wallet first');
+      toast.warn(t('mint.connectFirst') || 'Please connect wallet first');
       return;
     }
 
@@ -67,9 +49,11 @@ function App() {
 
       addToken(resp.data);
       setFormData({ name: '', symbol: '', decimals: 7 });
-      setStatusMessage('Token minted successfully');
+      setStatusMessage('');
+      toast.success(t('mint.success') || 'Token minted successfully');
     } catch (err) {
-      setStatusMessage('Minting failed: ' + err.message);
+      setStatusMessage('');
+      toast.error((t('mint.failed') || 'Minting failed') + ': ' + err.message);
     } finally {
       setIsMinting(false);
     }
@@ -77,7 +61,7 @@ function App() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12" role="application">
-      
+
       {/* Screen Reader Live Region */}
       <div aria-live="polite" className="sr-only">
         {statusMessage}
@@ -92,13 +76,9 @@ function App() {
             Soro<span className="text-stellar-blue">Mint</span>
           </h1>
         </div>
-        
-        <button 
-          onClick={address ? disconnectWallet : connectWallet}
-          className="flex items-center gap-2 btn-primary"
 
         <button
-          onClick={connectWallet}
+          onClick={address ? disconnectWallet : connectWallet}
           className="flex items-center gap-2 btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           aria-label={address ? 'Wallet connected' : 'Connect wallet'}
         >
@@ -112,7 +92,7 @@ function App() {
       </header>
 
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-8" role="main">
-        
+
         {/* Mint Form */}
         <section className="lg:col-span-1" aria-labelledby="mint-heading">
           <div className="glass-card">
@@ -126,78 +106,63 @@ function App() {
             {isLoading ? (
               <SkeletonTokenForm />
             ) : (
-              <form onSubmit={handleMint} className="space-y-4">
+              <form onSubmit={handleMint} className="space-y-4" aria-describedby="form-description">
+                <p id="form-description" className="sr-only">
+                  Form to create a new token with name, symbol, and decimals
+                </p>
 
-            <form
-              onSubmit={handleMint}
-              className="space-y-4"
-              aria-describedby="form-description"
-            >
-              <p id="form-description" className="sr-only">
-                Form to create a new token with name, symbol, and decimals
-              </p>
+                <div>
+                  <label htmlFor="token-name" className="block text-sm font-medium text-slate-300 mb-1">
+                    Token Name
+                  </label>
+                  <input
+                    id="token-name"
+                    type="text"
+                    className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="token-name" className="block text-sm font-medium text-slate-300 mb-1">
-                  Token Name
-                </label>
-                <input
-                  id="token-name"
-                  type="text"
-                  className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
+                <div>
+                  <label htmlFor="token-symbol" className="block text-sm font-medium text-slate-300 mb-1">
+                    Symbol
+                  </label>
+                  <input
+                    id="token-symbol"
+                    type="text"
+                    className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.symbol}
+                    onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="token-symbol" className="block text-sm font-medium text-slate-300 mb-1">
-                  Symbol
-                </label>
-                <input
-                  id="token-symbol"
-                  type="text"
-                  className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.symbol}
-                  onChange={(e) =>
-                    setFormData({ ...formData, symbol: e.target.value })
-                  }
-                  required
-                />
-              </div>
+                <div>
+                  <label htmlFor="token-decimals" className="block text-sm font-medium text-slate-300 mb-1">
+                    Decimals
+                  </label>
+                  <input
+                    id="token-decimals"
+                    type="number"
+                    className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.decimals}
+                    onChange={(e) => setFormData({ ...formData, decimals: parseInt(e.target.value) })}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="token-decimals" className="block text-sm font-medium text-slate-300 mb-1">
-                  Decimals
-                </label>
-                <input
-                  id="token-decimals"
-                  type="number"
-                  className="w-full input-field focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.decimals}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      decimals: parseInt(e.target.value)
-                    })
-                  }
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isMinting}
-                aria-busy={isMinting}
-                className="w-full btn-primary mt-4 flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                <span>{isMinting ? 'Deploying...' : 'Mint Token'}</span>
-                {!isMinting && <ArrowRight size={18} aria-hidden="true" />}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isMinting}
+                  aria-busy={isMinting}
+                  className="w-full btn-primary mt-4 flex justify-center items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <span>{isMinting ? 'Deploying...' : 'Mint Token'}</span>
+                  {!isMinting && <ArrowRight size={18} aria-hidden="true" />}
+                </button>
+              </form>
             )}
           </div>
         </section>
@@ -280,43 +245,3 @@ function App() {
 }
 
 export default App;
-  const onSubmit = async (data) => {
-    console.log("Form submitted:", data)
-    // Example: submit to API
-    // await axios.post("/api/submit", data)
-  }
-
-  return (
-    <div>
-      <h1>Submit your data</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div>
-          <label>Symbol</label>
-          <input
-            {...register("symbol", {
-              required: "Symbol is required",
-              pattern: {
-                value: /^[A-Z]{1,5}$/,
-                message: "Symbol must be 1-5 uppercase letters"
-              }
-            })}
-          />
-          {errors.symbol && <p style={{ color: "red" }}>{errors.symbol.message}</p>}
-        </div>
-
-        <div>
-          <label>Name</label>
-          <input
-            {...register("name", {
-              required: "Name is required",
-              minLength: { value: 3, message: "Name must be at least 3 characters" }
-            })}
-          />
-          {errors.name && <p style={{ color: "red" }}>{errors.name.message}</p>}
-        </div>
-
-        <button type="submit">Submit</button>
-      </form>
-    </div>
-  )
-}

@@ -3,6 +3,7 @@
     "title": "SoroMint",
     "tagline": "Stellar Token Minting Platform",
     "connectWallet": "Connect Wallet",
+    "walletConnected": "Wallet connected successfully",
     "footer": "SoroMint Platform. Built on Soroban."
   },
   "mint": {
