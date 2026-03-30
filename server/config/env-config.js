@@ -55,6 +55,11 @@ function validateEnv() {
       default: "Test SDF Network ; September 2015",
       desc: "Stellar network passphrase",
     }),
+    HORIZON_URL: envalid.url({
+      default: "https://horizon-testnet.stellar.org",
+      desc: "Horizon server URL for event streaming",
+      example: "https://horizon-testnet.stellar.org",
+    }),
     ADMIN_SECRET_KEY: envalid.str({
       default: "",
       desc: "Optional secret key for admin bypass",
