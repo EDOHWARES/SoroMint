@@ -1,91 +1,83 @@
 import { Component } from 'react';
-import ErrorFallback from './ErrorFallback';
+import ErrorFallback from './ErrorFallback.jsx';
 
 /**
- * Error Boundary component that catches JavaScript errors anywhere in the child
- * component tree, logs those errors, and displays a fallback UI.
- *
- * Usage:
- * <ErrorBoundary>
- *   <MyComponent />
- * </ErrorBoundary>
+ * Error Boundary component to catch React rendering errors
+ * and display a friendly fallback UI instead of a white screen.
+ * 
+ * Requirements from Issue #98:
+ * - Custom "Oops" page with a refresh button
+ * - Error logging to Sentry (if integrated)
+ * - Selective wrapping of risky components
  */
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: null,
+    this.state = { 
+      hasError: false, 
+      error: null, 
+      errorInfo: null 
     };
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
-    return { hasError: true };
+    // Update state so the next render shows the fallback UI
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Generate a unique error ID for reference
-    const errorId = `err_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-    this.setState({
-      error,
-      errorInfo,
-      errorId,
-    });
-
     // Log error to console in development
-    if (import.meta.env?.DEV) {
-      console.error('Error caught by boundary:', error);
-      console.error('Component stack:', errorInfo?.componentStack);
-    }
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    this.setState({ errorInfo });
 
-    // Log to Sentry if configured
-    this.logToSentry(error, errorInfo, errorId);
+    // Log to Sentry if available
+    this.logToSentry(error, errorInfo);
   }
 
-  logToSentry(error, errorInfo, errorId) {
-    // Check if Sentry is available and configured
-    const Sentry = window?.Sentry;
-    if (Sentry && import.meta.env?.VITE_SENTRY_DSN) {
-      Sentry.withScope((scope) => {
-        scope.setTag('errorBoundary', this.props.name || 'unknown');
-        scope.setExtra('componentStack', errorInfo?.componentStack);
-        scope.setExtra('errorId', errorId);
-        Sentry.captureException(error);
-      });
+  logToSentry(error, errorInfo) {
+    // Check if Sentry is available on window (client-side)
+    if (typeof window !== 'undefined' && window.__SENTRY__) {
+      try {
+        const Sentry = window.__SENTRY__;
+        Sentry.withScope((scope) => {
+          if (errorInfo && errorInfo.componentStack) {
+            scope.setExtra('componentStack', errorInfo.componentStack);
+          }
+          if (this.props.name) {
+            scope.setTag('errorBoundary', this.props.name);
+          }
+          Sentry.captureException(error);
+        });
+      } catch (e) {
+        console.warn('Failed to log to Sentry:', e);
+      }
     }
   }
-
-  handleRetry = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: null,
-    });
-  };
 
   handleRefresh = () => {
     window.location.reload();
   };
 
+  handleReset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
   render() {
     if (this.state.hasError) {
-      // Custom fallback component
+      // Custom fallback if provided
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
+      // Use ErrorFallback component for the UI
       return (
         <ErrorFallback
           error={this.state.error}
-          errorId={this.state.errorId}
-          onRetry={this.handleRetry}
+          errorInfo={this.state.errorInfo}
           onRefresh={this.handleRefresh}
-          showDetails={import.meta.env?.DEV}
+          onReset={this.props.showReset ? this.handleReset : undefined}
+          showReset={this.props.showReset !== false}
         />
       );
     }
@@ -95,3 +87,24 @@ class ErrorBoundary extends Component {
 }
 
 export default ErrorBoundary;
+
+/**
+ * Higher-order component to wrap components with ErrorBoundary
+ * @param {React.Component} WrappedComponent - Component to wrap
+ * @param {Object} options - Options for the ErrorBoundary
+ * @returns {React.Component} Wrapped component with error boundary
+ */
+export function withErrorBoundary(WrappedComponent, options = {}) {
+  const { name, fallback, showReset } = options;
+  const displayName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  
+  const ComponentWithErrorBoundary = (props) => (
+    <ErrorBoundary name={name || displayName} fallback={fallback} showReset={showReset}>
+      <WrappedComponent {...props} />
+    </ErrorBoundary>
+  );
+
+  ComponentWithErrorBoundary.displayName = `withErrorBoundary(${displayName})`;
+  
+  return ComponentWithErrorBoundary;
+}

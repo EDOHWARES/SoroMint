@@ -12,24 +12,36 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary>
-      <HelmetProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<App />} />
-            <Route path="/profile" element={<ProfilePage />} />
-          </Routes>
-        </BrowserRouter>
-        <ToastContainer
-          position="bottom-right"
-          autoClose={4000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          pauseOnHover
-          theme="dark"
-        />
-      </HelmetProvider>
-    </ErrorBoundary>
+    <HelmetProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ErrorBoundary name="App">
+                <App />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ErrorBoundary name="ProfilePage">
+                <ProfilePage />
+              </ErrorBoundary>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+      <ToastContainer
+        position="bottom-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        theme="dark"
+      />
+    </HelmetProvider>
   </StrictMode>,
 )
