@@ -2,12 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light mode variables (default) */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-color: rgba(0, 0, 0, 0.1);
 }
 
+/* Dark mode variables */
+.dark {
+  color-scheme: dark;
+  --bg-primary: #0e141b;
+  --bg-secondary: #1a2030;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Light mode body */
 body {
-  @apply bg-stellar-dark text-slate-100 min-h-screen font-sans;
+  @apply bg-stellar-light dark:bg-stellar-dark text-slate-900 dark:text-slate-100 min-h-screen font-sans transition-colors duration-300;
+}
+
+/* Dark mode body - fallback */
+.dark body,
+body.dark {
+  @apply bg-stellar-dark text-slate-100;
 }
 
 [dir="rtl"] body {
@@ -21,23 +44,57 @@ body {
   text-align: right;
 }
 
+/* Glass card - supports both light and dark mode */
 .glass-card {
-  @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-xl;
+  @apply bg-white/80 dark:bg-white/5 backdrop-blur-lg border border-black/5 dark:border-white/10 rounded-2xl p-6 shadow-xl;
 }
 
+/* Light mode glass card override */
+.light .glass-card,
+:not(.dark) .glass-card {
+  @apply bg-white/80 border-black/5 text-slate-900;
+}
+
+/* Dark mode glass card override */
+.dark .glass-card {
+  @apply bg-white/5 border-white/10 text-slate-100;
+}
+
+/* Primary button - supports both light and dark mode */
 .btn-primary {
   @apply bg-stellar-blue hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 active:scale-95;
 }
 
+/* Input field - supports both light and dark mode */
 .input-field {
-  @apply bg-white/5 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-stellar-blue transition-colors;
+  @apply bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-lg px-4 py-2 outline-none focus:border-stellar-blue transition-colors text-slate-900 dark:text-slate-100;
+}
+
+/* Light mode input field override */
+.light .input-field,
+:not(.dark) .input-field {
+  @apply bg-black/5 border-black/10 text-slate-900 placeholder-slate-400;
+}
+
+/* Dark mode input field override */
+.dark .input-field {
+  @apply bg-white/5 border-white/10 text-slate-100 placeholder-slate-400;
 }
 
 :root {
   --toastify-color-dark: #1a2030;
+  --toastify-color-light: #ffffff;
   --toastify-color-progress-dark: #146EF5;
+  --toastify-color-progress-light: #146EF5;
 }
 
-.Toastify__toast {
+/* Light mode toast */
+.light .Toastify__toast,
+:not(.dark) .Toastify__toast {
+  @apply backdrop-blur-lg border border-black/10 rounded-xl bg-white;
+}
+
+/* Dark mode toast */
+.dark .Toastify__toast {
   @apply backdrop-blur-lg border border-white/10 rounded-xl;
 }

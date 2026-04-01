@@ -9,6 +9,36 @@ import './index.css'
 import App from './App.jsx'
 import ProfilePage from './components/ProfilePage.jsx'
 
+// Initialize theme from localStorage before React loads to prevent flash
+const initThemeEarly = () => {
+  const stored = localStorage.getItem('ui-storage');
+  let theme = 'system';
+  
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      theme = parsed.state?.theme || 'system';
+    } catch (e) {
+      theme = 'system';
+    }
+  }
+  
+  const resolved = theme === 'system' 
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
+  
+  if (resolved === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  } else {
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
+  }
+};
+
+// Run early theme initialization
+initThemeEarly();
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>
