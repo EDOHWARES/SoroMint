@@ -40,6 +40,7 @@ Ensure your `.env` file in the `/server` directory contains:
 - `SOROBAN_RPC_URL`: The RPC endpoint for Soroban (e.g., Futurenet/Testnet).
 - `NETWORK_PASSPHRASE`: The passphrase for the target network.
 - `MONGO_URI`: Connection string for MongoDB.
+- `CORS_ALLOWED_ORIGINS`: Comma-separated frontend origin whitelist for browser access to the API.
 
 ## Features
 - **Connect Wallet**: Integrated placeholder for Stellar wallets.

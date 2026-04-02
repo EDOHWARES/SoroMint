@@ -1,5 +1,6 @@
 {
   "generators": {
+    "address": 4,
     "address": 3,
     "nonce": 0
   },
@@ -57,6 +58,30 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Decimal"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u32": 7
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Name"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "string": "SoroMint"
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
                               "symbol": "Supply"
                             }
                           ]
@@ -66,6 +91,18 @@
                             "hi": 0,
                             "lo": 0
                           }
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Symbol"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "string": "SMT"
                         }
                       }
                     ]

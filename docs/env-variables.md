@@ -46,6 +46,7 @@ The server uses [envalid](https://github.com/af/envalid) to validate environment
 | ---------- | ------ | ------------- | ------------------------------------------------------------- |
 | `PORT`     | Port   | `5000`        | Port number for the Express server                            |
 | `NODE_ENV` | String | `development` | Application environment (`development`, `production`, `test`) |
+| `CORS_ALLOWED_ORIGINS` | String | Localhost frontend origins in non-production, empty in production | Comma-separated whitelist of allowed browser origins (example: `https://app.example.com,https://admin.example.com`) |
 
 ### JWT Authentication
 
@@ -72,6 +73,7 @@ The server uses [envalid](https://github.com/af/envalid) to validate environment
 # Server Configuration
 PORT=5000
 NODE_ENV=development
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 # Database Configuration (REQUIRED)
 MONGO_URI=mongodb://localhost:27017/soromint
@@ -119,7 +121,8 @@ The environment validation is implemented in `server/config/env-config.js`. Key 
 2. **Type coercion**: Values are automatically converted to appropriate types
 3. **Default values**: Optional variables have sensible defaults
 4. **Secure logging**: Database credentials are masked in log output
-5. **Clear errors**: Human-readable error messages guide users to fix issues
+5. **Strict CORS parsing**: Allowed origins are normalized and invalid entries fail startup
+6. **Clear errors**: Human-readable error messages guide users to fix issues
 
 ## Testing
 
@@ -148,3 +151,4 @@ To test the environment validation:
 3. **Rotate secrets regularly** in production environments
 4. **Use different JWT secrets** for different environments
 5. **Restrict MongoDB access** using authentication and network rules
+6. **Set `CORS_ALLOWED_ORIGINS` explicitly in production** so only trusted frontends can call the API from browsers

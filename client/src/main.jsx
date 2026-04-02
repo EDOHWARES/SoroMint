@@ -6,6 +6,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import 'react-toastify/dist/ReactToastify.css'
 import './i18n'
 import './index.css'
+import { AppRoot } from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <AppRoot />
 import App from './App.jsx'
 import ProfilePage from './components/ProfilePage.jsx'
 import ErrorBoundary from './components/ErrorBoundary'

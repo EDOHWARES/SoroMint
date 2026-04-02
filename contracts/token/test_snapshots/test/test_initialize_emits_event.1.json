@@ -1,5 +1,6 @@
 {
   "generators": {
+    "address": 2,
     "address": 3,
     "nonce": 0
   },
@@ -20,6 +21,7 @@
       [
         {
           "contract_data": {
+            "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
             "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
             "key": "ledger_key_contract_instance",
             "durability": "persistent"
@@ -31,6 +33,7 @@
             "data": {
               "contract_data": {
                 "ext": "v0",
+                "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
                 "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
                 "key": "ledger_key_contract_instance",
                 "durability": "persistent",
@@ -56,6 +59,7 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Decimal"
                               "symbol": "Decimals"
                             }
                           ]
@@ -140,12 +144,17 @@
     {
       "event": {
         "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000002",
         "contract_id": "0000000000000000000000000000000000000000000000000000000000000003",
         "type_": "contract",
         "body": {
           "v0": {
             "topics": [
               {
+                "symbol": "SoroMint"
+              },
+              {
+                "symbol": "init"
                 "symbol": "init"
               },
               {

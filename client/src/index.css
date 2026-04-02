@@ -9,6 +9,14 @@
 
 /* Light mode (default) */
 body {
+  @apply min-h-screen bg-slate-950 font-sans text-slate-100;
+  background-image:
+    radial-gradient(circle at top, rgba(20, 110, 245, 0.18), transparent 38%),
+    linear-gradient(180deg, rgba(15, 23, 42, 1) 0%, rgba(2, 6, 23, 1) 100%);
+}
+
+#root {
+  @apply min-h-screen;
   @apply bg-slate-50 text-slate-900 min-h-screen font-sans;
 }
 
@@ -56,6 +64,7 @@ body.dark {
 
 /* Glass card - Light mode */
 .glass-card {
+  @apply rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-lg;
   @apply bg-white/80 backdrop-blur-lg border border-slate-200 rounded-2xl p-6 shadow-lg;
 }
 
@@ -83,11 +92,171 @@ body.dark {
 
 /* Primary button - supports both light and dark mode */
 .btn-primary {
-  @apply bg-stellar-blue hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 active:scale-95;
+  @apply rounded-xl bg-stellar-blue px-6 py-3 font-semibold text-white transition-all duration-200 hover:bg-blue-600 active:scale-95;
 }
 
 /* Input field - Light mode */
 .input-field {
+  @apply rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition-colors focus:border-stellar-blue;
+}
+
+.view-switcher {
+  @apply inline-flex rounded-2xl border border-white/10 bg-slate-950/70 p-1.5 shadow-lg shadow-slate-950/30;
+}
+
+.view-pill {
+  @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-300 transition hover:text-white;
+}
+
+.view-pill-active {
+  @apply bg-white/10 text-white shadow-inner;
+}
+
+.hub-kicker {
+  @apply inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/20 bg-sky-500/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.25em] text-sky-100;
+}
+
+.hub-hero {
+  @apply overflow-hidden border-sky-300/10 bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.18),_transparent_35%),linear-gradient(180deg,_rgba(15,23,42,0.94)_0%,_rgba(2,6,23,0.88)_100%)];
+}
+
+.hub-stat-grid {
+  @apply grid gap-3 sm:grid-cols-3;
+}
+
+.hub-stat-card {
+  @apply rounded-2xl border border-white/10 bg-slate-950/45 p-4;
+}
+
+.hub-stat-value {
+  @apply block text-2xl font-semibold text-white;
+}
+
+.hub-stat-label {
+  @apply mt-1 block text-sm text-slate-400;
+}
+
+.hub-quick-links {
+  @apply grid gap-3;
+}
+
+.hub-link-card {
+  @apply flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/55 p-4 transition hover:border-sky-300/30 hover:bg-slate-900/70;
+}
+
+.hub-link-label {
+  @apply text-sm font-semibold uppercase tracking-[0.2em] text-sky-100;
+}
+
+.hub-link-caption {
+  @apply mt-2 text-sm text-slate-400;
+}
+
+.hub-link-value {
+  @apply rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-white;
+}
+
+.hub-nav {
+  @apply p-5;
+}
+
+.hub-category-heading {
+  @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400;
+}
+
+.hub-nav-button {
+  @apply flex w-full items-start justify-between gap-3 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-left transition hover:border-white/10 hover:bg-white/5;
+}
+
+.hub-nav-button-active {
+  @apply border-sky-300/20 bg-sky-500/10;
+}
+
+.hub-nav-title {
+  @apply text-sm font-semibold text-white;
+}
+
+.hub-nav-summary {
+  @apply mt-1 text-sm leading-6 text-slate-400;
+}
+
+.hub-document {
+  @apply overflow-hidden;
+}
+
+.hub-document-header {
+  @apply border-b border-white/10 pb-6;
+}
+
+.hub-badge {
+  @apply rounded-full border border-sky-300/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-100;
+}
+
+.hub-source {
+  @apply text-sm text-slate-400;
+}
+
+.doc-prose {
+  @apply mt-8 max-w-none text-slate-200;
+}
+
+.doc-prose h1 {
+  @apply text-3xl font-semibold tracking-tight text-white;
+}
+
+.doc-prose h2 {
+  @apply mt-10 text-2xl font-semibold text-white;
+}
+
+.doc-prose h3 {
+  @apply mt-8 text-xl font-semibold text-white;
+}
+
+.doc-prose p,
+.doc-prose li {
+  @apply mt-4 leading-7 text-slate-300;
+}
+
+.doc-prose ul,
+.doc-prose ol {
+  @apply mt-4 space-y-2 pl-6;
+}
+
+.doc-prose strong {
+  @apply text-white;
+}
+
+.doc-prose a {
+  @apply text-sky-300 underline decoration-sky-400/40 underline-offset-4 transition hover:text-sky-200;
+}
+
+.doc-prose code:not(pre code) {
+  @apply rounded-md border border-white/10 bg-slate-900/80 px-1.5 py-1 text-sm text-sky-200;
+}
+
+.doc-prose pre {
+  @apply mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/95 p-4 shadow-inner shadow-slate-950/40;
+}
+
+.doc-prose pre code {
+  @apply bg-transparent p-0 text-sm;
+}
+
+.doc-prose table {
+  @apply mt-6 w-full overflow-hidden rounded-2xl border border-white/10 text-left text-sm;
+}
+
+.doc-prose thead {
+  @apply bg-white/5 text-slate-300;
+}
+
+.doc-prose th,
+.doc-prose td {
+  @apply border-b border-white/10 px-4 py-3 align-top;
+}
+
+.doc-prose hr {
+  @apply my-8 border-white/10;
   @apply bg-white border border-slate-300 rounded-lg px-4 py-2 outline-none focus:border-stellar-blue transition-colors;
 /* Input field - supports both light and dark mode */
 .input-field {

@@ -163,6 +163,7 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Decimal"
                               "symbol": "Decimals"
                             }
                           ]

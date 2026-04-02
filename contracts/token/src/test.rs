@@ -181,6 +181,9 @@ fn test_v2_mint_exists() {
 
 /// Validates: Requirements 3.1, 3.4
 #[test]
+fn test_total_supply_zero_after_initialize() {
+    let (_e, _admin, _user, client) = setup();
+    assert_eq!(client.supply(), 0);
 fn test_preservation_mint() {
     let (_, _, user, client) = setup();
 
@@ -196,6 +199,35 @@ fn test_preservation_mint() {
 
 /// Validates: Requirements 3.1, 3.4
 #[test]
+fn test_total_supply_increases_on_mint() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &500);
+    assert_eq!(client.supply(), 500);
+    client.mint(&user, &300);
+    assert_eq!(client.supply(), 800);
+}
+
+#[test]
+fn test_total_supply_decreases_on_burn() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &1000);
+    client.burn(&user, &400);
+    assert_eq!(client.supply(), 600);
+    assert_eq!(client.balance(&user), 600);
+}
+
+#[test]
+fn test_supply_equals_sum_of_balances() {
+    let (e, _admin, _user, client) = setup();
+    let user1 = Address::generate(&e);
+    let user2 = Address::generate(&e);
+    client.mint(&user1, &700);
+    client.mint(&user2, &300);
+    client.burn(&user1, &200);
+    let sum = client.balance(&user1) + client.balance(&user2);
+    assert_eq!(client.supply(), sum);
 fn test_preservation_transfer() {
     let (e, _, user1, client) = setup();
     let user2 = Address::generate(&e);
@@ -216,6 +248,12 @@ fn test_preservation_transfer() {
 
 /// Validates: Requirements 3.3
 #[test]
+#[should_panic(expected = "balance overflow")]
+fn test_mint_overflow() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &i128::MAX);
+    client.mint(&user, &1);
 fn test_preservation_status() {
     let (e, _, _, client) = setup();
     assert_eq!(client.status(), String::from_str(&e, "alive"));
@@ -223,6 +261,41 @@ fn test_preservation_status() {
 
 /// Validates: Requirements 3.1, 3.4
 #[test]
+#[should_panic(expected = "insufficient balance")]
+fn test_burn_exceeds_balance() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &100);
+    client.burn(&user, &101);
+}
+
+// Note: supply underflow is unreachable via normal ops because the insufficient-balance
+// guard always fires first (a holder can never have balance > total_supply).
+// This test verifies that burning more than a holder's balance panics correctly.
+#[test]
+#[should_panic(expected = "insufficient balance")]
+fn test_burn_exceeds_balance_guard() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &100);
+    client.burn(&user, &200);
+}
+
+#[test]
+#[should_panic(expected = "mint amount must be positive")]
+fn test_mint_zero_panics() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &0);
+}
+
+#[test]
+#[should_panic(expected = "burn amount must be positive")]
+fn test_burn_zero_panics() {
+    let (e, _admin, _user, client) = setup();
+    let user = Address::generate(&e);
+    client.mint(&user, &100);
+    client.burn(&user, &0);
 fn test_preservation_fee_config_roundtrip() {
     let (e, _, _, client) = setup();
     let treasury = Address::generate(&e);
@@ -233,4 +306,38 @@ fn test_preservation_fee_config_roundtrip() {
     assert_eq!(config.enabled, true);
     assert_eq!(config.fee_bps, 250u32);
     assert_eq!(config.treasury, treasury);
+}
+
+// ===========================================================================
+// Metadata Tests
+// ===========================================================================
+
+#[test]
+fn test_metadata_getters() {
+    let (e, _admin, _user, client) = setup();
+    assert_eq!(client.name(), String::from_str(&e, "SoroMint"));
+    assert_eq!(client.symbol(), String::from_str(&e, "SMT"));
+    assert_eq!(client.decimals(), 7);
+}
+
+#[test]
+fn test_update_metadata() {
+    let (e, admin, _user, client) = setup();
+
+    let new_name = String::from_str(&e, "NewSoroMint");
+    let new_symbol = String::from_str(&e, "NSMT");
+
+    client.update_metadata(&new_name, &new_symbol);
+
+    // Verify data payload: (admin, old_name, old_symbol, new_name, new_symbol)
+    let data: (Address, String, String, String, String) = last_event_data(&e).into_val(&e);
+    assert_eq!(data.0, admin);
+    assert_eq!(data.1, String::from_str(&e, "SoroMint"));
+    assert_eq!(data.2, String::from_str(&e, "SMT"));
+    assert_eq!(data.3, new_name.clone());
+    assert_eq!(data.4, new_symbol.clone());
+
+    assert_eq!(client.name(), new_name);
+    assert_eq!(client.symbol(), new_symbol);
+    assert_eq!(client.decimals(), 7); // Should be unchanged
 }

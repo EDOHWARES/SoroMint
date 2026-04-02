@@ -5,6 +5,9 @@
  */
 
 const { validateEnv, initEnv, getEnv } = require("../../config/env-config");
+const {
+  DEFAULT_NON_PRODUCTION_CORS_ALLOWED_ORIGINS,
+} = require("../../config/cors-origins");
 
 describe("Environment Configuration", () => {
   const originalEnv = process.env;
@@ -46,6 +49,7 @@ describe("Environment Configuration", () => {
       expect(env.ADMIN_SECRET_KEY).toBe("");
       expect(env.LOGIN_RATE_LIMIT_MAX_REQUESTS).toBe(5);
       expect(env.TOKEN_DEPLOY_RATE_LIMIT_MAX_REQUESTS).toBe(10);
+      expect(env.CORS_ALLOWED_ORIGINS).toEqual(DEFAULT_NON_PRODUCTION_CORS_ALLOWED_ORIGINS);
     });
 
     it("should accept custom rate limiting environment values", () => {
@@ -63,6 +67,44 @@ describe("Environment Configuration", () => {
       expect(env.LOGIN_RATE_LIMIT_MAX_REQUESTS).toBe(9);
       expect(env.TOKEN_DEPLOY_RATE_LIMIT_WINDOW_MS).toBe(120000);
       expect(env.TOKEN_DEPLOY_RATE_LIMIT_MAX_REQUESTS).toBe(15);
+    });
+
+    it("should normalize configured CORS allowlist entries", () => {
+      process.env.MONGO_URI = "mongodb://localhost:27017/soromint";
+      process.env.JWT_SECRET = "test-secret-key";
+      process.env.SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
+      process.env.CORS_ALLOWED_ORIGINS =
+        "https://app.example.com, http://localhost:5173/, https://app.example.com";
+
+      const env = validateEnv();
+
+      expect(env.CORS_ALLOWED_ORIGINS).toEqual([
+        "https://app.example.com",
+        "http://localhost:5173",
+      ]);
+    });
+
+    it("should use an empty production CORS allowlist by default", () => {
+      process.env.NODE_ENV = "production";
+      delete process.env.CORS_ALLOWED_ORIGINS;
+      process.env.MONGO_URI = "mongodb://localhost:27017/soromint";
+      process.env.JWT_SECRET = "test-secret-key";
+      process.env.SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
+
+      const env = validateEnv();
+
+      expect(env.CORS_ALLOWED_ORIGINS).toEqual([]);
+    });
+
+    it("should reject invalid CORS allowlist entries", () => {
+      process.env.MONGO_URI = "mongodb://localhost:27017/soromint";
+      process.env.JWT_SECRET = "test-secret-key";
+      process.env.SOROBAN_RPC_URL = "https://soroban-testnet.stellar.org";
+      process.env.CORS_ALLOWED_ORIGINS = "https://app.example.com/dashboard";
+
+      expect(() => {
+        validateEnv();
+      }).toThrow(/Validation Error: CORS origin must be a bare origin/);
     });
 
     it("should throw when required environment variables are missing", () => {

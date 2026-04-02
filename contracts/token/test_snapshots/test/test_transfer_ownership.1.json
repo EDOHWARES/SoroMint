@@ -1,5 +1,6 @@
 {
   "generators": {
+    "address": 4,
     "address": 5,
     "nonce": 0
   },
@@ -35,11 +36,13 @@
               "function_name": "mint",
               "args": [
                 {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                 },
                 {
                   "i128": {
                     "hi": 0,
+                    "lo": 500
                     "lo": 1000
                   }
                 }
@@ -49,6 +52,8 @@
           "sub_invocations": []
         }
       ]
+    ],
+    []
     ]
   ],
   "ledger": {
@@ -104,6 +109,7 @@
                   "symbol": "Balance"
                 },
                 {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                 }
               ]
@@ -124,6 +130,7 @@
                       "symbol": "Balance"
                     },
                     {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                     }
                   ]
@@ -132,6 +139,7 @@
                 "val": {
                   "i128": {
                     "hi": 0,
+                    "lo": 500
                     "lo": 1000
                   }
                 }
@@ -181,6 +189,7 @@
                         "key": {
                           "vec": [
                             {
+                              "symbol": "Decimal"
                               "symbol": "Decimals"
                             }
                           ]
@@ -212,6 +221,7 @@
                         "val": {
                           "i128": {
                             "hi": 0,
+                            "lo": 500
                             "lo": 1000
                           }
                         }
@@ -294,6 +304,7 @@
       ]
     ]
   },
+  "events": []
   "events": [
     {
       "event": {

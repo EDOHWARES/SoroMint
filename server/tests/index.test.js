@@ -23,6 +23,8 @@ describe("Server Index", () => {
       NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
     });
 
+    jest.doMock("mongoose", () => ({ connect }));
+    jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));
     jest.doMock("mongoose", () => ({ connect, Schema: class Schema { index() {} }, model: jest.fn(() => ({})) }));
     jest.doMock("../config/env-config", () => ({ initEnv, getEnv }));
     jest.doMock("../utils/logger", () => ({
@@ -37,6 +39,7 @@ describe("Server Index", () => {
     jest.doMock("../routes/status-routes", () => (req, res, next) => next());
     jest.doMock("../routes/audit-routes", () => (req, res, next) => next());
     jest.doMock("../routes/token-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
     jest.doMock("../routes/webhook-routes", () => (req, res, next) => next());
     jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
     jest.doMock("../middleware/security-headers", () => ({ securityHeaders: (req, res, next) => next() }));
@@ -59,7 +62,8 @@ describe("Server Index", () => {
   it("should start the server and log startup information", async () => {
     const listen = jest.fn((port, cb) => cb());
     const use = jest.fn();
-    const expressApp = { use, listen };
+    const options = jest.fn();
+    const expressApp = { use, options, listen };
     const expressFn = jest.fn(() => expressApp);
     expressFn.json = jest.fn(() => "json-middleware");
 
@@ -68,6 +72,7 @@ describe("Server Index", () => {
       MONGO_URI: "mongodb://localhost:27017/soromint",
       PORT: 5050,
       NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
+      CORS_ALLOWED_ORIGINS: ["https://app.example.com"],
     });
     const connect = jest.fn().mockResolvedValue(undefined);
     const logStartupInfo = jest.fn();
@@ -77,6 +82,8 @@ describe("Server Index", () => {
     jest.spyOn(console, "log").mockImplementation(() => {});
     jest.doMock("express", () => expressFn);
     jest.doMock("cors", () => jest.fn(() => "cors-middleware"));
+    jest.doMock("mongoose", () => ({ connect }));
+    jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));
     jest.doMock("mongoose", () => ({ connect, Schema: class Schema { index() {} }, model: jest.fn(() => ({})) }));
     jest.doMock("../config/env-config", () => ({ initEnv, getEnv }));
     jest.doMock("../utils/logger", () => ({
@@ -91,6 +98,7 @@ describe("Server Index", () => {
     jest.doMock("../routes/status-routes", () => "status-routes");
     jest.doMock("../routes/audit-routes", () => "audit-routes");
     jest.doMock("../routes/token-routes", () => "token-routes");
+    jest.doMock("../routes/analytics-routes", () => "analytics-routes");
     jest.doMock("../routes/webhook-routes", () => "webhook-routes");
     jest.doMock("../routes/analytics-routes", () => "analytics-routes");
     jest.doMock("../middleware/security-headers", () => ({ securityHeaders: jest.fn((req, res, next) => next()) }));
@@ -108,6 +116,7 @@ describe("Server Index", () => {
     expect(connect).toHaveBeenCalled();
     expect(setupSwagger).toHaveBeenCalledWith(expressApp);
     expect(use).toHaveBeenCalled();
+    expect(options).toHaveBeenCalledWith("*", "cors-middleware");
     expect(listen).toHaveBeenCalledWith(5050, expect.any(Function));
     expect(logStartupInfo).toHaveBeenCalledWith(5050, "Test SDF Network ; September 2015");
 
