@@ -32,5 +32,12 @@
     "label": "Language",
     "en": "English",
     "ar": "Arabic"
+  },
+  "error": {
+    "title": "Oops! Something went wrong",
+    "message": "We're sorry, but something unexpected happened. Please try refreshing the page.",
+    "refresh": "Refresh Page",
+    "tryAgain": "Try Again",
+    "help": "If this problem persists, please contact support."
   }
 }

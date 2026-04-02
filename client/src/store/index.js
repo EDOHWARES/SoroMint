@@ -65,18 +65,98 @@ export const useTokenStore = create(
 );
 
 // UI Store - Manages UI state like modals, themes, etc.
-export const useUIStore = create((set) => ({
-  theme: 'dark',
-  isSidebarOpen: false,
-  
-  setTheme: (theme) => set({ theme }),
-  
-  toggleSidebar: () => set((state) => ({ 
-    isSidebarOpen: !state.isSidebarOpen 
-  })),
-  
-  closeSidebar: () => set({ isSidebarOpen: false })
-}));
+export const useUIStore = create(
+  persist(
+    (set) => ({
+      theme: 'dark',
+      isSidebarOpen: false,
+      
+      setTheme: (theme) => set({ theme }),
+      
+      toggleTheme: () => set((state) => {
+        const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+        return { theme: newTheme };
+      }),
+      
+    (set, get) => ({
+      theme: 'system', // 'light' | 'dark' | 'system'
+      resolvedTheme: 'dark', // The actual resolved theme
+      
+      // Get system preference
+      getSystemTheme: () => {
+        if (typeof window !== 'undefined') {
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return 'dark';
+      },
+      
+      // Resolve the actual theme to apply
+      resolveTheme: () => {
+        const { theme, getSystemTheme } = get();
+        const resolved = theme === 'system' ? getSystemTheme() : theme;
+        return resolved;
+      },
+      
+      // Set theme and apply it
+      setTheme: (theme) => {
+        const resolved = theme === 'system' 
+          ? get().getSystemTheme() 
+          : theme;
+        set({ theme, resolvedTheme: resolved });
+        
+        // Apply to document
+        if (typeof document !== 'undefined') {
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+          }
+        }
+      },
+      
+      // Toggle between light and dark (cycles: light -> dark -> system -> light)
+      toggleTheme: () => {
+        const { theme } = get();
+        const cycle = ['light', 'dark', 'system'];
+        const currentIndex = cycle.indexOf(theme);
+        const nextIndex = (currentIndex + 1) % cycle.length;
+        get().setTheme(cycle[nextIndex]);
+      },
+      
+      // Initialize theme on app load
+      initTheme: () => {
+        const { theme, resolveTheme, setTheme } = get();
+        setTheme(theme);
+        
+        // Listen for system preference changes
+        if (typeof window !== 'undefined') {
+          const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+          const handleChange = () => {
+            const { theme } = get();
+            if (theme === 'system') {
+              get().setTheme('system');
+            }
+          };
+          mediaQuery.addEventListener('change', handleChange);
+        }
+      },
+      
+      isSidebarOpen: false,
+      
+      toggleSidebar: () => set((state) => ({ 
+        isSidebarOpen: !state.isSidebarOpen 
+      })),
+      
+      closeSidebar: () => set({ isSidebarOpen: false })
+    }),
+    {
+      name: 'ui-storage', // localStorage key
+      partialize: (state) => ({ theme: state.theme }), // Only persist theme preference
+    }
+  )
+);
 
 // Combined App State (optional - for convenience)
 export const useAppStore = create((set, get) => ({
