@@ -1593,6 +1593,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-timelock"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+ "soromint-factory",
+]
+
+[[package]]
 name = "soromint-token"
 version = "0.1.0"
 dependencies = [
