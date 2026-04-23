@@ -35,6 +35,62 @@ impl TokenFactory {
         e.storage().instance().set(&DataKey::Tokens, &initial_tokens);
     }
 
+    /// Deploys a new token contract with multi-sig admin support.
+    ///
+    /// # Arguments
+    /// * `salt`           - A unique 32-byte salt for the contract deployment.
+    /// * `admin`          - The address that will be the administrator (can be multi-sig contract).
+    /// * `decimal`        - Number of decimal places for the new token.
+    /// * `name`           - The name of the new token.
+    /// * `symbol`         - The symbol of the new token.
+    /// * `is_multisig`    - Whether the admin is a multi-sig contract.
+    ///
+    /// # Returns
+    /// The address of the newly deployed token contract.
+    ///
+    /// # Events
+    /// Emits a `contract_deployed` event with the new contract address and admin.
+    pub fn create_token_with_multisig(
+        e: Env,
+        salt: BytesN<32>,
+        admin: Address,
+        decimal: u32,
+        name: String,
+        symbol: String,
+        is_multisig: bool,
+    ) -> Address {
+        let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
+        
+        let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
+        
+        let init_args = soroban_sdk::vec![
+            &e,
+            admin.clone().into_val(&e),
+            decimal.into_val(&e),
+            name.clone().into_val(&e),
+            symbol.clone().into_val(&e),
+        ];
+
+        e.invoke_contract::<()>(
+            &address,
+            &Symbol::new(&e, "initialize"),
+            init_args,
+        );
+        
+        let mut tokens: Vec<Address> = e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e));
+        tokens.push_back(address.clone());
+        e.storage().instance().set(&DataKey::Tokens, &tokens);
+        
+        let topics = if is_multisig {
+            (symbol_short!("factory"), symbol_short!("multisig"))
+        } else {
+            (symbol_short!("factory"), symbol_short!("deploy"))
+        };
+        e.events().publish(topics, (address.clone(), admin));
+        
+        address
+    }
+
     /// Deploys a new token contract and initializes it in a single transaction.
     ///
     /// # Arguments

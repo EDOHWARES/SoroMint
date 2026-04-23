@@ -38,6 +38,8 @@ const analyticsRoutes = require('./routes/analytics-routes');
 const notificationRoutes = require('./routes/notification-routes');
 const votingRoutes = require('./routes/voting-routes');
 const securityRoutes = require('./routes/security-routes');
+const multiSigRoutes = require('./routes/multisig-routes');
+const vaultRoutes = require('./routes/vault-routes');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -67,6 +69,8 @@ const createApp = ({
   app.use('/api', webhookRoutes);
   app.use('/api', votingRouter);
   app.use('/api', securityRouter);
+  app.use('/api/multisig', multiSigRoutes);
+  app.use('/api/vault', vaultRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
