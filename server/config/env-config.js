@@ -122,6 +122,44 @@ function validateEnv() {
       default: 3600,
       desc: "Cache TTL (Time-To-Live) in seconds for token metadata (default: 1 hour)",
     }),
+    // AWS S3 Backup Configuration
+    AWS_REGION: envalid.str({
+      default: "us-east-1",
+      desc: "AWS region for S3 backup storage",
+      example: "us-east-1",
+    }),
+    AWS_ACCESS_KEY_ID: envalid.str({
+      default: "",
+      desc: "AWS access key ID for S3 backup storage",
+    }),
+    AWS_SECRET_ACCESS_KEY: envalid.str({
+      default: "",
+      desc: "AWS secret access key for S3 backup storage",
+    }),
+    AWS_S3_BACKUP_BUCKET: envalid.str({
+      default: "",
+      desc: "S3 bucket name for storing encrypted backups",
+      example: "soromint-backups",
+    }),
+    BACKUP_ENCRYPTION_PASSWORD: envalid.str({
+      default: "",
+      desc: "Password for encrypting backups (AES-256-GCM). If not set, a random password will be generated",
+    }),
+    BACKUP_CRON_SCHEDULE: envalid.str({
+      default: "0 2 * * *",
+      desc: "Cron schedule for automated backups (default: daily at 02:00 UTC)",
+      example: "0 2 * * *",
+    }),
+    RECOVERY_TEST_CRON_SCHEDULE: envalid.str({
+      default: "0 3 * * *",
+      desc: "Cron schedule for automated recovery tests (default: daily at 03:00 UTC)",
+      example: "0 3 * * *",
+    }),
+    TEST_MONGO_URI: envalid.str({
+      default: "",
+      desc: "MongoDB URI for testing backup restoration (optional)",
+      example: "mongodb://localhost:27017/soromint_test",
+    }),
   }, {
     reporter: ({ errors, env }) => {
       if (Object.keys(errors).length > 0) {

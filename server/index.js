@@ -10,6 +10,7 @@ const { initEnv, getEnv } = require("./config/env-config");
 initEnv();
 
 const { scheduleBackups } = require("./services/backup-service");
+const { scheduleRecoveryTests } = require("./services/recovery-test-service");
 const { getCacheService } = require("./services/cache-service");
 
 const express = require("express");
@@ -36,6 +37,7 @@ const tokenRoutes = require("./routes/token-routes");
 const webhookRoutes = require("./routes/webhook-routes");
 const analyticsRoutes = require("./routes/analytics-routes");
 const notificationRoutes = require("./routes/notification-routes");
+const backupRoutes = require("./routes/backup-routes");
 
 const createApp = ({ authRouter = authRoutes, tokenRouter = tokenRoutes } = {}) => {
   const app = express();
@@ -58,6 +60,7 @@ const createApp = ({ authRouter = authRoutes, tokenRouter = tokenRoutes } = {}) 
   app.use("/api", notificationRoutes);
   app.use("/api/auth", authRouter);
   app.use("/api", webhookRoutes);
+  app.use("/api/backups", backupRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -100,6 +103,7 @@ const startServer = async () => {
     console.log(`Server running on http://localhost:${env.PORT}`);
     console.log(`API Documentation available at http://localhost:${env.PORT}/api-docs`);
     scheduleBackups();
+    scheduleRecoveryTests();
   });
 };
 
