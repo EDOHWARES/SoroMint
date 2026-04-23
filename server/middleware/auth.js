@@ -46,9 +46,9 @@ const authenticate = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Find user by public key from token payload
-    const user = await User.findByPublicKey(decoded.publicKey);
+    
+    // Find user by ID from token payload
+    const user = await User.findById(decoded.id);
 
     if (!user) {
       throw new AppError('User not found. Token may be invalid.', 401, 'USER_NOT_FOUND');
@@ -106,7 +106,7 @@ const optionalAuthenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPublicKey(decoded.publicKey);
+    const user = await User.findById(decoded.id);
 
     if (user && user.isActive()) {
       req.user = user;
@@ -147,19 +147,19 @@ const authorize = (...roles) => {
 
 /**
  * @notice Generates a JWT token for a user
- * @param {string} publicKey - User's Stellar public key
- * @param {string} [username] - Optional username to include in payload
+ * @param {Object} user - User document
  * @returns {string} Signed JWT token
  * @throws {Error} If JWT_SECRET is not configured
  */
-const generateToken = (publicKey, username = null) => {
+const generateToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is not configured');
   }
 
   const payload = {
-    publicKey,
-    username,
+    id: user._id,
+    publicKey: user.publicKey,
+    username: user.username,
     type: 'access'
   };
 

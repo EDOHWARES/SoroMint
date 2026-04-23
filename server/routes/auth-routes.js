@@ -1,7 +1,8 @@
 const express = require('express');
 const { StrKey } = require('@stellar/stellar-sdk');
 const User = require('../models/User');
-const { generateToken, authenticate } = require('../middleware/auth');
+const passport = require('passport');
+const { generateToken, authenticate, optionalAuthenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { loginRateLimiter } = require('../middleware/rate-limiter');
 
@@ -66,7 +67,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   await user.save();
 
   // Generate JWT token
-  const token = generateToken(normalizedPublicKey, user.username);
+  const token = generateToken(user);
 
   // Return user data and token
   res.status(201).json({
@@ -150,7 +151,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   await user.updateLastLogin();
 
   // Generate JWT token
-  const token = generateToken(normalizedPublicKey, user.username);
+  const token = generateToken(user);
 
   res.json({
     success: true,
@@ -206,7 +207,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
    */
   router.post('/refresh', authenticate, asyncHandler(async (req, res) => {
   // Generate new token with same user data
-  const newToken = generateToken(req.user.publicKey, req.user.username);
+  const newToken = generateToken(req.user);
 
   res.json({
     success: true,
@@ -255,6 +256,92 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
       }
     }
   });
+  }));
+
+  /**
+   * @route GET /api/auth/google
+   * @description Initiate Google OAuth2 flow
+   */
+  router.get('/google', optionalAuthenticate, (req, res, next) => {
+    const state = req.query.link ? 'link' : 'login';
+    passport.authenticate('google', { 
+      scope: ['profile', 'email'],
+      state 
+    })(req, res, next);
+  });
+
+  /**
+   * @route GET /api/auth/google/callback
+   * @description Google OAuth2 callback
+   */
+  router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/login', session: false }), (req, res) => {
+    const token = generateToken(req.user);
+    // In a real app, redirect to frontend with token in URL or cookie
+    res.json({
+      success: true,
+      data: {
+        user: req.user,
+        token
+      }
+    });
+  });
+
+  /**
+   * @route GET /api/auth/github
+   * @description Initiate GitHub OAuth2 flow
+   */
+  router.get('/github', optionalAuthenticate, (req, res, next) => {
+    passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
+  });
+
+  /**
+   * @route GET /api/auth/github/callback
+   * @description GitHub OAuth2 callback
+   */
+  router.get('/github/callback', passport.authenticate('github', { failureRedirect: '/login', session: false }), (req, res) => {
+    const token = generateToken(req.user);
+    res.json({
+      success: true,
+      data: {
+        user: req.user,
+        token
+      }
+    });
+  });
+
+  /**
+   * @route POST /api/auth/link-stellar
+   * @description Link a Stellar public key to the current social account
+   */
+  router.post('/link-stellar', authenticate, asyncHandler(async (req, res) => {
+    const { publicKey } = req.body;
+
+    if (!publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) {
+      throw new AppError('Valid Stellar public key is required', 400, 'INVALID_PUBLIC_KEY');
+    }
+
+    const normalizedPublicKey = publicKey.toUpperCase();
+
+    // Check if public key is already used by another account
+    const existingUser = await User.findOne({ publicKey: normalizedPublicKey });
+    if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+      throw new AppError('This Stellar public key is already linked to another account', 409, 'KEY_ALREADY_LINKED');
+    }
+
+    req.user.publicKey = normalizedPublicKey;
+    await req.user.save();
+
+    res.json({
+      success: true,
+      message: 'Stellar wallet linked successfully',
+      data: {
+        user: {
+          id: req.user._id,
+          publicKey: req.user.publicKey,
+          username: req.user.username
+        }
+      }
+    });
   }));
 
   return router;

@@ -130,6 +130,30 @@ function validateEnv() {
       default: "",
       desc: "Pinata secret API key for IPFS pinning",
     }),
+    GOOGLE_CLIENT_ID: envalid.str({
+      default: "",
+      desc: "Google OAuth2 Client ID",
+    }),
+    GOOGLE_CLIENT_SECRET: envalid.str({
+      default: "",
+      desc: "Google OAuth2 Client Secret",
+    }),
+    GITHUB_CLIENT_ID: envalid.str({
+      default: "",
+      desc: "GitHub OAuth2 Client ID",
+    }),
+    GITHUB_CLIENT_SECRET: envalid.str({
+      default: "",
+      desc: "GitHub OAuth2 Client Secret",
+    }),
+    SESSION_SECRET: envalid.str({
+      default: "keyboard-cat-soromint-default",
+      desc: "Secret for express-session",
+    }),
+    AUTH_CALLBACK_URL: envalid.str({
+      default: "http://localhost:5000",
+      desc: "Base URL for OAuth callbacks",
+    }),
   }, {
     reporter: ({ errors, env }) => {
       if (Object.keys(errors).length > 0) {
