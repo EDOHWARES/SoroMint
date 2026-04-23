@@ -79,3 +79,8 @@ pub fn emit_transfer_from(
     let topics = (Symbol::new(e, "tx_from"), spender.clone(), from.clone(), to.clone());
     e.events().publish(topics, (amount, remaining_allowance, new_from_balance, new_to_balance));
 }
+
+pub fn emit_transferability_updated(e: &Env, admin: &Address, transferable: bool) {
+    let topics = (symbol_short!("xferable"), admin.clone());
+    e.events().publish(topics, transferable);
+}
