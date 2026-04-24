@@ -1,7 +1,11 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal};
+use soroban_sdk::{
+    contract, contractimpl,
+    testutils::{Address as _, Events as _},
+    Address, Env, IntoVal,
+};
 
 #[contract]
 pub struct AccessTestContract;
@@ -119,7 +123,7 @@ fn test_events_emitted() {
 
     let events = e.events().all();
     let last_event = events.last().expect("Event should be emitted");
-    
+
     let t0: Symbol = last_event.1.get(0).unwrap().into_val(&e);
     let t1: Address = last_event.1.get(1).unwrap().into_val(&e);
     assert_eq!(t0, ROLE_GRANTED);

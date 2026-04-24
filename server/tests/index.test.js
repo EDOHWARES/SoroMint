@@ -28,7 +28,7 @@ describe("Server Index", () => {
     jest.doMock("mongoose", () => ({ connect, Schema: class Schema { index() {} }, model: jest.fn(() => ({})) }));
     jest.doMock("../config/env-config", () => ({ initEnv, getEnv }));
     jest.doMock("../utils/logger", () => ({
-      logger: { error: jest.fn() },
+      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
       correlationIdMiddleware: jest.fn((req, res, next) => next()),
       httpLoggerMiddleware: jest.fn((req, res, next) => next()),
       logStartupInfo: jest.fn(),
@@ -41,6 +41,10 @@ describe("Server Index", () => {
     jest.doMock("../routes/token-routes", () => (req, res, next) => next());
     jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
     jest.doMock("../routes/webhook-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/notification-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/multisig-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/vault-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/sponsorship-routes", () => (req, res, next) => next());
     jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
     jest.doMock("../middleware/security-headers", () => ({ securityHeaders: (req, res, next) => next() }));
     jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));
@@ -87,7 +91,7 @@ describe("Server Index", () => {
     jest.doMock("mongoose", () => ({ connect, Schema: class Schema { index() {} }, model: jest.fn(() => ({})) }));
     jest.doMock("../config/env-config", () => ({ initEnv, getEnv }));
     jest.doMock("../utils/logger", () => ({
-      logger: { error: jest.fn() },
+      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
       correlationIdMiddleware: "correlation",
       httpLoggerMiddleware: "http-logger",
       logStartupInfo,
@@ -100,6 +104,10 @@ describe("Server Index", () => {
     jest.doMock("../routes/token-routes", () => "token-routes");
     jest.doMock("../routes/analytics-routes", () => "analytics-routes");
     jest.doMock("../routes/webhook-routes", () => "webhook-routes");
+    jest.doMock("../routes/notification-routes", () => "notification-routes");
+    jest.doMock("../routes/multisig-routes", () => "multisig-routes");
+    jest.doMock("../routes/vault-routes", () => "vault-routes");
+    jest.doMock("../routes/sponsorship-routes", () => "sponsorship-routes");
     jest.doMock("../routes/analytics-routes", () => "analytics-routes");
     jest.doMock("../middleware/security-headers", () => ({ securityHeaders: jest.fn((req, res, next) => next()) }));
     jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));

@@ -235,11 +235,69 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
   };
 };
 
+/**
+ * @title submitNftBatchOperations
+ * @notice Submits a batch of NFT mint operations.
+ * @param {Object[]} nfts - Array of NFT objects containing tokenId and uri.
+ * @param {string} contractId - The contract ID of the NFT collection.
+ * @param {string} sourcePublicKey - The public key of the account submitting the transaction.
+ */
+const submitNftBatchOperations = async (nfts, contractId, sourcePublicKey) => {
+  const server = getRpcServer();
+  const env = getEnv();
+
+  const account = await server.execute((s) => s.getAccount(sourcePublicKey));
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: '1000000',
+    networkPassphrase: env.NETWORK_PASSPHRASE,
+  });
+
+  const contract = new Contract(contractId);
+
+  for (const nft of nfts) {
+    const invokeOp = contract.call(
+      'mint',
+      new Address(sourcePublicKey).toScVal(),
+      nativeToScVal(Number(nft.tokenId), { type: 'i128' }),
+      nativeToScVal(nft.uri, { type: 'string' })
+    );
+    txBuilder.addOperation(invokeOp);
+  }
+
+  const tx = txBuilder.setTimeout(30).build();
+
+  const simulation = await server.execute((s) => s.simulateTransaction(tx));
+
+  if (rpc.Api.isSimulationError(simulation)) {
+    return {
+      success: false,
+      error: simulation.error,
+    };
+  }
+
+  const preparedTx = rpc.assembleTransaction(tx, simulation).build();
+  const sendResult = await server.execute((s) => s.sendTransaction(preparedTx));
+
+  logger.info('NFT Batch transaction submitted', {
+    hash: sendResult.hash,
+    status: sendResult.status,
+    operationCount: nfts.length,
+  });
+
+  return {
+    success: sendResult.status !== 'ERROR',
+    txHash: sendResult.hash,
+    status: sendResult.status,
+  };
+};
+
 module.exports = {
   getRpcServer,
   wrapAsset,
   deployStellarAssetContract,
   FailoverRpcServer,
   submitBatchOperations,
+  submitNftBatchOperations,
 };
 

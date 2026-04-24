@@ -1,0 +1,16 @@
+[package]
+name = "soromint-timelock"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = "22.0.0"
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
+soromint-factory = { path = "../factory" }
+proptest = "1"

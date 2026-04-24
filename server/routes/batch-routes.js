@@ -6,6 +6,7 @@ const { validateBatch } = require('../validators/token-validator');
 const { submitBatchOperations } = require('../services/stellar-service');
 const DeploymentAudit = require('../models/DeploymentAudit');
 const { logger } = require('../utils/logger');
+const lockService = require('../services/lock-service');
 
 const router = express.Router();
 
@@ -35,17 +36,33 @@ router.post(
     });
 
     let batchResult;
+    let lockValue = null;
+
     try {
+      // Acquire distributed lock for the source account
+      // 30 seconds TTL, 5 retries, 2000ms base delay
+      lockValue = await lockService.acquireLock(sourcePublicKey, 30000, 5, 2000);
+      
+      if (!lockValue) {
+        throw new AppError('Account is currently busy processing another transaction. Please try again later.', 409, 'LOCK_ACQUISITION_FAILED');
+      }
+
       batchResult = await submitBatchOperations(operations, sourcePublicKey);
     } catch (err) {
-      // Record audit for the whole batch failure
-      await DeploymentAudit.create({
-        userId,
-        tokenName: `batch(${operations.length})`,
-        status: 'FAIL',
-        errorMessage: err.message,
-      });
+      if (err.code !== 'LOCK_ACQUISITION_FAILED') {
+        // Record audit for the whole batch failure
+        await DeploymentAudit.create({
+          userId,
+          tokenName: `batch(${operations.length})`,
+          status: 'FAIL',
+          errorMessage: err.message,
+        });
+      }
       throw err;
+    } finally {
+      if (lockValue) {
+        await lockService.releaseLock(sourcePublicKey, lockValue);
+      }
     }
 
     // Audit each operation individually for traceability

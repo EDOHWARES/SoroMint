@@ -3,7 +3,7 @@
  * @description Test suite for Redis cache service
  */
 
-const { CacheService } = require('../../../services/cache-service');
+const { CacheService } = require('../../services/cache-service');
 const redis = require('redis');
 
 // Mock Redis client

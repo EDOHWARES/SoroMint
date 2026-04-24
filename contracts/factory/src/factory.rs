@@ -1,5 +1,6 @@
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String, Vec, Symbol,
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String,
+    Symbol, Vec,
 };
 
 #[contracttype]
@@ -29,10 +30,75 @@ impl TokenFactory {
         }
         e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::WasmHash, &wasm_hash);
-        
+
         // Initialize an empty registry
         let initial_tokens: Vec<Address> = Vec::new(&e);
-        e.storage().instance().set(&DataKey::Tokens, &initial_tokens);
+        e.storage()
+            .instance()
+            .set(&DataKey::Tokens, &initial_tokens);
+    }
+
+    /// Deploys a new token contract with multi-sig admin support.
+    ///
+    /// # Arguments
+    /// * `salt`           - A unique 32-byte salt for the contract deployment.
+    /// * `admin`          - The address that will be the administrator (can be multi-sig contract).
+    /// * `decimal`        - Number of decimal places for the new token.
+    /// * `name`           - The name of the new token.
+    /// * `symbol`         - The symbol of the new token.
+    /// * `is_multisig`    - Whether the admin is a multi-sig contract.
+    ///
+    /// # Returns
+    /// The address of the newly deployed token contract.
+    ///
+    /// # Events
+    /// Emits a `contract_deployed` event with the new contract address and admin.
+    pub fn create_token_with_multisig(
+        e: Env,
+        salt: BytesN<32>,
+        admin: Address,
+        decimal: u32,
+        name: String,
+        symbol: String,
+        is_multisig: bool,
+    ) -> Address {
+        let wasm_hash: BytesN<32> = e
+            .storage()
+            .instance()
+            .get(&DataKey::WasmHash)
+            .expect("not initialized");
+
+        let address = e
+            .deployer()
+            .with_current_contract(salt)
+            .deploy_v2(wasm_hash, ());
+
+        let init_args = soroban_sdk::vec![
+            &e,
+            admin.clone().into_val(&e),
+            decimal.into_val(&e),
+            name.clone().into_val(&e),
+            symbol.clone().into_val(&e),
+        ];
+
+        e.invoke_contract::<()>(&address, &Symbol::new(&e, "initialize"), init_args);
+
+        let mut tokens: Vec<Address> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Tokens)
+            .unwrap_or(Vec::new(&e));
+        tokens.push_back(address.clone());
+        e.storage().instance().set(&DataKey::Tokens, &tokens);
+
+        let topics = if is_multisig {
+            (symbol_short!("factory"), symbol_short!("multisig"))
+        } else {
+            (symbol_short!("factory"), symbol_short!("deploy"))
+        };
+        e.events().publish(topics, (address.clone(), admin));
+
+        address
     }
 
     /// Deploys a new token contract and initializes it in a single transaction.
@@ -57,13 +123,20 @@ impl TokenFactory {
         name: String,
         symbol: String,
     ) -> Address {
-        let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
-        
+        let wasm_hash: BytesN<32> = e
+            .storage()
+            .instance()
+            .get(&DataKey::WasmHash)
+            .expect("not initialized");
+
         // Deploy the contract using the provided salt and stored WASM hash
         // deployer().with_current_contract(salt).deploy(wasm_hash) creates a new contract
         // from the WASM hash using the factory's address as a parent.
-        let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
-        
+        let address = e
+            .deployer()
+            .with_current_contract(salt)
+            .deploy_v2(wasm_hash, ());
+
         // Initialize the newly deployed token contract using the provided parameters.
         // It's expected that the token contract has an 'initialize' method with the following signature:
         // fn initialize(e: Env, admin: Address, decimal: u32, name: String, symbol: String)
@@ -75,21 +148,21 @@ impl TokenFactory {
             symbol.clone().into_val(&e),
         ];
 
-        e.invoke_contract::<()>(
-            &address,
-            &Symbol::new(&e, "initialize"),
-            init_args,
-        );
-        
+        e.invoke_contract::<()>(&address, &Symbol::new(&e, "initialize"), init_args);
+
         // Update the registry of deployed contract IDs
-        let mut tokens: Vec<Address> = e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e));
+        let mut tokens: Vec<Address> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Tokens)
+            .unwrap_or(Vec::new(&e));
         tokens.push_back(address.clone());
         e.storage().instance().set(&DataKey::Tokens, &tokens);
-        
+
         // Emit success event for off-chain listeners to track new token deployments
         let topics = (symbol_short!("factory"), symbol_short!("deploy"));
         e.events().publish(topics, (address.clone(), admin));
-        
+
         address
     }
 
@@ -117,9 +190,16 @@ impl TokenFactory {
         symbol: String,
         metadata_hash: String,
     ) -> Address {
-        let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
+        let wasm_hash: BytesN<32> = e
+            .storage()
+            .instance()
+            .get(&DataKey::WasmHash)
+            .expect("not initialized");
 
-        let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
+        let address = e
+            .deployer()
+            .with_current_contract(salt)
+            .deploy_v2(wasm_hash, ());
 
         let init_args = soroban_sdk::vec![
             &e,
@@ -129,26 +209,19 @@ impl TokenFactory {
             symbol.clone().into_val(&e),
         ];
 
-        e.invoke_contract::<()>(
-            &address,
-            &Symbol::new(&e, "initialize"),
-            init_args,
-        );
+        e.invoke_contract::<()>(&address, &Symbol::new(&e, "initialize"), init_args);
 
         // Set the metadata hash on the newly deployed token contract
-        let meta_args = soroban_sdk::vec![
-            &e,
-            metadata_hash.into_val(&e),
-        ];
+        let meta_args = soroban_sdk::vec![&e, metadata_hash.into_val(&e),];
 
-        e.invoke_contract::<()>(
-            &address,
-            &Symbol::new(&e, "set_metadata_hash"),
-            meta_args,
-        );
+        e.invoke_contract::<()>(&address, &Symbol::new(&e, "set_metadata_hash"), meta_args);
 
         // Update the registry of deployed contract IDs
-        let mut tokens: Vec<Address> = e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e));
+        let mut tokens: Vec<Address> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Tokens)
+            .unwrap_or(Vec::new(&e));
         tokens.push_back(address.clone());
         e.storage().instance().set(&DataKey::Tokens, &tokens);
 
@@ -161,7 +234,10 @@ impl TokenFactory {
 
     /// Returns the list of all token contracts deployed by this factory.
     pub fn get_tokens(e: Env) -> Vec<Address> {
-        e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e))
+        e.storage()
+            .instance()
+            .get(&DataKey::Tokens)
+            .unwrap_or(Vec::new(&e))
     }
 
     /// Returns the current version of the contract.
@@ -189,8 +265,14 @@ impl TokenFactory {
     /// # Authorization
     /// Requires the factory administrator to authorize.
     pub fn update_wasm_hash(e: Env, new_wasm_hash: BytesN<32>) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized");
         admin.require_auth();
-        e.storage().instance().set(&DataKey::WasmHash, &new_wasm_hash);
+        e.storage()
+            .instance()
+            .set(&DataKey::WasmHash, &new_wasm_hash);
     }
 }

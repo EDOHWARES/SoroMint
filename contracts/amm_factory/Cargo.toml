@@ -1,0 +1,17 @@
+[package]
+name = "soromint-amm-factory"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = "22.0.0"
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.0", features = ["testutils"] }
+soromint-token = { path = "../token" }
+soromint-factory = { path = "../factory" }
+soromint-amm-pool = { path = "../amm_pool" }

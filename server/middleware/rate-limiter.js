@@ -26,7 +26,7 @@ const parsePositiveInteger = (value, fallback) => {
 const createRateLimitResponse = () => ({
   error: DEFAULT_LIMIT_MESSAGE,
   code: DEFAULT_LIMIT_CODE,
-  status: 429
+  status: 429,
 });
 
 /**
@@ -36,34 +36,62 @@ const createRateLimitResponse = () => ({
  * @param {number} options.max - Maximum allowed requests in the time window
  * @returns {Function} Configured Express middleware
  */
-const createRateLimiter = ({ windowMs, max }) => rateLimit({
-  windowMs,
-  max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: createRateLimitResponse()
-});
+const createRateLimiter = ({ windowMs, max }) =>
+  rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: createRateLimitResponse(),
+  });
 
 /**
  * @notice Creates the limiter for the login endpoint to slow brute-force attempts
  * @returns {Function} Express middleware for POST /api/auth/login
  */
-const createLoginRateLimiter = () => createRateLimiter({
-  windowMs: parsePositiveInteger(process.env.LOGIN_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-  max: parsePositiveInteger(process.env.LOGIN_RATE_LIMIT_MAX_REQUESTS, 5)
-});
+const createLoginRateLimiter = () =>
+  createRateLimiter({
+    windowMs: parsePositiveInteger(
+      process.env.LOGIN_RATE_LIMIT_WINDOW_MS,
+      15 * 60 * 1000
+    ),
+    max: parsePositiveInteger(process.env.LOGIN_RATE_LIMIT_MAX_REQUESTS, 5),
+  });
 
 /**
  * @notice Creates the limiter for token deployment requests to reduce API abuse
  * @returns {Function} Express middleware for POST /api/tokens
  */
-const createTokenDeploymentRateLimiter = () => createRateLimiter({
-  windowMs: parsePositiveInteger(process.env.TOKEN_DEPLOY_RATE_LIMIT_WINDOW_MS, 60 * 60 * 1000),
-  max: parsePositiveInteger(process.env.TOKEN_DEPLOY_RATE_LIMIT_MAX_REQUESTS, 10)
-});
+const createTokenDeploymentRateLimiter = () =>
+  createRateLimiter({
+    windowMs: parsePositiveInteger(
+      process.env.TOKEN_DEPLOY_RATE_LIMIT_WINDOW_MS,
+      60 * 60 * 1000
+    ),
+    max: parsePositiveInteger(
+      process.env.TOKEN_DEPLOY_RATE_LIMIT_MAX_REQUESTS,
+      10
+    ),
+  });
+
+/**
+ * @notice Creates the limiter for WASM security scan requests.
+ * @dev    Scan requests are CPU-intensive; a tighter limit prevents abuse.
+ *         Defaults: 20 scans per hour per IP.
+ * @returns {Function} Express middleware for POST /api/security/scan
+ */
+const createScanRateLimiter = () =>
+  createRateLimiter({
+    windowMs: parsePositiveInteger(
+      process.env.SCAN_RATE_LIMIT_WINDOW_MS,
+      60 * 60 * 1000
+    ),
+    max: parsePositiveInteger(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS, 20),
+  });
 
 const loginRateLimiter = createLoginRateLimiter();
 const tokenDeploymentRateLimiter = createTokenDeploymentRateLimiter();
+const scanRateLimiter = createScanRateLimiter();
 
 module.exports = {
   DEFAULT_LIMIT_MESSAGE,
@@ -73,6 +101,8 @@ module.exports = {
   createRateLimiter,
   createLoginRateLimiter,
   createTokenDeploymentRateLimiter,
+  createScanRateLimiter,
   loginRateLimiter,
-  tokenDeploymentRateLimiter
+  tokenDeploymentRateLimiter,
+  scanRateLimiter,
 };

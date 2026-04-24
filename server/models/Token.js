@@ -67,6 +67,27 @@ const TokenSchema = new mongoose.Schema({
     required: true,
   },
   /**
+   * @property {string} description - Token description for metadata
+   * @example "This is my custom token"
+   */
+  description: {
+    type: String,
+  },
+  /**
+   * @property {string} ipfsIconCid - IPFS CID for the token icon image
+   * @example "bafybeigdyr..."
+   */
+  ipfsIconCid: {
+    type: String,
+  },
+  /**
+   * @property {string} ipfsMetadataCid - IPFS CID for the token JSON metadata
+   * @example "bafkreifh2..."
+   */
+  ipfsMetadataCid: {
+    type: String,
+  },
+  /**
    * @property {Date} createdAt - Timestamp of token record creation
    * @default Date.now
    */

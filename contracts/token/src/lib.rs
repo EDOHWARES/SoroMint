@@ -6,6 +6,8 @@
 #![no_std]
 
 mod events;
+#[cfg(test)]
+mod test_transfer;
 
 use soroban_sdk::token::TokenInterface;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
@@ -22,6 +24,7 @@ pub enum DataKey {
     Supply,
     MetadataHash,
     FeeConfig,
+    Transferable
 }
 
 #[contracttype]
@@ -37,7 +40,6 @@ pub struct SoroMintToken;
 
 #[contractimpl]
 impl SoroMintToken {
-    /// Internal helpers
     fn read_balance(e: &Env, id: &Address) -> i128 {
         e.storage().persistent().get(&DataKey::Balance(id.clone())).unwrap_or(0)
     }
@@ -79,7 +81,13 @@ impl SoroMintToken {
         (new_from, new_to)
     }
 
-    /// Admin Functions
+    fn check_transferable(e: &Env) {
+        let transferable: bool = e.storage().instance().get(&DataKey::Transferable).unwrap_or(true);
+        if !transferable {
+            panic!("Token is non-transferable");
+        }
+    }
+
     pub fn initialize(e: Env, admin: Address, decimals: u32, name: String, symbol: String) {
         if e.storage().instance().has(&DataKey::Admin) { panic!("already initialized"); }
         e.storage().instance().set(&DataKey::Admin, &admin);
@@ -87,6 +95,7 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Name, &name);
         e.storage().instance().set(&DataKey::Symbol, &symbol);
         e.storage().instance().set(&DataKey::Decimals, &decimals);
+        e.storage().instance().set(&DataKey::Transferable, &true);
 
         events::emit_initialized(&e, &admin, decimals, &name, &symbol);
     }
@@ -118,8 +127,6 @@ impl SoroMintToken {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().instance().set(&DataKey::MetadataHash, &hash);
-        // Using a simpler version of metadata update event for hash
-        // events::emit_metadata_updated(&e, &admin, &hash); // This was in old code, but let's stick to update_metadata
     }
 
     pub fn metadata_hash(e: Env) -> Option<String> {
@@ -139,6 +146,17 @@ impl SoroMintToken {
         e.storage().instance().get(&DataKey::FeeConfig)
     }
 
+    pub fn set_transferable(e: Env, transferable: bool) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::Transferable, &transferable);
+        events::emit_transferability_updated(&e, &admin, transferable);
+    }
+
+    pub fn is_transferable(e: Env) -> bool {
+        e.storage().instance().get(&DataKey::Transferable).unwrap_or(true)
+    }
+
     pub fn version(e: Env) -> String { String::from_str(&e, "2.0.0") }
     pub fn status(e: Env) -> String { String::from_str(&e, "alive") }
     pub fn supply(e: Env) -> i128 { e.storage().instance().get(&DataKey::Supply).unwrap_or(0) }
@@ -152,7 +170,6 @@ impl SoroMintToken {
         soromint_lifecycle::unpause(e, admin);
     }
 
-    /// Extends the standard update_metadata with old/new values
     pub fn update_metadata(e: Env, new_name: String, new_symbol: String) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -169,23 +186,32 @@ impl SoroMintToken {
 
 #[contractimpl]
 impl TokenInterface for SoroMintToken {
-    fn allowance(e: Env, from: Address, spender: Address) -> i128 { Self::read_allowance(&e, &from, &spender) }
+    fn allowance(e: Env, from: Address, spender: Address) -> i128 {
+        Self::read_allowance(&e, &from, &spender)
+    }
+
     fn approve(e: Env, from: Address, spender: Address, amount: i128, _exp: u32) {
+        Self::check_transferable(&e);
         from.require_auth();
         if amount < 0 { panic!("approval amount must be non-negative"); }
         Self::write_allowance(&e, &from, &spender, amount);
         events::emit_approve(&e, &from, &spender, amount);
     }
+
     fn balance(e: Env, id: Address) -> i128 { Self::read_balance(&e, &id) }
+
     fn transfer(e: Env, from: Address, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
+        Self::check_transferable(&e);
         from.require_auth();
         if amount <= 0 { panic!("transfer amount must be positive"); }
         let (nf, nt) = Self::move_balance(&e, &from, &to, amount);
         events::emit_transfer(&e, &from, &to, amount, nf, nt);
     }
+
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
+        Self::check_transferable(&e);
         spender.require_auth();
         if amount <= 0 { panic!("transfer amount must be positive"); }
         let al = Self::read_allowance(&e, &from, &spender);
@@ -194,6 +220,7 @@ impl TokenInterface for SoroMintToken {
         Self::write_allowance(&e, &from, &spender, al - amount);
         events::emit_transfer_from(&e, &spender, &from, &to, amount, al - amount, nf, nt);
     }
+
     fn burn(e: Env, from: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         from.require_auth();
@@ -207,8 +234,10 @@ impl TokenInterface for SoroMintToken {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
     }
+
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
+        Self::check_transferable(&e);
         spender.require_auth();
         if amount <= 0 { panic!("burn amount must be positive"); }
         let al = Self::read_allowance(&e, &from, &spender);

@@ -6,7 +6,7 @@ const WebhookSchema = new mongoose.Schema({
   secret: { type: String, required: true },
   events: {
     type: [String],
-    enum: ['token.minted'],
+    enum: ['token.minted', 'token.transferred', 'token.burned'],
     default: ['token.minted'],
   },
   active: { type: Boolean, default: true },
