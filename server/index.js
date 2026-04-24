@@ -34,8 +34,10 @@ const statusRoutes = require("./routes/status-routes");
 const auditRoutes = require("./routes/audit-routes");
 const tokenRoutes = require("./routes/token-routes");
 const webhookRoutes = require("./routes/webhook-routes");
+const bridgeRoutes = require("./routes/bridge-routes");
 const analyticsRoutes = require("./routes/analytics-routes");
 const notificationRoutes = require("./routes/notification-routes");
+const { getBridgeRelayer } = require("./services/bridge-relayer");
 
 const createApp = ({ authRouter = authRoutes, tokenRouter = tokenRoutes } = {}) => {
   const app = express();
@@ -56,6 +58,7 @@ const createApp = ({ authRouter = authRoutes, tokenRouter = tokenRoutes } = {}) 
   app.use("/api", tokenRouter);
   app.use("/api", analyticsRoutes);
   app.use("/api", notificationRoutes);
+  app.use("/api", bridgeRoutes);
   app.use("/api/auth", authRouter);
   app.use("/api", webhookRoutes);
 
@@ -93,6 +96,18 @@ const startServer = async () => {
 
   await connectDatabase();
   const app = createApp();
+
+  const bridgeRelayer = getBridgeRelayer();
+  if (bridgeRelayer.enabled && bridgeRelayer.isConfigured()) {
+    try {
+      await bridgeRelayer.start();
+      logger.info("Bridge relayer auto-started");
+    } catch (error) {
+      logger.warn("Bridge relayer failed to start", {
+        error: error.message,
+      });
+    }
+  }
 
   app.listen(env.PORT, () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
