@@ -1614,6 +1614,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-streaming"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-timelock"
 version = "0.1.0"
 dependencies = [
