@@ -9,7 +9,7 @@ const router = express.Router();
 
 const webhookSchema = z.object({
   url: z.string().url('Invalid URL'),
-  events: z.array(z.enum(['token.minted'])).min(1).default(['token.minted']),
+  events: z.array(z.enum(['token.minted', 'token.transferred', 'token.burned'])).min(1).default(['token.minted']),
   secret: z.string().min(16, 'Secret must be at least 16 characters'),
 });
 

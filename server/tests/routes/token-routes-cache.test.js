@@ -13,7 +13,7 @@ const { getCacheService } = require('../../../services/cache-service');
 const express = require('express');
 
 // Mock cache service
-jest.mock('../../../services/cache-service');
+jest.mock('../../services/cache-service');
 
 let mongoServer;
 let app;

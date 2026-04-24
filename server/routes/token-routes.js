@@ -12,6 +12,8 @@ const {
 } = require("../validators/token-validator");
 const { dispatch } = require("../services/webhook-service");
 const { getCacheService } = require("../services/cache-service");
+const ipfsService = require("../services/ipfs-service");
+const stellarService = require("../services/stellar-service");
 
 const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = {}) => {
   const router = express.Router();
@@ -119,7 +121,7 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
     authenticate,
     validateToken,
     asyncHandler(async (req, res) => {
-      const { name, symbol, decimals, contractId, ownerPublicKey } = req.body;
+      const { name, symbol, decimals, contractId, ownerPublicKey, description, iconBase64 } = req.body;
       const userId = req.user._id;
       const cacheService = getCacheService();
 
@@ -132,12 +134,37 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
       });
 
       try {
+        let ipfsIconCid = null;
+        let ipfsMetadataCid = null;
+
+        // 1. Pin Icon to IPFS
+        if (iconBase64) {
+          logger.info("Pinning icon to IPFS", { correlationId: req.correlationId });
+          ipfsIconCid = await ipfsService.pinFileToIPFS(iconBase64, `${symbol}-icon`);
+        }
+
+        // 2. Pin JSON Metadata to IPFS
+        const tokenMetadata = {
+          name,
+          symbol,
+          description: description || `Token ${name}`,
+          decimals,
+          image: ipfsIconCid ? `ipfs://${ipfsIconCid}` : null,
+        };
+
+        logger.info("Pinning metadata to IPFS", { correlationId: req.correlationId });
+        ipfsMetadataCid = await ipfsService.pinJSONToIPFS(tokenMetadata, `${symbol}-metadata.json`);
+
+        // 3. Save to DB
         const newToken = new Token({
           name,
           symbol,
           decimals,
           contractId,
           ownerPublicKey,
+          description,
+          ipfsIconCid,
+          ipfsMetadataCid,
         });
         await newToken.save();
 
@@ -145,6 +172,25 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
           correlationId: req.correlationId,
           tokenId: newToken._id,
         });
+
+        // 4. Update Smart Contract Metadata Hash (if admin key configured)
+        if (ipfsMetadataCid) {
+          logger.info("Updating smart contract metadata hash", {
+            correlationId: req.correlationId,
+            contractId,
+            ipfsMetadataCid,
+          });
+          // This happens asynchronously to not block the response
+          stellarService.setContractMetadataHash(contractId, ipfsMetadataCid)
+            .then(result => {
+              if (result.success) {
+                logger.info("Smart contract metadata hash updated", { contractId, txHash: result.txHash });
+              } else {
+                logger.warn("Failed to update smart contract metadata hash", { contractId, error: result.error });
+              }
+            })
+            .catch(e => logger.error("Error setting metadata hash", { error: e.message }));
+        }
 
         try {
           await cacheService.deleteByPattern(`tokens:owner:${ownerPublicKey}:*`);
@@ -154,7 +200,7 @@ const createTokenRouter = ({ deployRateLimiter = tokenDeploymentRateLimiter } = 
             error: error.message,
           });
         }
-        dispatch('token.minted', { tokenId: newToken._id, name, symbol, contractId, ownerPublicKey });
+        dispatch('token.minted', { tokenId: newToken._id, name, symbol, contractId, ownerPublicKey, ipfsMetadataCid });
 
         res.status(201).json(newToken);
       } catch (error) {

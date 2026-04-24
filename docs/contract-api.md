@@ -24,16 +24,15 @@ Returns the current health or operational status of the contract.
 
 The token supports a link to external rich metadata stored on decentralized storage platforms.
 
-### `set_metadata_hash()`
-Sets the IPFS or Arweave hash for external metadata. Requires admin authorization.
+### `set_metadata_resolver()`
+Sets the address of the resolver contract that provides the external metadata hash. Requires admin authorization.
 
-- **Signature**: `set_metadata_hash(e: Env, hash: String)`
+- **Signature**: `set_metadata_resolver(e: Env, resolver: Address)`
 - **Returns**: `()` (void)
 - **Events**: Emits a `metadata_updated` event.
 
 ### `metadata_hash()`
-Returns the current metadata hash if set.
+Returns the current metadata hash by querying the configured resolver (or local storage as fallback).
 
 - **Signature**: `metadata_hash(e: Env) -> Option<String>`
 - **Returns**: `Option<String>` containing the hash or `None`.
-

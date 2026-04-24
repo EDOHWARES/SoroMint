@@ -14,17 +14,49 @@ const UserSchema = new mongoose.Schema({
    */
   publicKey: {
     type: String,
-    required: [true, 'Public key is required'],
+    required: false,
     unique: true,
+    sparse: true, // Allow multiple nulls but enforce uniqueness for non-null values
     trim: true,
     validate: {
       validator: function (value) {
-        // Basic validation for Stellar public key format
-        // G followed by 55 base32 characters (A-Z, 2-7)
+        if (!value) return true;
         return /^G[A-Z2-7]{55}$/.test(value);
       },
-      message: 'Invalid Stellar public key format. Must start with G and be 56 characters long.'
+      message: 'Invalid Stellar public key format.'
     }
+  },
+  /**
+   * User's email address (from social profiles)
+   */
+  email: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    lowercase: true
+  },
+  /**
+   * Google OAuth2 ID
+   */
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  /**
+   * GitHub OAuth2 ID
+   */
+  githubId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  /**
+   * URL to user's profile picture
+   */
+  avatarUrl: {
+    type: String
   },
   /**
    * Optional username/nickname for the user
@@ -66,6 +98,16 @@ const UserSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+/**
+ * @notice Ensure at least one authentication method is present
+ */
+UserSchema.pre('save', function (next) {
+  if (!this.publicKey && !this.googleId && !this.githubId) {
+    return next(new Error('At least one authentication method (Stellar, Google, or GitHub) is required.'));
+  }
+  next();
 });
 
 /**

@@ -1,5 +1,6 @@
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String, Vec, Symbol,
+    contract, contractimpl, contracttype, symbol_short, token, Address, BytesN, Env, IntoVal,
+    String, Symbol, Vec,
 };
 
 #[contracttype]
@@ -8,6 +9,9 @@ enum DataKey {
     WasmHash,
     Admin,
     Tokens,
+    Treasury,
+    CreationFee,
+    FeeToken,
 }
 
 #[contract]
@@ -15,6 +19,39 @@ pub struct TokenFactory;
 
 #[contractimpl]
 impl TokenFactory {
+    fn read_admin(e: &Env) -> Address {
+        e.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("not initialized")
+    }
+
+    fn charge_creation_fee(e: &Env, payer: &Address) {
+        let creation_fee: i128 = e.storage().instance().get(&DataKey::CreationFee).unwrap_or(0);
+        if creation_fee <= 0 {
+            return;
+        }
+
+        let treasury: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("treasury not configured");
+        let fee_token: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::FeeToken)
+            .expect("fee token not configured");
+
+        let fee_token_client = token::Client::new(e, &fee_token);
+        fee_token_client.transfer(payer, &treasury, &creation_fee);
+
+        e.events().publish(
+            (symbol_short!("factory"), symbol_short!("fee")),
+            (payer.clone(), treasury, creation_fee),
+        );
+    }
+
     /// Initializes the factory with an admin and the WASM hash of the token contract to deploy.
     ///
     /// # Arguments
@@ -29,10 +66,70 @@ impl TokenFactory {
         }
         e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::WasmHash, &wasm_hash);
+        e.storage().instance().set(&DataKey::Treasury, &admin);
+        e.storage().instance().set(&DataKey::CreationFee, &0i128);
         
         // Initialize an empty registry
         let initial_tokens: Vec<Address> = Vec::new(&e);
         e.storage().instance().set(&DataKey::Tokens, &initial_tokens);
+    }
+
+    /// Deploys a new token contract with multi-sig admin support.
+    ///
+    /// # Arguments
+    /// * `salt`           - A unique 32-byte salt for the contract deployment.
+    /// * `admin`          - The address that will be the administrator (can be multi-sig contract).
+    /// * `decimal`        - Number of decimal places for the new token.
+    /// * `name`           - The name of the new token.
+    /// * `symbol`         - The symbol of the new token.
+    /// * `is_multisig`    - Whether the admin is a multi-sig contract.
+    ///
+    /// # Returns
+    /// The address of the newly deployed token contract.
+    ///
+    /// # Events
+    /// Emits a `contract_deployed` event with the new contract address and admin.
+    pub fn create_token_with_multisig(
+        e: Env,
+        salt: BytesN<32>,
+        admin: Address,
+        decimal: u32,
+        name: String,
+        symbol: String,
+        is_multisig: bool,
+    ) -> Address {
+        Self::charge_creation_fee(&e, &admin);
+
+        let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
+        
+        let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
+        
+        let init_args = soroban_sdk::vec![
+            &e,
+            admin.clone().into_val(&e),
+            decimal.into_val(&e),
+            name.clone().into_val(&e),
+            symbol.clone().into_val(&e),
+        ];
+
+        e.invoke_contract::<()>(
+            &address,
+            &Symbol::new(&e, "initialize"),
+            init_args,
+        );
+        
+        let mut tokens: Vec<Address> = e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e));
+        tokens.push_back(address.clone());
+        e.storage().instance().set(&DataKey::Tokens, &tokens);
+        
+        let topics = if is_multisig {
+            (symbol_short!("factory"), symbol_short!("multisig"))
+        } else {
+            (symbol_short!("factory"), symbol_short!("deploy"))
+        };
+        e.events().publish(topics, (address.clone(), admin));
+        
+        address
     }
 
     /// Deploys a new token contract and initializes it in a single transaction.
@@ -57,6 +154,8 @@ impl TokenFactory {
         name: String,
         symbol: String,
     ) -> Address {
+        Self::charge_creation_fee(&e, &admin);
+
         let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
         
         // Deploy the contract using the provided salt and stored WASM hash
@@ -93,7 +192,7 @@ impl TokenFactory {
         address
     }
 
-    /// Deploys a new token contract (v2), initializes it, and sets a metadata hash.
+    /// Deploys a new token contract (v2), initializes it, and sets a metadata resolver.
     ///
     /// # Arguments
     /// * `salt`          - A unique 32-byte salt for the contract deployment.
@@ -101,7 +200,7 @@ impl TokenFactory {
     /// * `decimal`       - Number of decimal places for the new token.
     /// * `name`          - The name of the new token.
     /// * `symbol`        - The symbol of the new token.
-    /// * `metadata_hash` - An IPFS or content-addressed hash for off-chain metadata.
+    /// * `metadata_resolver` - Address of the resolver contract for off-chain metadata.
     ///
     /// # Returns
     /// The address of the newly deployed token contract.
@@ -115,8 +214,10 @@ impl TokenFactory {
         decimal: u32,
         name: String,
         symbol: String,
-        metadata_hash: String,
+        metadata_resolver: Address,
     ) -> Address {
+        Self::charge_creation_fee(&e, &admin);
+
         let wasm_hash: BytesN<32> = e.storage().instance().get(&DataKey::WasmHash).expect("not initialized");
 
         let address = e.deployer().with_current_contract(salt).deploy_v2(wasm_hash, ());
@@ -135,15 +236,15 @@ impl TokenFactory {
             init_args,
         );
 
-        // Set the metadata hash on the newly deployed token contract
+        // Set the metadata resolver on the newly deployed token contract
         let meta_args = soroban_sdk::vec![
             &e,
-            metadata_hash.into_val(&e),
+            metadata_resolver.into_val(&e),
         ];
 
         e.invoke_contract::<()>(
             &address,
-            &Symbol::new(&e, "set_metadata_hash"),
+            &Symbol::new(&e, "set_metadata_resolver"),
             meta_args,
         );
 
@@ -162,6 +263,24 @@ impl TokenFactory {
     /// Returns the list of all token contracts deployed by this factory.
     pub fn get_tokens(e: Env) -> Vec<Address> {
         e.storage().instance().get(&DataKey::Tokens).unwrap_or(Vec::new(&e))
+    }
+
+    /// Returns the treasury address that receives creation fees.
+    pub fn get_treasury(e: Env) -> Address {
+        e.storage()
+            .instance()
+            .get(&DataKey::Treasury)
+            .expect("not initialized")
+    }
+
+    /// Returns the current token creation fee.
+    pub fn get_creation_fee(e: Env) -> i128 {
+        e.storage().instance().get(&DataKey::CreationFee).unwrap_or(0)
+    }
+
+    /// Returns the configured fee token address if present.
+    pub fn get_fee_token(e: Env) -> Option<Address> {
+        e.storage().instance().get(&DataKey::FeeToken)
     }
 
     /// Returns the current version of the contract.
@@ -189,8 +308,33 @@ impl TokenFactory {
     /// # Authorization
     /// Requires the factory administrator to authorize.
     pub fn update_wasm_hash(e: Env, new_wasm_hash: BytesN<32>) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin = Self::read_admin(&e);
         admin.require_auth();
         e.storage().instance().set(&DataKey::WasmHash, &new_wasm_hash);
+    }
+
+    /// Updates the treasury address that receives creation fees.
+    pub fn set_treasury(e: Env, treasury: Address) {
+        let admin = Self::read_admin(&e);
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::Treasury, &treasury);
+    }
+
+    /// Updates the per-token creation fee charged by the factory.
+    pub fn set_creation_fee(e: Env, creation_fee: i128) {
+        if creation_fee < 0 {
+            panic!("creation fee cannot be negative");
+        }
+
+        let admin = Self::read_admin(&e);
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::CreationFee, &creation_fee);
+    }
+
+    /// Updates the token contract used to collect creation fees.
+    pub fn set_fee_token(e: Env, fee_token: Address) {
+        let admin = Self::read_admin(&e);
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::FeeToken, &fee_token);
     }
 }

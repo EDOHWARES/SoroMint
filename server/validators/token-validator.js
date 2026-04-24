@@ -28,6 +28,14 @@ const tokenSchema = z.object({
     .string()
     .length(56, "Owner Public Key must be exactly 56 characters")
     .startsWith("G", "Owner Public Key must start with G"),
+  description: z
+    .string()
+    .max(500, "Description must not exceed 500 characters")
+    .optional(),
+  iconBase64: z
+    .string()
+    .regex(/^data:([A-Za-z-+\/]+);base64,(.+)$/, "Invalid base64 image string")
+    .optional(),
 });
 
 const paginationSchema = z.object({

@@ -1,6 +1,9 @@
 #![cfg(test)]
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, String};
+use soroban_sdk::{
+    testutils::Address as _, token::{Client as TokenClient, StellarAssetClient}, Address, BytesN,
+    Env, String,
+};
 
 // Import the token contract so we can use its WASM for testing the factory.
 mod token {
@@ -11,13 +14,22 @@ mod token {
 
 fn setup() -> (Env, Address, TokenFactoryClient<'static>) {
     let e = Env::default();
-    e.mock_all_auths();
+    e.mock_all_auths_allowing_non_root_auth();
 
     let admin = Address::generate(&e);
     let factory_id = e.register(TokenFactory, ());
     let client = TokenFactoryClient::new(&e, &factory_id);
 
     (e, admin, client)
+}
+
+fn setup_fee_token(e: &Env, holder: &Address, amount: i128) -> Address {
+    let fee_admin = Address::generate(e);
+    let stellar_asset = e.register_stellar_asset_contract_v2(fee_admin.clone());
+    let fee_token = stellar_asset.address();
+    let fee_token_admin = StellarAssetClient::new(e, &fee_token);
+    fee_token_admin.mint(holder, &amount);
+    fee_token
 }
 
 #[test]
@@ -90,6 +102,67 @@ fn test_version_and_status() {
 
     assert_eq!(client.version(), String::from_str(&e, "2.0.0"));
     assert_eq!(client.status(), String::from_str(&e, "alive"));
+}
+
+#[test]
+fn test_fee_configuration_defaults() {
+    let (e, admin, client) = setup();
+    let wasm_hash = BytesN::from_array(&e, &[0; 32]);
+    client.initialize(&admin, &wasm_hash);
+
+    assert_eq!(client.get_treasury(), admin);
+    assert_eq!(client.get_creation_fee(), 0);
+    assert_eq!(client.get_fee_token(), None);
+}
+
+#[test]
+fn test_admin_can_update_fee_settings() {
+    let (e, admin, client) = setup();
+    let wasm_hash = BytesN::from_array(&e, &[0; 32]);
+    client.initialize(&admin, &wasm_hash);
+
+    let treasury = Address::generate(&e);
+    let fee_token = setup_fee_token(&e, &admin, 1_000);
+
+    client.set_treasury(&treasury);
+    client.set_creation_fee(&250);
+    client.set_fee_token(&fee_token);
+
+    assert_eq!(client.get_treasury(), treasury);
+    assert_eq!(client.get_creation_fee(), 250);
+    assert_eq!(client.get_fee_token(), Some(fee_token));
+}
+
+#[test]
+fn test_create_token_collects_creation_fee() {
+    let (e, admin, client) = setup();
+    let wasm_hash = e.deployer().upload_contract_wasm(token::WASM);
+    client.initialize(&admin, &wasm_hash);
+
+    let treasury = Address::generate(&e);
+    let token_admin = Address::generate(&e);
+    let fee_token = setup_fee_token(&e, &token_admin, 1_000);
+
+    client.set_treasury(&treasury);
+    client.set_creation_fee(&125);
+    client.set_fee_token(&fee_token);
+
+    let fee_token_client = TokenClient::new(&e, &fee_token);
+    let payer_balance_before = fee_token_client.balance(&token_admin);
+    let treasury_balance_before = fee_token_client.balance(&treasury);
+
+    let salt = BytesN::from_array(&e, &[9; 32]);
+    let decimal = 7;
+    let name = String::from_str(&e, "Fee Token");
+    let symbol = String::from_str(&e, "FEE");
+
+    let token_address = client.create_token(&salt, &token_admin, &decimal, &name, &symbol);
+
+    assert_eq!(fee_token_client.balance(&token_admin), payer_balance_before - 125);
+    assert_eq!(fee_token_client.balance(&treasury), treasury_balance_before + 125);
+
+    let token_client = token::Client::new(&e, &token_address);
+    assert_eq!(token_client.balance(&token_admin), 0);
 }
 
 // --- Bug condition exploration tests ---

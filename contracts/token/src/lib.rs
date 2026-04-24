@@ -8,7 +8,7 @@
 mod events;
 
 use soroban_sdk::token::TokenInterface;
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Symbol};
 
 #[contracttype]
 #[derive(Clone)]
@@ -21,7 +21,9 @@ pub enum DataKey {
     Decimals,
     Supply,
     MetadataHash,
+    MetadataResolver,
     FeeConfig,
+    MintDelegate(Address, Address), // (owner, delegate)
 }
 
 #[contracttype]
@@ -30,6 +32,14 @@ pub struct FeeConfig {
     pub enabled: bool,
     pub fee_bps: u32, // Basis points (100 = 1%, 1000 = 10%)
     pub treasury: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MintDelegate {
+    pub limit: i128,        // Maximum tokens this delegate may mint on owner's behalf
+    pub minted: i128,       // Running total already minted through this delegation
+    pub sponsor: Option<Address>, // If Some, this address covers the protocol fee
 }
 
 #[contract]
@@ -114,15 +124,31 @@ impl SoroMintToken {
         events::emit_ownership_transfer(&e, &admin, &new_admin);
     }
 
+    /// Legacy method to set metadata hash directly. Preserved for v1 compatibility.
     pub fn set_metadata_hash(e: Env, hash: String) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().instance().set(&DataKey::MetadataHash, &hash);
-        // Using a simpler version of metadata update event for hash
-        // events::emit_metadata_updated(&e, &admin, &hash); // This was in old code, but let's stick to update_metadata
     }
 
+    /// Sets a resolver contract address that will provide the metadata hash.
+    /// This decouples metadata storage from the core token contract.
+    pub fn set_metadata_resolver(e: Env, resolver: Address) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::MetadataResolver, &resolver);
+    }
+
+    /// Retrieves the metadata hash. Priorities the resolver if set, 
+    /// otherwise falls back to the locally stored hash.
     pub fn metadata_hash(e: Env) -> Option<String> {
+        if let Some(resolver) = e.storage().instance().get::<Address>(&DataKey::MetadataResolver) {
+            return e.invoke_contract::<Option<String>>(
+                &resolver,
+                &Symbol::new(&e, "get_metadata_hash"),
+                soroban_sdk::vec![&e],
+            );
+        }
         e.storage().instance().get(&DataKey::MetadataHash)
     }
 
@@ -164,6 +190,126 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Symbol, &new_symbol);
 
         events::emit_metadata_updated(&e, &admin, &old_name, &old_symbol, &new_name, &new_symbol);
+    }
+
+    /// Grants `delegate` permission to mint up to `limit` tokens on behalf of `owner`.
+    /// An optional `sponsor` address can be set to absorb any protocol fee instead of the owner.
+    ///
+    /// # Authorization
+    /// Requires `owner` to authorize.
+    pub fn approve_minter(
+        e: Env,
+        owner: Address,
+        delegate: Address,
+        limit: i128,
+        sponsor: Option<Address>,
+    ) {
+        owner.require_auth();
+        if limit <= 0 { panic!("limit must be positive"); }
+
+        let key = DataKey::MintDelegate(owner.clone(), delegate.clone());
+        let entry = MintDelegate { limit, minted: 0, sponsor };
+        e.storage().persistent().set(&key, &entry);
+
+        events::emit_minter_approved(&e, &owner, &delegate, limit);
+    }
+
+    /// Revokes a previously granted delegation.
+    ///
+    /// # Authorization
+    /// Requires `owner` to authorize.
+    pub fn revoke_minter(e: Env, owner: Address, delegate: Address) {
+        owner.require_auth();
+        let key = DataKey::MintDelegate(owner.clone(), delegate.clone());
+        e.storage().persistent().remove(&key);
+        events::emit_minter_revoked(&e, &owner, &delegate);
+    }
+
+    /// Mints `amount` tokens to `to` using a delegation previously approved by `owner`.
+    /// If the delegation has a sponsor, any protocol fee is charged to the sponsor instead
+    /// of the `owner`. The delegate's running `minted` total is updated; once it reaches
+    /// `limit` the delegation is exhausted and further calls will panic.
+    ///
+    /// # Authorization
+    /// Requires `delegate` to authorize.
+    pub fn delegate_mint(
+        e: Env,
+        delegate: Address,
+        owner: Address,
+        to: Address,
+        amount: i128,
+    ) {
+        soromint_lifecycle::require_not_paused(&e);
+        delegate.require_auth();
+        if amount <= 0 { panic!("mint amount must be positive"); }
+
+        let key = DataKey::MintDelegate(owner.clone(), delegate.clone());
+        let mut entry: MintDelegate = e
+            .storage()
+            .persistent()
+            .get(&key)
+            .expect("no delegation found");
+
+        let new_minted = entry.minted.checked_add(amount).expect("overflow");
+        if new_minted > entry.limit {
+            panic!("delegate mint limit exceeded");
+        }
+
+        // Fee sponsorship logic 
+        // If a sponsor is configured, we temporarily redirect any protocol fee
+        // by crediting the fee from the sponsor's balance instead of the normal
+        // fee deduction path. We do this by pre-funding the treasury from the
+        // sponsor so move_balance sees a covered fee.
+        if let Some(ref sponsor) = entry.sponsor {
+            if let Some(fee_config) = e.storage().instance().get::<_, FeeConfig>(&DataKey::FeeConfig) {
+                if fee_config.enabled && fee_config.fee_bps > 0 {
+                    let fee_amount = amount
+                        .checked_mul(fee_config.fee_bps as i128).unwrap()
+                        .checked_div(10000).unwrap();
+                    if fee_amount > 0 {
+                        // Deduct fee from sponsor, credit treasury
+                        let sponsor_bal = Self::read_balance(&e, sponsor);
+                        if sponsor_bal < fee_amount {
+                            panic!("sponsor has insufficient balance to cover fee");
+                        }
+                        Self::write_balance(&e, sponsor, sponsor_bal - fee_amount);
+                        let treasury_bal = Self::read_balance(&e, &fee_config.treasury);
+                        Self::write_balance(&e, &fee_config.treasury, treasury_bal + fee_amount);
+                        events::emit_fee_collected(&e, sponsor, &fee_config.treasury, fee_amount);
+                        // Mint the FULL amount to recipient (fee already settled above)
+                        let mut balance = Self::read_balance(&e, &to);
+                        balance += amount;
+                        Self::write_balance(&e, &to, balance);
+                        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
+                        supply += amount;
+                        e.storage().instance().set(&DataKey::Supply, &supply);
+                        events::emit_delegate_mint(&e, &delegate, &owner, &to, amount, balance, supply);
+                        entry.minted = new_minted;
+                        e.storage().persistent().set(&key, &entry);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // No sponsor or no fee active — standard mint path
+        let mut balance = Self::read_balance(&e, &to);
+        balance += amount;
+        Self::write_balance(&e, &to, balance);
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
+        supply += amount;
+        e.storage().instance().set(&DataKey::Supply, &supply);
+        events::emit_delegate_mint(&e, &delegate, &owner, &to, amount, balance, supply);
+
+        entry.minted = new_minted;
+        e.storage().persistent().set(&key, &entry);
+    }
+
+    /// Returns the current delegation record, if any.
+    pub fn mint_delegate(e: Env, owner: Address, delegate: Address) -> Option<MintDelegate> {
+        e.storage()
+            .persistent()
+            .get(&DataKey::MintDelegate(owner, delegate))
     }
 }
 

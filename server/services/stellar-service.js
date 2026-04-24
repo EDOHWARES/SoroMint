@@ -235,11 +235,90 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
   };
 };
 
+/**
+ * @title setContractMetadataHash
+ * @notice Updates the metadata hash on a SoroMint token contract using the admin key.
+ * @param {string} contractId - The Stellar contract address
+ * @param {string} metadataHash - The IPFS CID or hash to store
+ * @returns {Promise<Object>} The transaction result
+ */
+const setContractMetadataHash = async (contractId, metadataHash) => {
+  const env = getEnv();
+  const server = getRpcServer();
+
+  if (!env.ADMIN_SECRET_KEY) {
+    logger.warn('ADMIN_SECRET_KEY not configured. Skipping set_metadata_hash invocation on contract', { contractId });
+    return { success: false, error: 'No admin key configured' };
+  }
+
+  try {
+    const adminKeypair = StrKey.isValidEd25519SecretSeed(env.ADMIN_SECRET_KEY) 
+      ? require('@stellar/stellar-sdk').Keypair.fromSecret(env.ADMIN_SECRET_KEY)
+      : null;
+      
+    if (!adminKeypair) {
+      throw new Error('Invalid ADMIN_SECRET_KEY');
+    }
+
+    const account = await server.execute((s) => s.getAccount(adminKeypair.publicKey()));
+
+    const contract = new Contract(contractId);
+    
+    // Note: The method signature from contract is: set_metadata_hash(e: Env, hash: String)
+    const invokeOp = contract.call(
+      'set_metadata_hash',
+      nativeToScVal(metadataHash, { type: 'string' })
+    );
+
+    const txBuilder = new TransactionBuilder(account, {
+      fee: '1000000',
+      networkPassphrase: env.NETWORK_PASSPHRASE,
+    });
+
+    txBuilder.addOperation(invokeOp);
+    const tx = txBuilder.setTimeout(30).build();
+
+    const simulation = await server.execute((s) => s.simulateTransaction(tx));
+
+    if (rpc.Api.isSimulationError(simulation)) {
+      logger.error('set_metadata_hash simulation failed', {
+        contractId,
+        error: simulation.error,
+      });
+      return { success: false, error: simulation.error };
+    }
+
+    const preparedTx = rpc.assembleTransaction(tx, simulation).build();
+    preparedTx.sign(adminKeypair);
+
+    const sendResult = await server.execute((s) => s.sendTransaction(preparedTx));
+
+    logger.info('set_metadata_hash transaction submitted', {
+      contractId,
+      hash: sendResult.hash,
+      status: sendResult.status,
+    });
+
+    return {
+      success: sendResult.status !== 'ERROR',
+      txHash: sendResult.hash,
+      status: sendResult.status,
+    };
+  } catch (error) {
+    logger.error('Failed to set metadata hash on contract', {
+      contractId,
+      error: error.message,
+    });
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   getRpcServer,
   wrapAsset,
   deployStellarAssetContract,
   FailoverRpcServer,
   submitBatchOperations,
+  setContractMetadataHash,
 };
 
