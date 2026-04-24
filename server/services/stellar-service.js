@@ -1,9 +1,9 @@
-const { 
-  rpc, 
-  StrKey, 
-  Asset, 
-  Operation, 
-  TransactionBuilder, 
+const {
+  rpc,
+  StrKey,
+  Asset,
+  Operation,
+  TransactionBuilder,
   Networks,
   Address,
   Contract,
@@ -92,7 +92,7 @@ const getRpcServer = () => {
   if (failoverServer) return failoverServer;
 
   const env = getEnv();
-  const urls = env.SOROBAN_RPC_URLS 
+  const urls = env.SOROBAN_RPC_URLS
     ? env.SOROBAN_RPC_URLS.split(',').map(u => u.trim()).filter(Boolean)
     : [env.SOROBAN_RPC_URL];
 
@@ -108,10 +108,10 @@ const getRpcServer = () => {
  * @returns {Promise<Asset>} The wrapped asset object.
  */
 const wrapAsset = async (assetCode, assetIssuer) => {
-  const asset = assetCode === 'XLM' 
-    ? Asset.native() 
+  const asset = assetCode === 'XLM'
+    ? Asset.native()
     : new Asset(assetCode, assetIssuer);
-  
+
   // Logic to get the contract ID for the wrapped asset
   // Note: This often requires calling the RPC or using a predictable derivation logic
   console.log(`Wrapping asset: ${assetCode}`);
@@ -150,6 +150,14 @@ const deployStellarAssetContract = async (wasmHash, salt, sourceAccount) => {
 const submitBatchOperations = async (operations, sourcePublicKey) => {
   const server = getRpcServer();
   const env = getEnv();
+
+  const { emitEvent } = require('../utils/socket');
+
+  // Emit initial status
+  emitEvent('transaction_update', {
+    status: 'INITIALIZING',
+    operationCount: operations.length
+  }, sourcePublicKey);
 
   // Fetch source account for sequence number
   const account = await server.execute((s) => s.getAccount(sourcePublicKey));
@@ -195,6 +203,12 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
   const simulation = await server.execute((s) => s.simulateTransaction(tx));
 
   if (rpc.Api.isSimulationError(simulation)) {
+    emitEvent('transaction_update', {
+      status: 'FAILED',
+      error: simulation.error,
+      phase: 'simulation'
+    }, sourcePublicKey);
+
     // Map simulation error back to operations for detailed reporting
     return {
       success: false,
@@ -209,6 +223,11 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
     };
   }
 
+  emitEvent('transaction_update', {
+    status: 'SIMULATED',
+    message: 'Transaction simulation successful'
+  }, sourcePublicKey);
+
   // Assemble the transaction with simulation-derived auth and fee
   const preparedTx = rpc.assembleTransaction(tx, simulation).build();
 
@@ -221,6 +240,12 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
     status: sendResult.status,
     operationCount: operations.length,
   });
+
+  emitEvent('transaction_update', {
+    txHash: sendResult.hash,
+    status: sendResult.status === 'ERROR' ? 'FAILED' : 'SUBMITTED',
+    message: sendResult.status === 'ERROR' ? 'Transaction submission failed' : 'Transaction submitted to network'
+  }, sourcePublicKey);
 
   return {
     success: sendResult.status !== 'ERROR',
