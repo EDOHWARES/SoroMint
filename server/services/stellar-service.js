@@ -167,7 +167,7 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
     if (op.type === 'mint') {
       invokeOp = contract.call(
         'mint',
-        new Address(sourcePublicKey).toScVal(),
+        new Address(op.to || sourcePublicKey).toScVal(),
         nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
       );
     } else if (op.type === 'burn') {

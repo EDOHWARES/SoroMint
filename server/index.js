@@ -40,6 +40,11 @@ const votingRoutes = require('./routes/voting-routes');
 const securityRoutes = require('./routes/security-routes');
 const multiSigRoutes = require('./routes/multisig-routes');
 const vaultRoutes = require('./routes/vault-routes');
+const batchRoutes = require('./routes/batch-routes');
+const referralRoutes = require('./routes/referral-routes');
+const dividendRoutes = require('./routes/dividend-routes');
+const streamingRoutes = require('./routes/streaming-routes');
+const bridgeRoutes = require('./routes/bridge-routes');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -71,6 +76,11 @@ const createApp = ({
   app.use('/api', securityRouter);
   app.use('/api/multisig', multiSigRoutes);
   app.use('/api/vault', vaultRoutes);
+  app.use('/api', batchRoutes);
+  app.use('/api/referrals', referralRoutes);
+  app.use('/api', dividendRoutes);
+  app.use('/api/streaming', streamingRoutes);
+  app.use('/api/bridge', bridgeRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
