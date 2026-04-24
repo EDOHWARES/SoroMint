@@ -9,6 +9,7 @@ members = [
     "contracts/lifecycle",
     "contracts/multisig",
     "contracts/oracle",
+    "contracts/otc_escrow",
     "contracts/ownership",
     "contracts/token",
     "contracts/vault",
