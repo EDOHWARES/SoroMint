@@ -1,6 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+};
 
 #[cfg(test)]
 mod test_access;
@@ -31,7 +33,9 @@ const ROLE_REVOKED: Symbol = symbol_short!("role_rv");
 /// # Panics
 /// Panics if an Admin has already been initialized.
 pub fn initialize_admin(e: &Env, admin: Address) {
-    e.storage().persistent().set(&DataKey::Role(admin.clone(), Role::Admin), &true);
+    e.storage()
+        .persistent()
+        .set(&DataKey::Role(admin.clone(), Role::Admin), &true);
 }
 
 /// Grants a role to a specific address.
@@ -47,12 +51,12 @@ pub fn grant_role(e: Env, granter: Address, user: Address, role: Role) {
     granter.require_auth();
     require_role(&e, granter.clone(), Role::Admin);
 
-    e.storage().persistent().set(&DataKey::Role(user.clone(), role), &true);
+    e.storage()
+        .persistent()
+        .set(&DataKey::Role(user.clone(), role), &true);
 
-    e.events().publish(
-        (ROLE_GRANTED, granter),
-        (user, role as u32)
-    );
+    e.events()
+        .publish((ROLE_GRANTED, granter), (user, role as u32));
 }
 
 /// Revokes a role from a specific address.
@@ -60,12 +64,12 @@ pub fn revoke_role(e: Env, revoker: Address, user: Address, role: Role) {
     revoker.require_auth();
     require_role(&e, revoker.clone(), Role::Admin);
 
-    e.storage().persistent().remove(&DataKey::Role(user.clone(), role));
+    e.storage()
+        .persistent()
+        .remove(&DataKey::Role(user.clone(), role));
 
-    e.events().publish(
-        (ROLE_REVOKED, revoker),
-        (user, role as u32)
-    );
+    e.events()
+        .publish((ROLE_REVOKED, revoker), (user, role as u32));
 }
 
 /// Checks if an address has a specific role.

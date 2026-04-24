@@ -4,7 +4,7 @@ The SoroMint protocol provides standard operational interfaces across its smart 
 
 ## Operational Endpoints
 
-Both the `SoroMintToken` and `TokenFactory` contracts expose the following read-only functions:
+The `SoroMintToken`, `TokenFactory`, `AmmFactory`, and `AmmPool` contracts expose the following read-only functions:
 
 ### `version()`
 Returns the semantic version of the deployed contract.
@@ -19,6 +19,15 @@ Returns the current health or operational status of the contract.
 - **Signature**: `status(e: Env) -> String`
 - **Returns**: A `String` representing the status (e.g., `"alive"`).
 - **Usage**: Used by monitoring dashboards to ensure the contract is responsive and not in a halted or deprecated state.
+
+## AMM Contracts
+
+The AMM layer adds two new contracts:
+
+- `AmmFactory`: deploys and indexes pools for SoroMint-issued tokens paired with configured XLM/USDC quote-token contracts
+- `AmmPool`: manages constant-product liquidity, LP share accounting, and swap execution for a single token pair
+
+See [docs/amm-factory.md](/home/chinonso-peter/Drips/SoroMint/docs/amm-factory.md) for the full interface summary.
 
 ## Metadata Management
 

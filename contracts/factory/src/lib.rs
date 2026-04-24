@@ -4,7 +4,6 @@
  * @description Factory contract for deploying SoroMint token contracts
  * @notice Enables deployment and management of token contracts on Stellar/Soroban
  */
-
 mod factory;
 
 pub use crate::factory::{TokenFactory, TokenFactoryClient};

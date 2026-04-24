@@ -115,7 +115,7 @@ fn test_execute_without_threshold() {
     let args = vec![&env, 0u8];
 
     let tx_id = client.propose_tx(&signer1, &target, &function, &args);
-    
+
     client.execute_tx(&signer1, &tx_id);
 }
 

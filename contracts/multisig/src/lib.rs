@@ -5,7 +5,9 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec, Symbol, BytesN};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Symbol, Vec,
+};
 
 #[contracttype]
 #[derive(Clone)]
@@ -44,7 +46,13 @@ impl MultiSigAdmin {
         e.storage().instance().set(&DataKey::TxCounter, &0u64);
     }
 
-    pub fn propose_tx(e: Env, proposer: Address, target: Address, function: Symbol, args: Vec<u8>) -> u64 {
+    pub fn propose_tx(
+        e: Env,
+        proposer: Address,
+        target: Address,
+        function: Symbol,
+        args: Vec<u8>,
+    ) -> u64 {
         proposer.require_auth();
         Self::require_signer(&e, &proposer);
 
@@ -63,10 +71,13 @@ impl MultiSigAdmin {
             executed: false,
         };
 
-        e.storage().persistent().set(&DataKey::PendingTx(next_id), &tx);
+        e.storage()
+            .persistent()
+            .set(&DataKey::PendingTx(next_id), &tx);
         e.storage().instance().set(&DataKey::TxCounter, &next_id);
 
-        e.events().publish((symbol_short!("tx_prop"),), (next_id, proposer));
+        e.events()
+            .publish((symbol_short!("tx_prop"),), (next_id, proposer));
         next_id
     }
 
@@ -74,7 +85,9 @@ impl MultiSigAdmin {
         signer.require_auth();
         Self::require_signer(&e, &signer);
 
-        let mut tx: PendingTransaction = e.storage().persistent()
+        let mut tx: PendingTransaction = e
+            .storage()
+            .persistent()
             .get(&DataKey::PendingTx(tx_id))
             .expect("transaction not found");
 
@@ -87,16 +100,21 @@ impl MultiSigAdmin {
         }
 
         tx.signatures.push_back(signer.clone());
-        e.storage().persistent().set(&DataKey::PendingTx(tx_id), &tx);
+        e.storage()
+            .persistent()
+            .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events().publish((symbol_short!("tx_appr"),), (tx_id, signer));
+        e.events()
+            .publish((symbol_short!("tx_appr"),), (tx_id, signer));
     }
 
     pub fn execute_tx(e: Env, executor: Address, tx_id: u64) {
         executor.require_auth();
         Self::require_signer(&e, &executor);
 
-        let mut tx: PendingTransaction = e.storage().persistent()
+        let mut tx: PendingTransaction = e
+            .storage()
+            .persistent()
             .get(&DataKey::PendingTx(tx_id))
             .expect("transaction not found");
 
@@ -110,13 +128,17 @@ impl MultiSigAdmin {
         }
 
         tx.executed = true;
-        e.storage().persistent().set(&DataKey::PendingTx(tx_id), &tx);
+        e.storage()
+            .persistent()
+            .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events().publish((symbol_short!("tx_exec"),), (tx_id, executor));
+        e.events()
+            .publish((symbol_short!("tx_exec"),), (tx_id, executor));
     }
 
     pub fn get_tx(e: Env, tx_id: u64) -> PendingTransaction {
-        e.storage().persistent()
+        e.storage()
+            .persistent()
             .get(&DataKey::PendingTx(tx_id))
             .expect("transaction not found")
     }

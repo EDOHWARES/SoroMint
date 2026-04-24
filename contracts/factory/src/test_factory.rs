@@ -194,7 +194,14 @@ fn test_v2_create_token_exists() {
     let symbol = String::from_str(&e, "V2T");
     let metadata_hash = String::from_str(&e, "QmTestHash");
 
-    let token_address = client.v2_create_token(&salt, &token_admin, &decimal, &name, &symbol, &metadata_hash);
+    let token_address = client.v2_create_token(
+        &salt,
+        &token_admin,
+        &decimal,
+        &name,
+        &symbol,
+        &metadata_hash,
+    );
     // Should return a valid address (non-zero)
     let _ = token_address; // address is valid if we reach here without panic
 }

@@ -46,7 +46,10 @@ pub fn unpause(e: Env, admin: Address) {
 
 /// Checks if the contract is currently paused.
 pub fn is_paused(e: &Env) -> bool {
-    e.storage().persistent().get(&DataKey::IsPaused).unwrap_or(false)
+    e.storage()
+        .persistent()
+        .get(&DataKey::IsPaused)
+        .unwrap_or(false)
 }
 
 /// Asserts that the contract is NOT paused.

@@ -49,30 +49,52 @@ pub struct SoroMintToken;
 impl SoroMintToken {
     /// Internal helpers
     fn read_balance(e: &Env, id: &Address) -> i128 {
-        e.storage().persistent().get(&DataKey::Balance(id.clone())).unwrap_or(0)
+        e.storage()
+            .persistent()
+            .get(&DataKey::Balance(id.clone()))
+            .unwrap_or(0)
     }
 
     fn read_allowance(e: &Env, from: &Address, spender: &Address) -> i128 {
-        e.storage().persistent().get(&DataKey::Allowance(from.clone(), spender.clone())).unwrap_or(0)
+        e.storage()
+            .persistent()
+            .get(&DataKey::Allowance(from.clone(), spender.clone()))
+            .unwrap_or(0)
     }
 
     fn write_balance(e: &Env, id: &Address, balance: i128) {
-        e.storage().persistent().set(&DataKey::Balance(id.clone()), &balance);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Balance(id.clone()), &balance);
     }
 
     fn write_allowance(e: &Env, from: &Address, spender: &Address, amount: i128) {
-        e.storage().persistent().set(&DataKey::Allowance(from.clone(), spender.clone()), &amount);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Allowance(from.clone(), spender.clone()), &amount);
     }
 
     fn move_balance(e: &Env, from: &Address, to: &Address, amount: i128) -> (i128, i128) {
         let from_balance = Self::read_balance(e, from);
-        if from_balance < amount { panic!("insufficient balance"); }
-        if from == to { return (from_balance, from_balance); }
+        if from_balance < amount {
+            panic!("insufficient balance");
+        }
+        if from == to {
+            return (from_balance, from_balance);
+        }
 
         let mut amount_to_receive = amount;
-        if let Some(fee_config) = e.storage().instance().get::<_, FeeConfig>(&DataKey::FeeConfig) {
+        if let Some(fee_config) = e
+            .storage()
+            .instance()
+            .get::<_, FeeConfig>(&DataKey::FeeConfig)
+        {
             if fee_config.enabled && fee_config.fee_bps > 0 {
-                let fee_amount = amount.checked_mul(fee_config.fee_bps as i128).unwrap().checked_div(10000).unwrap();
+                let fee_amount = amount
+                    .checked_mul(fee_config.fee_bps as i128)
+                    .unwrap()
+                    .checked_div(10000)
+                    .unwrap();
                 if fee_amount > 0 {
                     let treasury_balance = Self::read_balance(e, &fee_config.treasury);
                     Self::write_balance(e, &fee_config.treasury, treasury_balance + fee_amount);
@@ -91,7 +113,9 @@ impl SoroMintToken {
 
     /// Admin Functions
     pub fn initialize(e: Env, admin: Address, decimals: u32, name: String, symbol: String) {
-        if e.storage().instance().has(&DataKey::Admin) { panic!("already initialized"); }
+        if e.storage().instance().has(&DataKey::Admin) {
+            panic!("already initialized");
+        }
         e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::Supply, &0i128);
         e.storage().instance().set(&DataKey::Name, &name);
@@ -103,7 +127,9 @@ impl SoroMintToken {
 
     pub fn mint(e: Env, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
-        if amount <= 0 { panic!("mint amount must be positive"); }
+        if amount <= 0 {
+            panic!("mint amount must be positive");
+        }
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
@@ -155,8 +181,14 @@ impl SoroMintToken {
     pub fn set_fee_config(e: Env, enabled: bool, fee_bps: u32, treasury: Address) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
-        if fee_bps > 1000 { panic!("fee percentage exceeds maximum cap of 10%"); }
-        let config = FeeConfig { enabled, fee_bps, treasury: treasury.clone() };
+        if fee_bps > 1000 {
+            panic!("fee percentage exceeds maximum cap of 10%");
+        }
+        let config = FeeConfig {
+            enabled,
+            fee_bps,
+            treasury: treasury.clone(),
+        };
         e.storage().instance().set(&DataKey::FeeConfig, &config);
         events::emit_fee_config_updated(&e, &admin, enabled, fee_bps, &treasury);
     }
@@ -165,9 +197,15 @@ impl SoroMintToken {
         e.storage().instance().get(&DataKey::FeeConfig)
     }
 
-    pub fn version(e: Env) -> String { String::from_str(&e, "2.0.0") }
-    pub fn status(e: Env) -> String { String::from_str(&e, "alive") }
-    pub fn supply(e: Env) -> i128 { e.storage().instance().get(&DataKey::Supply).unwrap_or(0) }
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "2.0.0")
+    }
+    pub fn status(e: Env) -> String {
+        String::from_str(&e, "alive")
+    }
+    pub fn supply(e: Env) -> i128 {
+        e.storage().instance().get(&DataKey::Supply).unwrap_or(0)
+    }
 
     pub fn pause(e: Env) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
@@ -315,27 +353,39 @@ impl SoroMintToken {
 
 #[contractimpl]
 impl TokenInterface for SoroMintToken {
-    fn allowance(e: Env, from: Address, spender: Address) -> i128 { Self::read_allowance(&e, &from, &spender) }
+    fn allowance(e: Env, from: Address, spender: Address) -> i128 {
+        Self::read_allowance(&e, &from, &spender)
+    }
     fn approve(e: Env, from: Address, spender: Address, amount: i128, _exp: u32) {
         from.require_auth();
-        if amount < 0 { panic!("approval amount must be non-negative"); }
+        if amount < 0 {
+            panic!("approval amount must be non-negative");
+        }
         Self::write_allowance(&e, &from, &spender, amount);
         events::emit_approve(&e, &from, &spender, amount);
     }
-    fn balance(e: Env, id: Address) -> i128 { Self::read_balance(&e, &id) }
+    fn balance(e: Env, id: Address) -> i128 {
+        Self::read_balance(&e, &id)
+    }
     fn transfer(e: Env, from: Address, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         from.require_auth();
-        if amount <= 0 { panic!("transfer amount must be positive"); }
+        if amount <= 0 {
+            panic!("transfer amount must be positive");
+        }
         let (nf, nt) = Self::move_balance(&e, &from, &to, amount);
         events::emit_transfer(&e, &from, &to, amount, nf, nt);
     }
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         spender.require_auth();
-        if amount <= 0 { panic!("transfer amount must be positive"); }
+        if amount <= 0 {
+            panic!("transfer amount must be positive");
+        }
         let al = Self::read_allowance(&e, &from, &spender);
-        if al < amount { panic!("insufficient allowance"); }
+        if al < amount {
+            panic!("insufficient allowance");
+        }
         let (nf, nt) = Self::move_balance(&e, &from, &to, amount);
         Self::write_allowance(&e, &from, &spender, al - amount);
         events::emit_transfer_from(&e, &spender, &from, &to, amount, al - amount, nf, nt);
@@ -343,9 +393,13 @@ impl TokenInterface for SoroMintToken {
     fn burn(e: Env, from: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         from.require_auth();
-        if amount <= 0 { panic!("burn amount must be positive"); }
+        if amount <= 0 {
+            panic!("burn amount must be positive");
+        }
         let bal = Self::read_balance(&e, &from);
-        if bal < amount { panic!("insufficient balance"); }
+        if bal < amount {
+            panic!("insufficient balance");
+        }
         Self::write_balance(&e, &from, bal - amount);
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
         supply -= amount;
@@ -356,11 +410,17 @@ impl TokenInterface for SoroMintToken {
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         spender.require_auth();
-        if amount <= 0 { panic!("burn amount must be positive"); }
+        if amount <= 0 {
+            panic!("burn amount must be positive");
+        }
         let al = Self::read_allowance(&e, &from, &spender);
-        if al < amount { panic!("insufficient allowance"); }
+        if al < amount {
+            panic!("insufficient allowance");
+        }
         let bal = Self::read_balance(&e, &from);
-        if bal < amount { panic!("insufficient balance"); }
+        if bal < amount {
+            panic!("insufficient balance");
+        }
         Self::write_allowance(&e, &from, &spender, al - amount);
         Self::write_balance(&e, &from, bal - amount);
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
@@ -370,7 +430,19 @@ impl TokenInterface for SoroMintToken {
         events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
     }
 
-    fn decimals(e: Env) -> u32 { e.storage().instance().get(&DataKey::Decimals).unwrap_or(7) }
-    fn name(e: Env) -> String { e.storage().instance().get(&DataKey::Name).unwrap_or_else(|| String::from_str(&e, "SoroMint")) }
-    fn symbol(e: Env) -> String { e.storage().instance().get(&DataKey::Symbol).unwrap_or_else(|| String::from_str(&e, "SMT")) }
+    fn decimals(e: Env) -> u32 {
+        e.storage().instance().get(&DataKey::Decimals).unwrap_or(7)
+    }
+    fn name(e: Env) -> String {
+        e.storage()
+            .instance()
+            .get(&DataKey::Name)
+            .unwrap_or_else(|| String::from_str(&e, "SoroMint"))
+    }
+    fn symbol(e: Env) -> String {
+        e.storage()
+            .instance()
+            .get(&DataKey::Symbol)
+            .unwrap_or_else(|| String::from_str(&e, "SMT"))
+    }
 }
