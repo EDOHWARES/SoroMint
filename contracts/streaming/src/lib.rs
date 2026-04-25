@@ -5,7 +5,7 @@
 
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, String};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,11 +25,51 @@ pub enum DataKey {
     NextStreamId,
 }
 
+/// Contract metadata structure for explorer display
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ContractMetadata {
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub logo_url: String,
+}
+
 #[contract]
 pub struct StreamingPayments;
 
 #[contractimpl]
 impl StreamingPayments {
+    /// Get contract metadata (name, description, version, logo_url)
+    pub fn get_metadata(e: Env) -> ContractMetadata {
+        ContractMetadata {
+            name: String::from_str(&e, "SoroMint Streaming Payments"),
+            description: String::from_str(&e, "A Soroban-based streaming payments protocol enabling real-time token transfers between users."),
+            version: String::from_str(&e, "1.0.0"),
+            logo_url: String::from_str(&e, "https://soromint.app/logo.png"),
+        }
+    }
+    
+    /// Get contract name
+    pub fn name(e: Env) -> String {
+        String::from_str(&e, "SoroMint Streaming Payments")
+    }
+    
+    /// Get contract description
+    pub fn description(e: Env) -> String {
+        String::from_str(&e, "A Soroban-based streaming payments protocol enabling real-time token transfers between users.")
+    }
+    
+    /// Get contract version
+    pub fn version(e: Env) -> String {
+        String::from_str(&e, "1.0.0")
+    }
+    
+    /// Get contract logo URL
+    pub fn logo_url(e: Env) -> String {
+        String::from_str(&e, "https://soromint.app/logo.png")
+    }
+    
     /// Create a new payment stream
     pub fn create_stream(
         e: Env,
@@ -230,5 +270,25 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+    
+    #[test]
+    fn test_metadata() {
+        let e = Env::default();
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        // Test get_metadata() returns all fields
+        let metadata = client.get_metadata();
+        assert_eq!(metadata.name, "SoroMint Streaming Payments");
+        assert_eq!(metadata.description, "A Soroban-based streaming payments protocol enabling real-time token transfers between users.");
+        assert_eq!(metadata.version, "1.0.0");
+        assert_eq!(metadata.logo_url, "https://soromint.app/logo.png");
+        
+        // Test individual getters
+        assert_eq!(client.name(), "SoroMint Streaming Payments");
+        assert_eq!(client.description(), "A Soroban-based streaming payments protocol enabling real-time token transfers between users.");
+        assert_eq!(client.version(), "1.0.0");
+        assert_eq!(client.logo_url(), "https://soromint.app/logo.png");
     }
 }

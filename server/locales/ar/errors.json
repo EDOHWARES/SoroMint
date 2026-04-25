@@ -1,0 +1,200 @@
+{
+  "errors": {
+    "common": {
+      "unexpected": "حدث خطأ غير متوقع",
+      "invalidRequest": "طلب غير صالح",
+      "notFound": "المورد غير موجود",
+      "forbidden": "ممنوع الوصول",
+      "unauthorized": "المصادقة مطلوبة",
+      "validationFailed": "فشل التحقق",
+      "duplicate": "إدخال مكرر",
+      "invalidId": "معرف غير صالح",
+      "syntaxError": "نص الطلب غير صالح",
+      "routeNotFound": "المسار غير موجود",
+      "internalError": "خطأ داخلي في الخادم"
+    },
+    "auth": {
+      "required": "المصادقة مطلوبة. يرجى تقديم رمز JWT صالح.",
+      "userNotFound": "المستخدم غير موجود. قد يكون الرمز غير صالح.",
+      "accountInactive": "الحساب {status}. يرجى الاتصال بالدعم.",
+      "tokenExpired": "انتهت صلاحية الرمز. يرجى تسجيل الدخول مرة أخرى.",
+      "invalidToken": "تنسيق رمز غير صالح.",
+      "tokenNotYetValid": "الرمز غير صالح حتى الآن.",
+      "authFailed": "فشلت المصادقة.",
+      "invalidPublicKey": "تنسيق مفتاح عام Stellar غير صالح. يجب أن يكون عنوان G صالح (مفتاح عام Ed25519)",
+      "publicKeyRequired": "المفتاح العام مطلوب",
+      "userExists": "المستخدم به هذا المفتاح العام مسجل بالفعل",
+      "usernameLength": "يجب أن يكون اسم المستخدم بين 3 و 50 حرفاً",
+      "userNotFoundRegister": "المستخدم غير موجود. يرجى التسجيل أولاً.",
+      "signatureMismatch": "عدم تطابق المفتاح العام بين نص الطلب والتحدي الموقع.",
+      "challengeRequired": "challengeToken مطلوب. اتصل أولاً بـ GET /api/auth/challenge?publicKey=<مفتاحك>",
+      "signedXdrRequired": "signedXDR مطلوب. وقّع معاملة التحدي بمحفظة Stellar الخاصة بك.",
+      "authFailedDetailed": "فشلت المصادقة: {error}",
+      "keyAlreadyLinked": "هذا المفتاح العام Stellar مرتبط بالفعل بحساب آخر",
+      "validPublicKeyRequired": "مفتاح عام Stellar صالح مطلوب"
+    },
+    "token": {
+      "securityScanRequired": "فحص الأمان مطلوب قبل النشر. يرجى إكمال فحص الأمان أولاً.",
+      "scanNotFound": "نتيجة فحص الأمان غير موجودة: {scanId}. يرجى إكمال فحص الأمان أولاً.",
+      "scanNotOwned": "scanId المقدم لا ينتمي إلى حسابك.",
+      "deploymentBlocked": "النشر محظور: فحص الأمان ({scanId}) وجد ثغرات.",
+      "tokenNotFound": "الرمز غير موجود",
+      "zipOnly": "يسمح فقط بملفات ZIP",
+      "zipRequired": "ملف ZIP مطلوب",
+      "fieldsRequired": "name و symbol و contractId و sourcePublicKey مطلوبة",
+      "contractAlreadyRegistered": "معرف العقد مسجل بالفعل من قبل مالك مختلف",
+      "zipProcessingFailed": "فشل معالجة ZIP: {error}",
+      "blockchainFailed": "فشلت المعاملة على السلسلة: {error}"
+    },
+    "apiKey": {
+      "required": "مفتاح API مطلوب. قدمه عبر الرأس X-API-Key.",
+      "invalid": "مفتاح API غير صالح.",
+      "revoked": "مفتاح API ملغى.",
+      "expired": "مفتاح API منتهي الصلاحية.",
+      "missingScopes": "مفتاح API يفتقد إلى النطاقات المطلوبة: {scopes}",
+      "notFound": "مفتاح API غير موجود"
+    },
+    "rateLimit": {
+      "exceeded": "طلبات كثيرة جداً. يرجى المحاولة لاحقاً."
+    },
+    "validation": {
+      "invalidDate": "تاريخ غير صالح",
+      "invalidTimestamp": "الطابع الزمني من/إلى غير صالح",
+      "invalidParameter": "معلمة غير صالحة: {param}",
+      "contractIdRequired": "معلمة الاستعلام contractId مطلوبة",
+      "holderBalanceRequired": "معلمات الاستعلام contractId و holderBalance مطلوبة",
+      "invalidAddress": "holderAddress يجب أن يكون عنوان Stellar صالح بطول 56 حرفاً",
+      "dividendParamsRequired": "contractId و depositorAddress و amountStroops و totalSupply مطلوبة",
+      "positiveAmount": "amountStroops يجب أن يكون عدداً صحيحاً موجباً",
+      "positiveTotal": "totalSupply يجب أن يكون عدداً صحيحاً موجباً",
+      "opsRange": "ops يجب أن يكون عدداً صحيحاً بين 1 و 100",
+      "transactionXdrRequired": "transactionXDR مطلوب",
+      "feePositive": "feeStroops يجب أن يكون عدداً صحيحاً موجباً",
+      "notEligible": "المعاملة غير مؤهلة للرعاية: {reasons}",
+      "sponsorshipFailed": "فشل تقديم المعاملة برعاية",
+      "searchQueryTooLong": "q يجب ألا يتجاوز 50 حرفاً",
+      "missingFields": "حقول مطلوبة مفقودة",
+      "invalidFunction": "دالة هدف غير صالحة",
+      "invalidBase64": "بيانات WASM base64 غير صالحة: {error}",
+      "invalidStellarAddress": "contractId يجب أن يكون عنوان Stellar C صالح (56 حرفاً، يبدأ بـ C)",
+      "invalidPublicKeyFormat": "publicKey يجب أن يكون عنوان Stellar G صالح (56 حرفاً، يبدأ بـ G)",
+      "budgetNonNegative": "requestedBudgetStroops يجب أن يكون عدداً صحيحاً غير سالب"
+    },
+    "proposal": {
+      "notFound": "الاقتراح غير موجود",
+      "notActive": "الاقتراح غير نشط",
+      "expired": "الاقتراح منتهي الصلاحية",
+      "alreadyVoted": "صوت بالفعل",
+      "cannotExecute": "لا يمكن تنفيذ الاقتراح",
+      "invalidStatus": "حالة اقتراح غير صالحة"
+    },
+    "dao": {
+      "tokenNotFound": "الرمز غير موجود"
+    },
+    "multisig": {
+      "transactionNotFound": "المعاملة غير موجودة",
+      "cannotExecute": "لا يمكن تنفيذ المعاملة",
+      "alreadySigned": "موقّع بالفعل من قبل هذا الموقّع",
+      "transactionStatus": "المعاملة {status}"
+    },
+    "vault": {
+      "missingFields": "حقول مطلوبة مفقودة"
+    },
+    "nft": {
+      "zipOnly": "يسمح فقط بملفات ZIP",
+      "zipRequired": "ملف ZIP مطلوب",
+      "collectionNotFound": "collection.json غير موجود في ZIP",
+      "invalidJson": "collection.json ليس JSON صالح",
+      "invalidArray": "collection.json يجب أن يحتوي على مصفوفة من كائنات بيانات NFT الوصفية",
+      "missingImage": "كل عنصر وصفي يجب أن يحتوي على id وحقل image",
+      "imageNotFound": "الصورة {image} غير موجودة في ZIP لـ NFT {id}",
+      "contractAlreadyRegistered": "معرف العقد مسجل بالفعل من قبل مالك مختلف"
+    },
+    "security": {
+      "scanNotFound": "نتيجة الفحص غير موجودة: {scanId}",
+      "permissionDenied": "ليس لديك إذن لعرض نتيجة الفحص هذه.",
+      "deletePermissionDenied": "ليس لديك إذن لحذف نتيجة الفحص هذه.",
+      "invalidWasm": "بيانات WASM base64 غير صالحة: {error}",
+      "emptyBuffer": "الذاكرة المؤقتة المفككة فارغة"
+    },
+    "sponsorship": {
+      "disabled": "الرعاية غير مفعلة على هذا الخادم",
+      "inactiveAccount": "فقط المستخدمون النشطون يمكنهم طلب رعاية",
+      "submissionFailed": "فشل تقديم المعاملة برعاية"
+    },
+    "fee": {
+      "horizonUnavailable": "تعذر جلب إحصائيات الرسوم من Horizon"
+    },
+    "ipfs": {
+      "pinFailed": "فشل تثبيت IPFS: {error}",
+      "jsonPinFailed": "فشل تثبيت JSON IPFS: {error}",
+      "invalidBase64": "تنسيق base64 غير صالح"
+    },
+    "cors": {
+      "invalidOrigin": "رأس Origin غير صالح",
+      "originDenied": "الأصل غير مسموح به من قبل سياسة CORS"
+    },
+    "batch": {
+      "lockFailed": "الحساب مشغول حالياً بمعالجة معاملة أخرى. يرجى المحاولة لاحقاً."
+    },
+    "streaming": {
+      "pollingTimeout": "انتهاء وقت استقصاء المعاملة"
+    },
+    "delegation": {
+      "approveFailed": "فشل الموافقة على الصانع: {error}",
+      "revokeFailed": "فشل إبطال الصانع: {error}",
+      "executeFailed": "فشل تنفيذ السك المفوّض: {error}",
+      "getFailed": "فشل الحصول على التفويض: {error}",
+      "getByOwnerFailed": "فشل الحصول على التفويضات حسب المالك: {error}",
+      "getByDelegateFailed": "فشل الحصول على التفويضات حسب المفوّض: {error}",
+      "getActiveFailed": "فشل الحصول على التفويضات النشطة: {error}",
+      "statsFailed": "فشل الحصول على إحصائيات التفويض: {error}",
+      "mintCheckFailed": "فشل التحقق من إمكانية السك: {error}"
+    },
+    "recovery": {
+      "backupError": "BACKUP_ENCRYPTION_PASSWORD غير مconfigured - لا يمكن إجراء اختبار الاسترداد",
+      "restoreFailed": "فشل الاستعادة",
+      "invalidGzip": "gzip غير صالح"
+    },
+    "wasm": {
+      "scanError": "الرفض: {error}",
+      "transactionFailed": "فشلت المعاملة على السلسلة: {error}",
+      "timeout": "انتهاء وقت انتظار المعاملة أو عالقة في حالة غير معروفة",
+      "pastScheduling": "لا يمكن جدولة سك في الماضي."
+    },
+    "mintQueue": {
+      "submissionRejected": "الرفض: {error}",
+      "transactionFailed": "فشلت المعاملة على السلسلة: {error}",
+      "transactionTimeout": "انتهاء وقت انتظار المعاملة أو عالقة في حالة غير معروفة"
+    },
+    "bridge": {
+      "validationError": "خطأ في التحقق من الجسر",
+      "rpcFailed": "فشل طلب RPC EVM مع HTTP {status}",
+      "rpcError": "خطأ RPC EVM غير معروف",
+      "relayFailed": "نقطة نهاية جسر التكرار ردت بـ HTTP {status}",
+      "notConfigured": "جسر التكرار غير مهيأ بشكل صحيح"
+    },
+    "stellar": {
+      "noRpcUrls": "لم يتم توفير عناوين URL RPC لـ FailoverRpcServer",
+      "feeStatsFailed": "طلب fee_stats من Horizon فشل: {status} {statusText}"
+    },
+    "config": {
+      "envNotConfigured": "متغير البيئة {variable} غير مconfigured",
+      "corsOriginRequired": "يجب أن يكون أصل CORS نصاً غير فارغ",
+      "invalidCorsOrigin": "أصل CORS غير صالح: {origin}",
+      "corsProtocol": "يجب أن يستخدم أصل CORS http أو https: {origin}",
+      "corsBareOrigin": "يجب أن يكون أصل CORS أصلاً مجرداً بدون مسار أو استعلام أو hash أو بيانات اعتماد: {origin}",
+      "corsStringRequired": "CORS_ALLOWED_ORIGINS يجب أن يكون نصاً مفصولاً بفواصل",
+      "validationError": "خطأ في التحقق: {errors}"
+    },
+    "event": {
+      "onEventRequired": "معالج onEvent مطلوب"
+    },
+    "lock": {
+      "redisNotConnected": "ذاكرة التخزين المؤقت Redis غير متصلة، لا يمكن الحصول على قفل"
+    },
+    "simulation": {
+      "failed": "فشلت المحاكاة: {error}"
+    }
+  }
+}

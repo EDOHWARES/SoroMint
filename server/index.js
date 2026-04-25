@@ -20,6 +20,7 @@ const { createCorsOptionsDelegate } = require('./config/cors-config');
 
 const { initSentry } = require('./config/sentry');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
+const { createI18nMiddleware } = require('./middleware/i18n');
 const {
   logger,
   correlationIdMiddleware,
@@ -64,6 +65,10 @@ const createApp = ({
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
   app.use(express.json());
+
+  // Initialize i18n middleware (must be before routes to set req.t)
+  const i18nMiddleware = createI18nMiddleware();
+  app.use(i18nMiddleware);
 
   setupSwagger(app);
 
