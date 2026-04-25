@@ -12,6 +12,59 @@ const DailyRotateFile = require('winston-daily-rotate-file');
 const crypto = require('crypto');
 const path = require('path');
 
+const DEFAULT_SUCCESS_HTTP_LOG_SAMPLE_RATE =
+  process.env.NODE_ENV === 'production' ? 0.1 : 1;
+let cachedHttpRequestLoggingConfigKey = null;
+let cachedHttpRequestLoggingConfig = null;
+
+const parseSampleRate = (value, fallback) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(parsed, 0), 1);
+};
+
+const parseBoolean = (value, fallback) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  return value !== 'false' && value !== '0';
+};
+
+const getHttpRequestLoggingConfig = () => {
+  const configKey = [
+    process.env.NODE_ENV || '',
+    process.env.HTTP_LOG_SUCCESS_SAMPLE_RATE || '',
+    process.env.HTTP_LOG_SUCCESS_INCLUDE_CLIENT_METADATA || '',
+  ].join('|');
+
+  if (configKey !== cachedHttpRequestLoggingConfigKey) {
+    cachedHttpRequestLoggingConfigKey = configKey;
+    cachedHttpRequestLoggingConfig = Object.freeze({
+      successSampleRate: parseSampleRate(
+        process.env.HTTP_LOG_SUCCESS_SAMPLE_RATE,
+        DEFAULT_SUCCESS_HTTP_LOG_SAMPLE_RATE
+      ),
+      includeClientMetadataForSuccess: parseBoolean(
+        process.env.HTTP_LOG_SUCCESS_INCLUDE_CLIENT_METADATA,
+        true
+      ),
+    });
+  }
+
+  return cachedHttpRequestLoggingConfig;
+};
+
+const shouldLogSuccessfulRequest = (sampleRate) =>
+  sampleRate >= 1 || (sampleRate > 0 && Math.random() < sampleRate);
+
 /**
  * @notice Custom format for structured logging
  * @dev Creates a consistent log format with timestamp, level, message, and metadata
@@ -134,32 +187,55 @@ const correlationIdMiddleware = (req, res, next) => {
  * app.use(httpLoggerMiddleware);
  */
 const httpLoggerMiddleware = (req, res, next) => {
-  const startTime = Date.now();
-  const correlationId = req.correlationId;
-  
-  // Log when response is finished
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
+  const {
+    successSampleRate,
+    includeClientMetadataForSuccess,
+  } = getHttpRequestLoggingConfig();
+  const shouldTrackSuccessfulRequests = successSampleRate > 0;
+  const startTimeMs = shouldTrackSuccessfulRequests ? Date.now() : null;
+
+  const addFinishListener = typeof res.once === 'function' ? res.once.bind(res) : res.on.bind(res);
+
+  addFinishListener('finish', () => {
+    const statusCode = res.statusCode;
+    const isSuccessfulResponse = statusCode < 400;
+
+    if (
+      isSuccessfulResponse &&
+      !shouldLogSuccessfulRequest(successSampleRate)
+    ) {
+      return;
+    }
+
     const logData = {
-      correlationId,
+      correlationId: req.correlationId,
       method: req.method,
       url: req.originalUrl,
-      statusCode: res.statusCode,
-      durationMs: duration,
-      ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('user-agent')
+      statusCode,
     };
-    
-    // Log level based on status code
-    if (res.statusCode >= 500) {
+
+    if (startTimeMs !== null) {
+      logData.durationMs = Date.now() - startTimeMs;
+    }
+
+    if (!isSuccessfulResponse || includeClientMetadataForSuccess) {
+      logData.ip = req.ip || req.connection?.remoteAddress;
+      logData.userAgent = req.get('user-agent');
+    }
+
+    if (isSuccessfulResponse && successSampleRate < 1) {
+      logData.sampleRate = successSampleRate;
+    }
+
+    if (statusCode >= 500) {
       logger.error('HTTP Request', logData);
-    } else if (res.statusCode >= 400) {
+    } else if (statusCode >= 400) {
       logger.warn('HTTP Request', logData);
     } else {
       logger.http('HTTP Request', logData);
     }
   });
-  
+
   next();
 };
 
@@ -235,6 +311,8 @@ module.exports = {
   generateCorrelationId,
   correlationIdMiddleware,
   httpLoggerMiddleware,
+  getHttpRequestLoggingConfig,
+  shouldLogSuccessfulRequest,
   logStartupInfo,
   logShutdownInfo,
   logDatabaseConnection,

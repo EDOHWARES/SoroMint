@@ -6,6 +6,35 @@ const { sampler } = require('../services/resource-sampler');
 const { version } = require('../package.json');
 
 const router = express.Router();
+const DATABASE_CONNECTED_STATE = 1;
+const STATIC_DATABASE_SERVICES = Object.freeze({
+  up: Object.freeze({ status: 'up', connection: 'connected' }),
+  down: Object.freeze({ status: 'down', connection: 'disconnected' }),
+});
+const NOT_CONFIGURED_NETWORK = 'not configured';
+
+let cachedNetworkPassphrase = null;
+let cachedStellarService = Object.freeze({ network: NOT_CONFIGURED_NETWORK });
+
+const formatUptime = (uptimeSeconds) => {
+  const totalSeconds = Math.max(0, Math.floor(uptimeSeconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
+const getStellarService = () => {
+  const network = process.env.NETWORK_PASSPHRASE || NOT_CONFIGURED_NETWORK;
+
+  if (network !== cachedNetworkPassphrase) {
+    cachedNetworkPassphrase = network;
+    cachedStellarService = Object.freeze({ network });
+  }
+
+  return cachedStellarService;
+};
 
 /**
  * @title Status Routes
@@ -22,34 +51,25 @@ const router = express.Router();
  * @returns {Object} 200 - Health status object
  * @returns {Object} 503 - Service unavailable (if database is down)
  */
-router.get('/health', asyncHandler(async (req, res) => {
-  const uptime = process.uptime();
-  
-  // Check MongoDB connection status
-  // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
-  const dbStatus = mongoose.connection.readyState === 1 ? 'up' : 'down';
-  
+const healthHandler = (_req, res) => {
+  const isDatabaseConnected =
+    mongoose.connection.readyState === DATABASE_CONNECTED_STATE;
+  const dbStatus = isDatabaseConnected ? 'up' : 'down';
   const healthData = {
     status: dbStatus === 'up' ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
-    version: version,
-    uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`,
+    version,
+    uptime: formatUptime(process.uptime()),
     services: {
-      database: {
-        status: dbStatus,
-        connection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-      },
-      stellar: {
-        network: process.env.NETWORK_PASSPHRASE || 'not configured'
-      }
-    }
+      database: STATIC_DATABASE_SERVICES[dbStatus],
+      stellar: getStellarService(),
+    },
   };
 
-  // Return 200 if healthy, 503 if database is down
-  const statusCode = dbStatus === 'up' ? 200 : 503;
-  
-  res.status(statusCode).json(healthData);
-}));
+  res.status(isDatabaseConnected ? 200 : 503).json(healthData);
+};
+
+router.get('/health', healthHandler);
 
 /**
  * @route GET /api/metrics

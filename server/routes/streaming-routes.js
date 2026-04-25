@@ -1,8 +1,16 @@
 const express = require('express');
 const StreamingService = require('../services/streaming-service');
+const { asyncHandler } = require('../middleware/error-handler');
 const { body, param, validationResult } = require('express-validator');
 
-const router = express.Router();
+const getStreamingService =
+  StreamingService.getStreamingService ||
+  (() =>
+    new StreamingService(
+      process.env.SOROBAN_RPC_URL,
+      process.env.NETWORK_PASSPHRASE,
+      process.env.STREAMING_CONTRACT_ID
+    ));
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -12,28 +20,37 @@ const validate = (req, res, next) => {
   next();
 };
 
-router.post(
-  '/streams',
-  [
-    body('sender').isString().notEmpty(),
-    body('recipient').isString().notEmpty(),
-    body('tokenAddress').isString().notEmpty(),
-    body('totalAmount').isString().notEmpty(),
-    body('startLedger').isInt({ min: 0 }),
-    body('stopLedger').isInt({ min: 0 }),
-    validate,
-  ],
-  async (req, res, next) => {
-    try {
-      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger } = req.body;
-      
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
+const getStreamingContractId = () => process.env.STREAMING_CONTRACT_ID;
 
+const createStreamingRouter = ({
+  getService = getStreamingService,
+  getContractId = getStreamingContractId,
+} = {}) => {
+  const router = express.Router();
+
+  router.post(
+    '/streams',
+    [
+      body('sender').isString().notEmpty(),
+      body('recipient').isString().notEmpty(),
+      body('tokenAddress').isString().notEmpty(),
+      body('totalAmount').isString().notEmpty(),
+      body('startLedger').isInt({ min: 0 }),
+      body('stopLedger').isInt({ min: 0 }),
+      validate,
+    ],
+    asyncHandler(async (req, res) => {
+      const {
+        sender,
+        recipient,
+        tokenAddress,
+        totalAmount,
+        startLedger,
+        stopLedger,
+      } = req.body;
+      const service = getService();
       const result = await service.createStream(
-        process.env.STREAMING_CONTRACT_ID,
+        getContractId(),
         req.sourceKeypair,
         sender,
         recipient,
@@ -43,113 +60,80 @@ router.post(
         stopLedger
       );
 
-      res.status(201).json({ success: true, streamId: result.streamId, txHash: result.hash });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+      res
+        .status(201)
+        .json({ success: true, streamId: result.streamId, txHash: result.hash });
+    })
+  );
 
-router.post(
-  '/streams/:streamId/withdraw',
-  [
-    param('streamId').isInt({ min: 0 }),
-    body('amount').isString().notEmpty(),
-    validate,
-  ],
-  async (req, res, next) => {
-    try {
+  router.post(
+    '/streams/:streamId/withdraw',
+    [
+      param('streamId').isInt({ min: 0 }),
+      body('amount').isString().notEmpty(),
+      validate,
+    ],
+    asyncHandler(async (req, res) => {
       const { streamId } = req.params;
       const { amount } = req.body;
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
-
+      const service = getService();
       const result = await service.withdraw(
-        process.env.STREAMING_CONTRACT_ID,
+        getContractId(),
         req.sourceKeypair,
         streamId,
         amount
       );
 
       res.json({ success: true, txHash: result.hash });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    })
+  );
 
-router.delete(
-  '/streams/:streamId',
-  [param('streamId').isInt({ min: 0 }), validate],
-  async (req, res, next) => {
-    try {
+  router.delete(
+    '/streams/:streamId',
+    [param('streamId').isInt({ min: 0 }), validate],
+    asyncHandler(async (req, res) => {
       const { streamId } = req.params;
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
-
+      const service = getService();
       const result = await service.cancelStream(
-        process.env.STREAMING_CONTRACT_ID,
+        getContractId(),
         req.sourceKeypair,
         streamId
       );
 
       res.json({ success: true, txHash: result.hash });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    })
+  );
 
-router.get(
-  '/streams/:streamId',
-  [param('streamId').isInt({ min: 0 }), validate],
-  async (req, res, next) => {
-    try {
+  router.get(
+    '/streams/:streamId',
+    [param('streamId').isInt({ min: 0 }), validate],
+    asyncHandler(async (req, res) => {
       const { streamId } = req.params;
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
-
-      const stream = await service.getStream(process.env.STREAMING_CONTRACT_ID, streamId);
+      const service = getService();
+      const stream = await service.getStream(getContractId(), streamId);
 
       if (!stream) {
         return res.status(404).json({ error: 'Stream not found' });
       }
 
       res.json({ success: true, stream });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    })
+  );
 
-router.get(
-  '/streams/:streamId/balance',
-  [param('streamId').isInt({ min: 0 }), validate],
-  async (req, res, next) => {
-    try {
+  router.get(
+    '/streams/:streamId/balance',
+    [param('streamId').isInt({ min: 0 }), validate],
+    asyncHandler(async (req, res) => {
       const { streamId } = req.params;
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
-
-      const balance = await service.getStreamBalance(process.env.STREAMING_CONTRACT_ID, streamId);
+      const service = getService();
+      const balance = await service.getStreamBalance(getContractId(), streamId);
 
       res.json({ success: true, balance });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    })
+  );
 
-module.exports = router;
+  return router;
+};
+
+module.exports = createStreamingRouter();
+module.exports.createStreamingRouter = createStreamingRouter;
