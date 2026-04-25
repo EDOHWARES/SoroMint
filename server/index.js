@@ -47,6 +47,7 @@ const referralRoutes = require('./routes/referral-routes');
 const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
+const discoveryRoutes = require('./routes/discovery-routes');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -85,6 +86,7 @@ const createApp = ({
   app.use('/api', dividendRoutes);
   app.use('/api/streaming', streamingRoutes);
   app.use('/api/bridge', bridgeRoutes);
+  app.use('/api', discoveryRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

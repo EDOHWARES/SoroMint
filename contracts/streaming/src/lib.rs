@@ -17,6 +17,7 @@ pub struct Stream {
     pub start_ledger: u32,
     pub stop_ledger: u32,
     pub withdrawn: i128,
+    pub is_public: bool,
 }
 
 #[contracttype]
@@ -39,6 +40,7 @@ impl StreamingPayments {
         total_amount: i128,
         start_ledger: u32,
         stop_ledger: u32,
+        is_public: bool,
     ) -> u64 {
         sender.require_auth();
         
@@ -64,6 +66,7 @@ impl StreamingPayments {
             start_ledger,
             stop_ledger,
             withdrawn: 0,
+            is_public,
         };
         
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
@@ -196,7 +199,7 @@ mod test {
         
         e.ledger().set_sequence_number(100);
         
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &true);
         
         e.ledger().set_sequence_number(150);
         
@@ -223,7 +226,7 @@ mod test {
         let client = StreamingPaymentsClient::new(&e, &contract_id);
         
         e.ledger().set_sequence_number(100);
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &false);
         
         e.ledger().set_sequence_number(150);
         client.cancel_stream(&stream_id);
