@@ -15,6 +15,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai_metadata_validator"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -613,6 +620,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
+name = "flash-loan"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -892,6 +906,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "merkle_whitelist"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "metadata_validator"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -941,6 +969,13 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "otc_escrow"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
 
 [[package]]
 name = "p256"
@@ -1561,6 +1596,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-amm-factory"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-amm-pool",
+ "soromint-factory",
+ "soromint-token",
+]
+
+[[package]]
+name = "soromint-amm-pool"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-token",
+]
+
+[[package]]
+name = "soromint-backstop"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-compliance"
 version = "0.1.0"
 dependencies = [
@@ -1585,8 +1645,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-lending-pool"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-lifecycle",
+]
+
+[[package]]
 name = "soromint-lifecycle"
 version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "soromint-lottery"
+version = "1.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1614,6 +1689,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-streaming"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-oracle",
+]
+
+[[package]]
+name = "soromint-timelock"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+ "soromint-factory",
+]
+
+[[package]]
 name = "soromint-token"
 version = "0.1.0"
 dependencies = [
@@ -1623,10 +1715,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-upgradeable"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-vault"
 version = "1.0.0"
 dependencies = [
  "soroban-sdk",
+]
+
+[[package]]
+name = "soromint-vesting"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "soromint-wrapper"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-lifecycle",
 ]
 
 [[package]]
