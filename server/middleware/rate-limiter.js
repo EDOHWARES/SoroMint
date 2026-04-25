@@ -89,6 +89,19 @@ const createScanRateLimiter = () =>
     max: parsePositiveInteger(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS, 20),
   });
 
+/**
+ * @notice Creates the limiter for public stream discovery.
+ * @returns {Function} Express middleware for GET /api/discovery/streams
+ */
+const createDiscoveryRateLimiter = () =>
+  createRateLimiter({
+    windowMs: parsePositiveInteger(
+      process.env.DISCOVERY_RATE_LIMIT_WINDOW_MS,
+      60 * 1000
+    ),
+    max: parsePositiveInteger(process.env.DISCOVERY_RATE_LIMIT_MAX_REQUESTS, 60),
+  });
+
 const loginRateLimiter = createLoginRateLimiter();
 const tokenDeploymentRateLimiter = createTokenDeploymentRateLimiter();
 const scanRateLimiter = createScanRateLimiter();
@@ -102,7 +115,9 @@ module.exports = {
   createLoginRateLimiter,
   createTokenDeploymentRateLimiter,
   createScanRateLimiter,
+  createDiscoveryRateLimiter,
   loginRateLimiter,
   tokenDeploymentRateLimiter,
   scanRateLimiter,
+  discoveryRateLimiter: createDiscoveryRateLimiter(),
 };

@@ -21,11 +21,12 @@ router.post(
     body('totalAmount').isString().notEmpty(),
     body('startLedger').isInt({ min: 0 }),
     body('stopLedger').isInt({ min: 0 }),
+    body('isPublic').optional().isBoolean(),
     validate,
   ],
   async (req, res, next) => {
     try {
-      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger } = req.body;
+      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger, isPublic } = req.body;
       
       const service = new StreamingService(
         process.env.SOROBAN_RPC_URL,
@@ -40,7 +41,8 @@ router.post(
         tokenAddress,
         totalAmount,
         startLedger,
-        stopLedger
+        stopLedger,
+        isPublic
       );
 
       res.status(201).json({ success: true, streamId: result.streamId, txHash: result.hash });

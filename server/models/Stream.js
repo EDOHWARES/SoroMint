@@ -59,6 +59,16 @@ const streamSchema = new mongoose.Schema(
     canceledTxHash: {
       type: String,
     },
+    isPublic: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -67,5 +77,6 @@ const streamSchema = new mongoose.Schema(
 
 streamSchema.index({ sender: 1, status: 1 });
 streamSchema.index({ recipient: 1, status: 1 });
+streamSchema.index({ isPublic: 1, isFeatured: -1, createdAt: -1 });
 
 module.exports = mongoose.model('Stream', streamSchema);

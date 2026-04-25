@@ -1,5 +1,12 @@
-const { SorobanRpc, Keypair, Transaction, Networks, xdr, Contract, StrKey, Account } = require('@stellar/stellar-sdk');
+const { SorobanRpc, Keypair, Transaction, Networks, xdr, Contract, StrKey, Account, Address } = require('@stellar/stellar-sdk');
 const StreamingService = require('../../services/streaming-service');
+
+jest.mock('../../models/Stream', () => ({
+  create: jest.fn().mockResolvedValue({}),
+  findOneAndUpdate: jest.fn().mockResolvedValue({}),
+}));
+
+const Stream = require('../../models/Stream');
 
 jest.mock('@stellar/stellar-sdk', () => {
   const original = jest.requireActual('@stellar/stellar-sdk');
@@ -45,8 +52,10 @@ describe('StreamingService', () => {
       mockServer.prepareTransaction.mockResolvedValue(mockTx);
       mockServer.sendTransaction.mockResolvedValue({ hash: 'tx_hash' });
       
-      // Mock pollTransaction success
-      mockServer.getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+      // Mock getTransaction for pollTransaction
+      mockServer.getTransaction.mockResolvedValue({ status: 'SUCCESS', resultMetaXdr: 'AAAA' });
+      // Mock decodeStreamIdFromResult to avoid null error
+      jest.spyOn(streamingService, 'decodeStreamIdFromResult').mockReturnValue(1);
 
       const result = await streamingService.createStream(
         contractId,
@@ -56,7 +65,8 @@ describe('StreamingService', () => {
         '00'.repeat(32), // Mock hex token
         1000,
         100,
-        200
+        200,
+        true
       );
 
       expect(mockServer.getAccount).toHaveBeenCalledWith(sourceKeypair.publicKey());
@@ -64,6 +74,7 @@ describe('StreamingService', () => {
       expect(mockTx.sign).toHaveBeenCalledWith(sourceKeypair);
       expect(mockServer.sendTransaction).toHaveBeenCalledWith(mockTx);
       expect(result.status).toBe('SUCCESS');
+      expect(Stream.create).toHaveBeenCalled();
     });
 
     test('should handle zero amounts in createStream', async () => {
@@ -71,6 +82,8 @@ describe('StreamingService', () => {
         mockServer.prepareTransaction.mockResolvedValue({ sign: jest.fn(), hash: () => 'h' });
         mockServer.sendTransaction.mockResolvedValue({ hash: 'h' });
         mockServer.getTransaction.mockResolvedValue({ status: 'SUCCESS' });
+        // Mock decodeStreamIdFromResult
+        jest.spyOn(streamingService, 'decodeStreamIdFromResult').mockReturnValue(2);
 
         const result = await streamingService.createStream(
             contractId, sourceKeypair, '00'.repeat(32), '00'.repeat(32), '00'.repeat(32), 
@@ -124,13 +137,26 @@ describe('StreamingService', () => {
         entries: [{ xdr: 'mock_base64' }]
       });
       
+      const mockAddress = { toString: () => 'ADDR' };
+      const mockVal = (v) => ({ address: () => mockAddress, i128: () => v, u32: () => v, b: () => v });
+      const mockMap = [
+        { key: () => ({ symbol: () => 'sender' }), val: () => mockVal('S') },
+        { key: () => ({ symbol: () => 'recipient' }), val: () => mockVal('R') },
+        { key: () => ({ symbol: () => 'token' }), val: () => mockVal('T') },
+        { key: () => ({ symbol: () => 'rate_per_ledger' }), val: () => mockVal(10) },
+        { key: () => ({ symbol: () => 'start_ledger' }), val: () => mockVal(100) },
+        { key: () => ({ symbol: () => 'stop_ledger' }), val: () => mockVal(200) },
+        { key: () => ({ symbol: () => 'withdrawn' }), val: () => mockVal(0) },
+        { key: () => ({ symbol: () => 'is_public' }), val: () => mockVal(true) },
+      ];
+
       const fromXdrMock = jest.spyOn(xdr.LedgerEntryData, 'fromXDR').mockReturnValue({
-        sender: 'S', recipient: 'R'
+        value: () => ({ val: () => ({ map: () => mockMap }) })
       });
 
       const result = await streamingService.getStreamBalance(contractId, 1);
       expect(result).toBeDefined();
-      expect(result.sender).toBe('S');
+      expect(result.sender).toBe('ADDR');
       fromXdrMock.mockRestore();
     });
 
@@ -144,14 +170,42 @@ describe('StreamingService', () => {
   describe('getStream', () => {
     test('should fetch and parse stream data via simulation', async () => {
       mockServer.getAccount.mockResolvedValue(new Account(sourceKeypair.publicKey(), '1'));
+      
+      const mockAddress = { toString: () => 'ADDR' };
+      const mockVal = (v) => ({ address: () => mockAddress, i128: () => v, u32: () => v, b: () => v });
+      const mockMap = [
+        { key: () => ({ symbol: () => 'sender' }), val: () => mockVal('S') },
+        { key: () => ({ symbol: () => 'recipient' }), val: () => mockVal('R') },
+        { key: () => ({ symbol: () => 'token' }), val: () => mockVal('T') },
+        { key: () => ({ symbol: () => 'is_public' }), val: () => mockVal(true) },
+      ];
+
       mockServer.simulateTransaction.mockResolvedValue({
-        result: { retval: { sender: 'S', recipient: 'R' } }
+        result: { retval: { map: () => mockMap } }
       });
 
       const result = await streamingService.getStream(contractId, 1);
       expect(result).toBeDefined();
-      expect(result.sender).toBe('S');
+      expect(result.sender).toBe('ADDR');
     });
+  describe('decodeStreamIdFromResult', () => {
+    test('should return null if no resultMetaXdr', () => {
+      expect(streamingService.decodeStreamIdFromResult({})).toBeNull();
+    });
+
+    test('should return null if no created event found', () => {
+      const mockMeta = {
+        v3: () => ({
+          sorobanMeta: () => ({
+            events: () => []
+          })
+        })
+      };
+      const fromXdrMock = jest.spyOn(xdr.TransactionMeta, 'fromXDR').mockReturnValue(mockMeta);
+      expect(streamingService.decodeStreamIdFromResult({ resultMetaXdr: 'AAAA' })).toBeNull();
+      fromXdrMock.mockRestore();
+    });
+  });
 
     test('should return null if simulation fails', async () => {
       mockServer.getAccount.mockResolvedValue(new Account(sourceKeypair.publicKey(), '1'));

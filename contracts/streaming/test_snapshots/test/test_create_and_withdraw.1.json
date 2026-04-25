@@ -78,6 +78,9 @@
                 },
                 {
                   "u32": 200
+                },
+                {
+                  "bool": true
                 }
               ]
             }
@@ -345,6 +348,14 @@
                 "durability": "persistent",
                 "val": {
                   "map": [
+                    {
+                      "key": {
+                        "symbol": "is_public"
+                      },
+                      "val": {
+                        "bool": true
+                      }
+                    },
                     {
                       "key": {
                         "symbol": "rate_per_ledger"
