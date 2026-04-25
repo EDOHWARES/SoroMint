@@ -141,6 +141,22 @@ function validateEnv() {
         default: false,
         desc: 'When true, token deployment requires a passing security scan result (scanId must be provided and must not be blocked)',
       }),
+      GLOBAL_RATE_LIMIT_READ_WINDOW_MS: envalid.num({
+        default: 60 * 1000,
+        desc: 'Global rate limit window for read (GET) requests in milliseconds (default: 1 minute)',
+      }),
+      GLOBAL_RATE_LIMIT_READ_MAX_REQUESTS: envalid.num({
+        default: 100,
+        desc: 'Maximum read (GET) requests per rate limit window per IP',
+      }),
+      GLOBAL_RATE_LIMIT_WRITE_WINDOW_MS: envalid.num({
+        default: 60 * 1000,
+        desc: 'Global rate limit window for write (POST/PUT/PATCH/DELETE) requests in milliseconds (default: 1 minute)',
+      }),
+      GLOBAL_RATE_LIMIT_WRITE_MAX_REQUESTS: envalid.num({
+        default: 30,
+        desc: 'Maximum write (POST/PUT/PATCH/DELETE) requests per rate limit window per IP',
+      }),
     },
     {
       reporter: ({ errors, env }) => {

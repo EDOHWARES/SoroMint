@@ -89,9 +89,82 @@ const createScanRateLimiter = () =>
     max: parsePositiveInteger(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS, 20),
   });
 
+/**
+ * @notice Creates a global read rate limiter for GET requests.
+ * @dev    Applies only to GET requests, allowing higher limits for read operations.
+ *         Configurable via env vars or options parameter.
+ * @param {Object} options - Override options for testing
+ * @param {number} options.windowMs - Time window in milliseconds
+ * @param {number} options.max - Maximum requests per window
+ * @returns {Function} Express middleware
+ */
+const createGlobalReadRateLimiter = (options = {}) => {
+  const windowMs =
+    options.windowMs !== undefined
+      ? options.windowMs
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_READ_WINDOW_MS,
+          60 * 1000
+        );
+  const max =
+    options.max !== undefined
+      ? options.max
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_READ_MAX_REQUESTS,
+          100
+        );
+
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: createRateLimitResponse(),
+    skip: (req) => req.method !== 'GET',
+  });
+};
+
+/**
+ * @notice Creates a global write rate limiter for POST/DELETE requests.
+ * @dev    Applies only to write operations (POST, PUT, PATCH, DELETE).
+ *         Stricter limits than read to protect against abuse.
+ *         Configurable via env vars or options parameter.
+ * @param {Object} options - Override options for testing
+ * @param {number} options.windowMs - Time window in milliseconds
+ * @param {number} options.max - Maximum requests per window
+ * @returns {Function} Express middleware
+ */
+const createGlobalWriteRateLimiter = (options = {}) => {
+  const windowMs =
+    options.windowMs !== undefined
+      ? options.windowMs
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_WRITE_WINDOW_MS,
+          60 * 1000
+        );
+  const max =
+    options.max !== undefined
+      ? options.max
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_WRITE_MAX_REQUESTS,
+          30
+        );
+
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: createRateLimitResponse(),
+    skip: (req) => req.method === 'GET',
+  });
+};
+
 const loginRateLimiter = createLoginRateLimiter();
 const tokenDeploymentRateLimiter = createTokenDeploymentRateLimiter();
 const scanRateLimiter = createScanRateLimiter();
+const globalReadRateLimiter = createGlobalReadRateLimiter();
+const globalWriteRateLimiter = createGlobalWriteRateLimiter();
 
 module.exports = {
   DEFAULT_LIMIT_MESSAGE,
@@ -102,7 +175,11 @@ module.exports = {
   createLoginRateLimiter,
   createTokenDeploymentRateLimiter,
   createScanRateLimiter,
+  createGlobalReadRateLimiter,
+  createGlobalWriteRateLimiter,
   loginRateLimiter,
   tokenDeploymentRateLimiter,
   scanRateLimiter,
+  globalReadRateLimiter,
+  globalWriteRateLimiter,
 };

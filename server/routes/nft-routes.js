@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const multer = require('multer');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
@@ -12,11 +14,10 @@ const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
-// Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 50 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== 'application/zip' && file.mimetype !== 'application/x-zip-compressed' && !file.originalname.endsWith('.zip')) {
@@ -27,14 +28,21 @@ const upload = multer({
 });
 
 /**
+ * @openapi
  * @route POST /api/nfts/collection/batch-mint
- * @description Upload a ZIP file containing an NFT collection and batch mint it.
- * @body {file} file - The ZIP file containing images and collection.json.
- * @body {string} name - Collection name.
- * @body {string} symbol - Collection symbol.
- * @body {string} contractId - Contract ID of the NFT collection on Stellar.
- * @body {string} sourcePublicKey - Stellar public key submitting the mint transactions.
- * @security JWT
+ * @name batchMintNftCollection
+ * @description Upload a ZIP file containing an NFT collection and batch mint all items
+ * @tags NFT
+ * @security BearerAuth
+ * @param {file} file - ZIP file containing images and collection.json
+ * @param {string} name - Collection name
+ * @param {string} symbol - Collection symbol
+ * @param {string} contractId - NFT contract ID on Stellar (C...)
+ * @param {string} sourcePublicKey - Stellar public key submitting mint transactions (G...)
+ * @returns {object} 200 - Batch mint completed
+ * @returns {object} 400 - ZIP file required or processing failed
+ * @returns {object} 403 - Contract ID already registered by different owner
+ * @returns {object} 422 - Blockchain transaction failed
  */
 router.post(
   '/collection/batch-mint',
@@ -54,7 +62,6 @@ router.post(
 
     logger.info('NFT Batch Mint requested', { userId, contractId });
 
-    // Ensure the collection doesn't already exist with this contractId
     let collection = await NftCollection.findOne({ contractId });
     if (!collection) {
       collection = new NftCollection({
@@ -68,7 +75,6 @@ router.post(
       throw new AppError('Contract ID is already registered by a different owner', 403);
     }
 
-    // Process the ZIP file
     let nftsToMint;
     try {
       nftsToMint = await processNftZip(req.file.buffer, collection);
@@ -76,7 +82,6 @@ router.post(
       throw new AppError(`Failed to process ZIP: ${err.message}`, 400);
     }
 
-    // Submit batch operations
     let batchResult;
     try {
       batchResult = await submitNftBatchOperations(nftsToMint, contractId, sourcePublicKey);
@@ -91,7 +96,7 @@ router.post(
     }
 
     if (!batchResult.success) {
-       await DeploymentAudit.create({
+      await DeploymentAudit.create({
         userId,
         tokenName: `nft-batch(${nftsToMint.length})`,
         status: 'FAIL',
@@ -100,7 +105,6 @@ router.post(
       return res.status(422).json(batchResult);
     }
 
-    // Save successful NFTs to database
     const nftDocs = nftsToMint.map(nft => ({
       tokenId: nft.tokenId,
       uri: nft.uri,
@@ -109,11 +113,9 @@ router.post(
       ownerPublicKey: sourcePublicKey,
     }));
 
-    // Use insertMany (ignore duplicates if any)
     try {
       await NftItem.insertMany(nftDocs, { ordered: false });
     } catch (err) {
-      // Ignore E11000 duplicate key error in case of retry
       if (err.code !== 11000) {
         logger.warn('Error saving some NFT items to DB', { error: err.message });
       }
