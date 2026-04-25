@@ -100,6 +100,63 @@ impl StreamingPayments {
         );
     }
     
+    /// Withdraw from multiple streams in a single transaction
+    /// Optimized for power users with multiple streams
+    /// Requires recipient authorization once for all withdrawals
+    pub fn withdraw_from_multiple(e: Env, stream_ids: Vec<u64>, amounts: Vec<i128>) {
+        let len = stream_ids.len();
+        if len == 0 { panic!("no streams provided"); }
+        if len != amounts.len() { panic!("mismatched stream and amount lengths"); }
+        
+        // Load first stream to get recipient for authorization
+        let first_stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_ids.get(0)))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
+        // Single authorization check for all streams
+        first_stream.recipient.require_auth();
+        
+        // Pre-create token client to avoid recreating in loop
+        let token_client = token::Client::new(&e, &first_stream.token);
+        let recipient = first_stream.recipient.clone();
+        
+        // Optimized loop: process all withdrawals
+        let mut i: u32 = 0;
+        while i < len {
+            let stream_id = stream_ids.get(i);
+            let amount = amounts.get(i);
+            
+            let mut stream: Stream = e.storage().persistent()
+                .get(&DataKey::Stream(stream_id))
+                .unwrap_or_else(|| panic!("stream not found"));
+            
+            // Verify recipient matches (all streams must belong to same recipient)
+            if stream.recipient != recipient {
+                panic!("stream recipient mismatch");
+            }
+            
+            // Verify token matches (all streams must use same token)
+            if stream.token != first_stream.token {
+                panic!("stream token mismatch");
+            }
+            
+            let available = Self::balance_of(e.clone(), stream_id);
+            if amount > available { panic!("insufficient balance for stream {}", stream_id); }
+            
+            stream.withdrawn += amount;
+            e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+            
+            token_client.transfer(&e.current_contract_address(), &recipient, &amount);
+            
+            e.events().publish(
+                (soroban_sdk::symbol_short!("withdraw"), stream_id),
+                (recipient.clone(), amount)
+            );
+            
+            i += 1;
+        }
+    }
+    
     /// Cancel a stream and refund remaining balance
     pub fn cancel_stream(e: Env, stream_id: u64) {
         let stream: Stream = e.storage().persistent()
@@ -230,5 +287,40 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_withdraw_from_multiple() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &30000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        
+        // Create multiple streams for the same recipient
+        let stream_id_1 = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        let stream_id_2 = client.create_stream(&sender, &recipient, &token_addr, &2000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        
+        // Check balances
+        let balance_1 = client.balance_of(&stream_id_1);
+        let balance_2 = client.balance_of(&stream_id_2);
+        assert_eq!(balance_1, 500);
+        assert_eq!(balance_2, 1000);
+        
+        // Withdraw from multiple streams in one transaction
+        client.withdraw_from_multiple(&vec![&e, stream_id_1, stream_id_2], &vec![&e, 500, 1000]);
+        
+        assert_eq!(token_client.balance(&recipient), 1500);
     }
 }
