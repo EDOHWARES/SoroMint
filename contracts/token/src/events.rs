@@ -180,3 +180,8 @@ pub fn emit_supply_snapshot_taken(e: &Env, ledger: u32, supply: i128) {
     let topics = (symbol_short!("sup_snap"),);
     e.events().publish(topics, (ledger, supply));
 }
+
+pub fn emit_clawback(e: &Env, admin: &Address, from: &Address, amount: i128) {
+    let topics = (Symbol::new(e, "clawback"), admin.clone(), from.clone());
+    e.events().publish(topics, amount);
+}
