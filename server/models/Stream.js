@@ -4,9 +4,9 @@ const streamSchema = new mongoose.Schema(
   {
     streamId: {
       type: String,
-      required: true,
       unique: true,
       index: true,
+      sparse: true,
     },
     contractId: {
       type: String,
@@ -48,13 +48,16 @@ const streamSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'completed', 'canceled'],
+      enum: ['scheduled', 'active', 'completed', 'canceled'],
       default: 'active',
+      index: true,
+    },
+    scheduledStartLedger: {
+      type: Number,
       index: true,
     },
     createdTxHash: {
       type: String,
-      required: true,
     },
     canceledTxHash: {
       type: String,

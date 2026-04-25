@@ -51,6 +51,35 @@ router.post(
 );
 
 router.post(
+  '/schedule',
+  [
+    body('sender').isString().notEmpty(),
+    body('recipient').isString().notEmpty(),
+    body('tokenAddress').isString().notEmpty(),
+    body('totalAmount').isString().notEmpty(),
+    body('startLedger').isInt({ min: 0 }),
+    body('stopLedger').isInt({ min: 0 }),
+    body('scheduledStartLedger').isInt({ min: 0 }),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const scheduledStreamService = require('../services/scheduled-stream-service');
+      const stream = await scheduledStreamService.scheduleStream(req.body);
+
+      res.status(201).json({ 
+        success: true, 
+        message: 'Stream scheduled successfully',
+        id: stream._id,
+        scheduledStartLedger: stream.scheduledStartLedger
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
   '/streams/:streamId/withdraw',
   [
     param('streamId').isInt({ min: 0 }),
@@ -125,6 +154,25 @@ router.get(
       }
 
       res.json({ success: true, stream });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  '/user/:address',
+  [param('address').isString().notEmpty(), validate],
+  async (req, res, next) => {
+    try {
+      const { address } = req.params;
+      const Stream = require('../models/Stream');
+      
+      const streams = await Stream.find({
+        $or: [{ sender: address }, { recipient: address }]
+      }).sort({ createdAt: -1 });
+
+      res.json({ success: true, streams });
     } catch (error) {
       next(error);
     }
