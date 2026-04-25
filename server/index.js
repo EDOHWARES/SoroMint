@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const { securityHeaders } = require('./middleware/security-headers');
 const { createCorsOptionsDelegate } = require('./config/cors-config');
+const { globalReadRateLimiter, globalWriteRateLimiter } = require('./middleware/rate-limiter');
 
 const { initSentry } = require('./config/sentry');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
@@ -64,6 +65,9 @@ const createApp = ({
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
   app.use(express.json());
+
+  app.use('/api', globalReadRateLimiter);
+  app.use('/api', globalWriteRateLimiter);
 
   setupSwagger(app);
 
