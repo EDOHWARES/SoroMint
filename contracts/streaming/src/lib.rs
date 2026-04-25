@@ -166,6 +166,42 @@ impl StreamingPayments {
         
         stream.rate_per_ledger * (elapsed as i128)
     }
+    
+    /// Extend an active stream by adding more funds.
+    pub fn extend_stream(e: Env, stream_id: u64, additional_amount: i128) {
+        if additional_amount <= 0 {
+            panic!("additional amount must be positive");
+        }
+        
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
+        stream.sender.require_auth();
+        
+        let current_ledger = e.ledger().sequence();
+        if current_ledger >= stream.stop_ledger {
+            panic!("stream already ended");
+        }
+        
+        if additional_amount % stream.rate_per_ledger != 0 {
+            panic!("additional amount must be multiple of rate per ledger");
+        }
+        
+        let additional_ledgers = additional_amount / stream.rate_per_ledger;
+        stream.stop_ledger = stream.stop_ledger.checked_add(additional_ledgers as u32)
+            .unwrap_or_else(|| panic!("stop ledger overflow"));
+        
+        let token_client = token::Client::new(&e, &stream.token);
+        token_client.transfer(&stream.sender, &e.current_contract_address(), &additional_amount);
+        
+        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+        
+        e.events().publish(
+            (soroban_sdk::symbol_short!("extended"), stream_id),
+            (additional_amount, stream.stop_ledger)
+        );
+    }
 }
 
 #[cfg(test)]
@@ -230,5 +266,80 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_extend_stream() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &20000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        client.extend_stream(&stream_id, &500);
+        
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.stop_ledger, 250);
+        assert_eq!(client.balance_of(&stream_id), 1000);
+    }
+
+    #[test]
+    fn test_extend_stream_multiple_times() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &30000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        client.extend_stream(&stream_id, &500);
+        client.extend_stream(&stream_id, &300);
+        
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.stop_ledger, 280);
+    }
+
+    #[test]
+    #[should_panic(expected = "stream already ended")]
+    fn test_extend_ended_stream_panics() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &20000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(250);
+        client.extend_stream(&stream_id, &500);
     }
 }
