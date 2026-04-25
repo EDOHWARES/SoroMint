@@ -151,6 +151,29 @@ impl StreamingPayments {
             .unwrap_or_else(|| panic!("stream not found"))
     }
     
+    /// Transfer stream ownership from sender to a new address
+    /// Only the current sender can transfer ownership
+    pub fn transfer_sender(e: Env, stream_id: u64, new_sender: Address) {
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"));
+
+        stream.sender.require_auth();
+
+        let current_ledger = e.ledger().sequence();
+        if current_ledger > stream.stop_ledger {
+            panic!("stream has already ended");
+        }
+
+        stream.sender = new_sender.clone();
+        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+
+        e.events().publish(
+            (soroban_sdk::symbol_short!("snd_xfer"), stream_id),
+            (new_sender, current_ledger)
+        );
+    }
+    
     fn calculate_streamed(e: &Env, stream: &Stream) -> i128 {
         let current = e.ledger().sequence();
         
@@ -230,5 +253,65 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_transfer_sender() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let new_sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        // Transfer sender ownership to new_sender
+        client.transfer_sender(&stream_id, &new_sender);
+
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.sender, new_sender);
+
+        // Verify new sender can cancel and receive refund (500 tokens)
+        e.ledger().set_sequence_number(150);
+        client.cancel_stream(&stream_id);
+
+        // New sender should receive the refund (500 unstreamed tokens)
+        assert_eq!(token_client.balance(&new_sender), 500);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_transfer_sender_unauthorized() {
+        let e = Env::default();
+        // No mock_all_auths - manually authorize only sender for create
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let _stranger = Address::generate(&e);
+
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        // Authorize sender to create stream
+        sender.require_auth();
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        // Attempt to transfer sender without authorization (no auth for current sender)
+        let unauthorized_client = StreamingPaymentsClient::new(&e, &contract_id);
+        unauthorized_client.transfer_sender(&stream_id, &recipient);
     }
 }
