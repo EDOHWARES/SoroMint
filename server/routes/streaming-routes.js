@@ -1,5 +1,7 @@
 const express = require('express');
 const StreamingService = require('../services/streaming-service');
+const PlatformFeeService = require('../services/platform-fee-service');
+const Stream = require('../models/Stream');
 const { body, param, validationResult } = require('express-validator');
 
 const router = express.Router();
@@ -10,6 +12,14 @@ const validate = (req, res, next) => {
     return res.status(400).json({ errors: errors.array() });
   }
   next();
+};
+
+const calculateRatePerLedger = (totalAmount, startLedger, stopLedger) => {
+  const duration = stopLedger - startLedger;
+  if (duration <= 0) return '0';
+  const bigTotal = BigInt(totalAmount);
+  const rate = bigTotal / BigInt(duration);
+  return rate.toString();
 };
 
 router.post(
@@ -31,6 +41,11 @@ router.post(
         process.env.SOROBAN_RPC_URL,
         process.env.NETWORK_PASSPHRASE
       );
+      const feeService = new PlatformFeeService();
+
+      // Calculate platform fee
+      const feeAmount = await feeService.calculateFee(totalAmount, tokenAddress);
+      const feePercentage = await feeService.getFeeConfig(tokenAddress);
 
       const result = await service.createStream(
         process.env.STREAMING_CONTRACT_ID,
@@ -43,7 +58,44 @@ router.post(
         stopLedger
       );
 
-      res.status(201).json({ success: true, streamId: result.streamId, txHash: result.hash });
+      if (result.status === 'SUCCESS') {
+        // Save stream to database with fee information
+        const stream = new Stream({
+          streamId: result.streamId || result.hash,
+          contractId: process.env.STREAMING_CONTRACT_ID,
+          sender,
+          recipient,
+          tokenAddress,
+          totalAmount,
+          ratePerLedger: calculateRatePerLedger(totalAmount, startLedger, stopLedger),
+          startLedger,
+          stopLedger,
+          createdTxHash: result.hash,
+          platformFeeAmount: feeAmount,
+          platformFeePercentage: feePercentage,
+        });
+
+        await stream.save();
+
+        // Create platform fee record
+        await feeService.createPlatformFeeRecord({
+          streamId: stream.streamId,
+          totalAmount,
+          tokenAddress,
+        }, result.hash);
+
+        await feeService.updateStreamWithFeeInfo(stream.streamId, feeAmount, feePercentage);
+      }
+
+      res.status(201).json({ 
+        success: true, 
+        streamId: result.streamId, 
+        txHash: result.hash,
+        platformFee: {
+          amount: feeAmount,
+          percentage: feePercentage,
+        }
+      });
     } catch (error) {
       next(error);
     }

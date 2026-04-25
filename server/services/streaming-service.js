@@ -6,11 +6,13 @@ const {
   BASE_FEE,
   xdr,
 } = require('@stellar/stellar-sdk');
+const PlatformFeeService = require('./platform-fee-service');
 
 class StreamingService {
   constructor(rpcUrl, networkPassphrase) {
     this.server = new SorobanRpc.Server(rpcUrl);
     this.networkPassphrase = networkPassphrase;
+    this.platformFeeService = new PlatformFeeService();
   }
 
   async createStream(
@@ -25,6 +27,10 @@ class StreamingService {
   ) {
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
+
+    // Calculate platform fee
+    const feeAmount = await this.platformFeeService.calculateFee(totalAmount, tokenAddress);
+    const feePercentage = await this.platformFeeService.getFeeConfig(tokenAddress);
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -54,7 +60,20 @@ class StreamingService {
     prepared.sign(sourceKeypair);
 
     const result = await this.server.sendTransaction(prepared);
-    return this.pollTransaction(result.hash);
+    const txResult = await this.pollTransaction(result.hash);
+
+    // Create platform fee record after successful stream creation
+    if (txResult.status === 'SUCCESS') {
+      const streamData = {
+        streamId: txResult.streamId || result.hash, // Use streamId if available, fallback to hash
+        totalAmount,
+        tokenAddress,
+      };
+
+      await this.platformFeeService.createPlatformFeeRecord(streamData, result.hash);
+    }
+
+    return txResult;
   }
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {

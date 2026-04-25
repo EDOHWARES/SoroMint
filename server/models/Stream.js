@@ -59,6 +59,14 @@ const streamSchema = new mongoose.Schema(
     canceledTxHash: {
       type: String,
     },
+    platformFeeAmount: {
+      type: String,
+      default: '0',
+    },
+    platformFeePercentage: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
