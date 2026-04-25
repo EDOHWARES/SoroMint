@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Map};
+use soroban_sdk::{contracttype, Address, Map, Symbol};
 
 #[contracttype]
 #[derive(Clone)]
@@ -10,6 +10,7 @@ pub enum DataKey {
     Vault(u64),
     UserVaults(Address),
     CollateralConfig(Address),
+    Reentrancy(Symbol),
 }
 
 #[contracttype]
