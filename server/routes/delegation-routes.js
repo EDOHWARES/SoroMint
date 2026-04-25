@@ -1,14 +1,30 @@
+'use strict';
+
 const express = require('express');
-const router = express.Router();
-const delegationService = require('../services/delegation-service');
-const { validateJWT } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/error-handler');
+const { logger } = require('../utils/logger');
 const { validateDelegationInput } = require('../validators/delegation-validator');
+const delegationService = require('../services/delegation-service');
+
+const router = express.Router();
 
 /**
- * POST /api/delegation/approve
- * Approve a minter delegation
+ * @openapi
+ * @route POST /api/delegation/approve
+ * @name approveMinterDelegation
+ * @description Approve a minter delegation allowing a delegate to mint tokens on behalf of an owner
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @param {string} limit - Minting limit as integer string
+ * @param {string} sponsor - Sponsor Stellar public key (G...)
+ * @returns {object} 200 - Delegation approved successfully
+ * @returns {object} 400 - Delegation approval failed
  */
-router.post('/approve', validateJWT, validateDelegationInput.approveMinter, async (req, res) => {
+router.post('/approve', authenticate, validateDelegationInput.approveMinter, async (req, res) => {
   try {
     const { tokenContractId, owner, delegate, limit, sponsor } = req.body;
 
@@ -33,10 +49,19 @@ router.post('/approve', validateJWT, validateDelegationInput.approveMinter, asyn
 });
 
 /**
- * POST /api/delegation/revoke
- * Revoke a minter delegation
+ * @openapi
+ * @route POST /api/delegation/revoke
+ * @name revokeMinterDelegation
+ * @description Revoke a minter delegation
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @returns {object} 200 - Delegation revoked successfully
+ * @returns {object} 400 - Revocation failed
  */
-router.post('/revoke', validateJWT, validateDelegationInput.revokeMinter, async (req, res) => {
+router.post('/revoke', authenticate, validateDelegationInput.revokeMinter, async (req, res) => {
   try {
     const { tokenContractId, owner, delegate } = req.body;
 
@@ -55,10 +80,21 @@ router.post('/revoke', validateJWT, validateDelegationInput.revokeMinter, async 
 });
 
 /**
- * POST /api/delegation/mint
- * Execute a delegated mint
+ * @openapi
+ * @route POST /api/delegation/mint
+ * @name delegateMint
+ * @description Execute a delegated mint operation
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @param {string} to - Recipient Stellar public key (G...)
+ * @param {string} amount - Amount to mint as integer string
+ * @returns {object} 200 - Mint executed successfully
+ * @returns {object} 400 - Mint failed
  */
-router.post('/mint', validateJWT, validateDelegationInput.delegateMint, async (req, res) => {
+router.post('/mint', authenticate, validateDelegationInput.delegateMint, async (req, res) => {
   try {
     const { tokenContractId, delegate, owner, to, amount } = req.body;
 
@@ -83,10 +119,19 @@ router.post('/mint', validateJWT, validateDelegationInput.delegateMint, async (r
 });
 
 /**
- * GET /api/delegation/:tokenContractId/:owner/:delegate
- * Get delegation details
+ * @openapi
+ * @route GET /api/delegation/{tokenContractId}/{owner}/{delegate}
+ * @name getDelegation
+ * @description Get delegation details for a specific token, owner, and delegate
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @returns {object} 200 - Delegation details
+ * @returns {object} 400 - Query failed
  */
-router.get('/:tokenContractId/:owner/:delegate', validateJWT, async (req, res) => {
+router.get('/:tokenContractId/:owner/:delegate', authenticate, async (req, res) => {
   try {
     const { tokenContractId, owner, delegate } = req.params;
 
@@ -105,10 +150,18 @@ router.get('/:tokenContractId/:owner/:delegate', validateJWT, async (req, res) =
 });
 
 /**
- * GET /api/delegation/owner/:tokenContractId/:owner
- * Get all delegations for an owner
+ * @openapi
+ * @route GET /api/delegation/owner/{tokenContractId}/{owner}
+ * @name getDelegationsByOwner
+ * @description Get all delegations where the specified owner has delegated minting rights
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @returns {object} 200 - List of delegations
+ * @returns {object} 400 - Query failed
  */
-router.get('/owner/:tokenContractId/:owner', validateJWT, async (req, res) => {
+router.get('/owner/:tokenContractId/:owner', authenticate, async (req, res) => {
   try {
     const { tokenContractId, owner } = req.params;
 
@@ -127,10 +180,18 @@ router.get('/owner/:tokenContractId/:owner', validateJWT, async (req, res) => {
 });
 
 /**
- * GET /api/delegation/delegate/:tokenContractId/:delegate
- * Get all delegations for a delegate
+ * @openapi
+ * @route GET /api/delegation/delegate/{tokenContractId}/{delegate}
+ * @name getDelegationsByDelegate
+ * @description Get all active delegations where the specified address is the delegate
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @returns {object} 200 - List of delegations
+ * @returns {object} 400 - Query failed
  */
-router.get('/delegate/:tokenContractId/:delegate', validateJWT, async (req, res) => {
+router.get('/delegate/:tokenContractId/:delegate', authenticate, async (req, res) => {
   try {
     const { tokenContractId, delegate } = req.params;
 
@@ -152,10 +213,17 @@ router.get('/delegate/:tokenContractId/:delegate', validateJWT, async (req, res)
 });
 
 /**
- * GET /api/delegation/active/:tokenContractId
- * Get all active delegations for a token
+ * @openapi
+ * @route GET /api/delegation/active/{tokenContractId}
+ * @name getActiveDelegations
+ * @description Get all active delegations for a token contract
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @returns {object} 200 - List of active delegations
+ * @returns {object} 400 - Query failed
  */
-router.get('/active/:tokenContractId', validateJWT, async (req, res) => {
+router.get('/active/:tokenContractId', authenticate, async (req, res) => {
   try {
     const { tokenContractId } = req.params;
 
@@ -174,10 +242,17 @@ router.get('/active/:tokenContractId', validateJWT, async (req, res) => {
 });
 
 /**
- * GET /api/delegation/stats/:tokenContractId
- * Get delegation statistics
+ * @openapi
+ * @route GET /api/delegation/stats/{tokenContractId}
+ * @name getDelegationStats
+ * @description Get delegation statistics for a token contract
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @returns {object} 200 - Delegation statistics
+ * @returns {object} 400 - Query failed
  */
-router.get('/stats/:tokenContractId', validateJWT, async (req, res) => {
+router.get('/stats/:tokenContractId', authenticate, async (req, res) => {
   try {
     const { tokenContractId } = req.params;
 
@@ -196,10 +271,20 @@ router.get('/stats/:tokenContractId', validateJWT, async (req, res) => {
 });
 
 /**
- * POST /api/delegation/can-mint
- * Check if a delegation can mint a specific amount
+ * @openapi
+ * @route POST /api/delegation/can-mint
+ * @name checkCanMint
+ * @description Check if a delegation can mint a specific amount
+ * @tags Delegation
+ * @security BearerAuth
+ * @param {string} tokenContractId - Token contract ID (C...)
+ * @param {string} owner - Owner Stellar public key (G...)
+ * @param {string} delegate - Delegate Stellar public key (G...)
+ * @param {string} amount - Amount to check as integer string
+ * @returns {object} 200 - Can mint check result
+ * @returns {object} 400 - Check failed
  */
-router.post('/can-mint', validateJWT, async (req, res) => {
+router.post('/can-mint', authenticate, async (req, res) => {
   try {
     const { tokenContractId, owner, delegate, amount } = req.body;
 

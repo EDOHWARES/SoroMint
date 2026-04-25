@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const SorobanEvent = require('../models/SorobanEvent');
 const { authenticate } = require('../middleware/auth');
@@ -5,15 +7,30 @@ const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * @route GET /api/events
+ * @name getEvents
+ * @description Query Soroban events with filtering and pagination
+ * @tags System
+ * @security BearerAuth
+ * @param {string} contractId - Filter by contract ID (optional)
+ * @param {string} eventType - Filter by event type (optional)
+ * @param {integer} startLedger - Filter events from this ledger (optional)
+ * @param {integer} endLedger - Filter events up to this ledger (optional)
+ * @param {integer} page - Page number (optional, default: 1)
+ * @param {integer} limit - Results per page (optional, default: 50)
+ * @returns {object} 200 - Events with pagination metadata
+ */
 router.get('/events', authenticate, async (req, res) => {
   try {
-    const { 
-      contractId, 
-      eventType, 
-      startLedger, 
+    const {
+      contractId,
+      eventType,
+      startLedger,
       endLedger,
-      page = 1, 
-      limit = 50 
+      page = 1,
+      limit = 50,
     } = req.query;
 
     const query = {};
@@ -49,6 +66,15 @@ router.get('/events', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * @route GET /api/events/stats
+ * @name getEventStats
+ * @description Get aggregated statistics for Soroban events
+ * @tags System
+ * @security BearerAuth
+ * @returns {object} 200 - Event statistics by contract
+ */
 router.get('/events/stats', authenticate, async (req, res) => {
   try {
     const stats = await SorobanEvent.aggregate([

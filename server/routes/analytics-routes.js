@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * @title Analytics Routes
  * @description Exposes endpoints for blockchain analytics data export and
@@ -8,8 +10,8 @@
 const express = require("express");
 const { asyncHandler } = require("../middleware/error-handler");
 const { authenticate } = require("../middleware/auth");
-const { 
-  syncAnalytics, 
+const {
+  syncAnalytics,
   buildAnalyticsPayload,
   getTransferAggregation,
   getHolderDistribution,
@@ -21,11 +23,13 @@ const { logger } = require("../utils/logger");
 const router = express.Router();
 
 /**
+ * @openapi
  * @route GET /api/analytics/export
- * @description Returns a privacy-safe analytics snapshot (tokens + deployment activity).
- *   Suitable for embedding in third-party dashboards.
- * @security JWT
- * @returns {Object} 200 - Analytics payload
+ * @name exportAnalytics
+ * @description Returns a privacy-safe analytics snapshot (tokens + deployment activity) suitable for embedding in third-party dashboards
+ * @tags Analytics
+ * @security BearerAuth
+ * @returns {object} 200 - Analytics payload
  */
 router.get(
   "/analytics/export",
@@ -38,11 +42,13 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route POST /api/analytics/sync
- * @description Triggers an on-demand sync of analytics data to all configured
- *   external platforms (Dune, Bubble webhook, etc.).
- * @security JWT
- * @returns {Object} 200 - Sync result per platform
+ * @name syncAnalytics
+ * @description Triggers an on-demand sync of analytics data to all configured external platforms (Dune, Bubble webhook, etc.)
+ * @tags Analytics
+ * @security BearerAuth
+ * @returns {object} 200 - Sync result per platform
  */
 router.post(
   "/analytics/sync",
@@ -55,11 +61,13 @@ router.post(
 );
 
 /**
+ * @openapi
  * @route GET /api/analytics/transfers
- * @description Aggregates transfer data for all tokens minted via the platform.
- *   Returns transfer counts, unique transferers, and total volumes per token.
- * @security JWT
- * @returns {Object} 200 - Transfer aggregation data
+ * @name getTransferAggregation
+ * @description Aggregates transfer data for all tokens minted via the platform. Returns transfer counts, unique transferers, and total volumes per token.
+ * @tags Analytics
+ * @security BearerAuth
+ * @returns {object} 200 - Transfer aggregation data
  */
 router.get(
   "/analytics/transfers",
@@ -72,11 +80,13 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route GET /api/analytics/holders
- * @description Returns holder distribution data for all tokens.
- *   Shows unique holders per token and platform-wide holder metrics.
- * @security JWT
- * @returns {Object} 200 - Holder distribution data
+ * @name getHolderDistribution
+ * @description Returns holder distribution data for all tokens. Shows unique holders per token and platform-wide holder metrics.
+ * @tags Analytics
+ * @security BearerAuth
+ * @returns {object} 200 - Holder distribution data
  */
 router.get(
   "/analytics/holders",
@@ -89,12 +99,14 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route GET /api/analytics/volume
- * @description Returns volume metrics for all tokens including 24h, 7d, and 30d volumes.
- *   Optional query parameter 'days' controls the analysis period (default: 30).
- * @security JWT
- * @query {number} [days=30] - Number of days to analyze
- * @returns {Object} 200 - Volume metrics data
+ * @name getVolumeMetrics
+ * @description Returns volume metrics for all tokens including 24h, 7d, and 30d volumes
+ * @tags Analytics
+ * @security BearerAuth
+ * @param {integer} days - Number of days to analyze (optional, default: 30, max: 365)
+ * @returns {object} 200 - Volume metrics data
  */
 router.get(
   "/analytics/volume",
@@ -102,7 +114,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { days = 30 } = req.query;
     const daysNum = Math.max(1, Math.min(365, parseInt(days, 10) || 30));
-    logger.info("Volume metrics requested", { 
+    logger.info("Volume metrics requested", {
       correlationId: req.correlationId,
       days: daysNum,
     });
@@ -112,13 +124,14 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route GET /api/analytics/metrics
- * @description Comprehensive token metrics combining transfers, holders, and volume data.
- *   Provides a complete platform analytics snapshot.
- *   Optional query parameter 'days' controls volume analysis period (default: 30).
- * @security JWT
- * @query {number} [days=30] - Number of days for volume analysis
- * @returns {Object} 200 - Comprehensive token metrics
+ * @name getTokensMetrics
+ * @description Comprehensive token metrics combining transfers, holders, and volume data. Provides a complete platform analytics snapshot.
+ * @tags Analytics
+ * @security BearerAuth
+ * @param {integer} days - Number of days for volume analysis (optional, default: 30, max: 365)
+ * @returns {object} 200 - Comprehensive token metrics
  */
 router.get(
   "/analytics/metrics",
@@ -126,7 +139,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { days = 30 } = req.query;
     const daysNum = Math.max(1, Math.min(365, parseInt(days, 10) || 30));
-    logger.info("Comprehensive metrics requested", { 
+    logger.info("Comprehensive metrics requested", {
       correlationId: req.correlationId,
       days: daysNum,
     });

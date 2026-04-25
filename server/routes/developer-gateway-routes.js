@@ -1,20 +1,10 @@
+'use strict';
+
 const express = require('express');
 const Token = require('../models/Token');
 const { apiKeyAuth } = require('../middleware/api-key-auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { logger } = require('../utils/logger');
-
-/**
- * @title Developer API Gateway Routes
- * @author SoroMint Team
- * @notice Public-facing API surface consumed by third-party developers who
- *         integrate SoroMint into their own products. All routes require a
- *         valid API key provided via the `X-API-Key` header and are subject
- *         to per-key rate limiting and usage tracking.
- *
- *         Mount this router under `/api/v1/developer` so that versioning is
- *         preserved independently of the main application API.
- */
 
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -34,9 +24,13 @@ const createDeveloperGatewayRouter = () => {
   const router = express.Router();
 
   /**
+   * @openapi
    * @route GET /api/v1/developer/health
-   * @desc  Simple authenticated ping for integrators to verify credentials
-   *        and connectivity. Consumes one call against the key's quota.
+   * @name developerHealth
+   * @description Verify API credentials and connectivity (consumes one call against key quota)
+   * @tags Developer Gateway
+   * @security ApiKeyAuth
+   * @returns {object} 200 - Health status with key metadata
    */
   router.get(
     '/health',
@@ -58,8 +52,15 @@ const createDeveloperGatewayRouter = () => {
   );
 
   /**
+   * @openapi
    * @route GET /api/v1/developer/tokens
-   * @desc  List tokens owned by the key's owner, with pagination.
+   * @name developerListTokens
+   * @description List tokens owned by the API key's owner with pagination
+   * @tags Developer Gateway
+   * @security ApiKeyAuth
+   * @param {integer} page - Page number (optional, default: 1)
+   * @param {integer} limit - Results per page (optional, default: 25, max: 100)
+   * @returns {object} 200 - Token list with pagination metadata
    */
   router.get(
     '/tokens',
@@ -92,8 +93,15 @@ const createDeveloperGatewayRouter = () => {
   );
 
   /**
-   * @route GET /api/v1/developer/tokens/:id
-   * @desc  Fetch a single token by id (scoped to the key's owner).
+   * @openapi
+   * @route GET /api/v1/developer/tokens/{id}
+   * @name developerGetToken
+   * @description Fetch a single token by ID (scoped to the key's owner)
+   * @tags Developer Gateway
+   * @security ApiKeyAuth
+   * @param {string} id - Token ID
+   * @returns {object} 200 - Token data
+   * @returns {object} 404 - Token not found
    */
   router.get(
     '/tokens/:id',
@@ -113,10 +121,18 @@ const createDeveloperGatewayRouter = () => {
   );
 
   /**
+   * @openapi
    * @route POST /api/v1/developer/tokens
-   * @desc  Register a previously-deployed token for the key's owner.
-   *        Deployment itself still happens on-chain — this endpoint records
-   *        the contract in SoroMint's index.
+   * @name developerRegisterToken
+   * @description Register a previously-deployed token for the key's owner
+   * @tags Developer Gateway
+   * @security ApiKeyAuth
+   * @param {string} name - Token name
+   * @param {string} symbol - Token symbol
+   * @param {integer} decimals - Token decimals
+   * @param {string} contractId - Token contract ID (C...)
+   * @returns {object} 201 - Token registered successfully
+   * @returns {object} 400 - Validation error
    */
   router.post(
     '/tokens',

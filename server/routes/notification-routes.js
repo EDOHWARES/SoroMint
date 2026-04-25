@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const NotificationPreferences = require('../models/NotificationPreferences');
 const { authenticate } = require('../middleware/auth');
@@ -7,6 +9,15 @@ const { getEnv } = require('../config/env-config');
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * @route GET /api/notifications/preferences
+ * @name getNotificationPreferences
+ * @description Get current user's notification preferences
+ * @tags Notifications
+ * @security BearerAuth
+ * @returns {object} 200 - Notification preferences including email, webPush, and events
+ */
 router.get(
   '/notifications/preferences',
   authenticate,
@@ -27,6 +38,18 @@ router.get(
   }),
 );
 
+/**
+ * @openapi
+ * @route PUT /api/notifications/preferences
+ * @name updateNotificationPreferences
+ * @description Update current user's notification preferences
+ * @tags Notifications
+ * @security BearerAuth
+ * @param {object} email - Email notification settings (optional)
+ * @param {object} webPush - Web push notification settings (optional)
+ * @param {object} events - Event notification toggles (optional)
+ * @returns {object} 200 - Updated notification preferences
+ */
 router.put(
   '/notifications/preferences',
   authenticate,
@@ -75,6 +98,14 @@ router.put(
   }),
 );
 
+/**
+ * @openapi
+ * @route GET /api/notifications/vapid-public-key
+ * @name getVapidPublicKey
+ * @description Get the VAPID public key for web push notifications
+ * @tags Notifications
+ * @returns {object} 200 - VAPID public key
+ */
 router.get(
   '/notifications/vapid-public-key',
   asyncHandler(async (req, res) => {
