@@ -141,6 +141,10 @@ function validateEnv() {
         default: false,
         desc: 'When true, token deployment requires a passing security scan result (scanId must be provided and must not be blocked)',
       }),
+      INDEXER_START_LEDGER: envalid.num({
+        default: 0,
+        desc: 'Start ledger for historical event indexer recovery',
+      }),
     },
     {
       reporter: ({ errors, env }) => {
