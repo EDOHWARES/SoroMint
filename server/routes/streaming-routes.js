@@ -21,12 +21,19 @@ router.post(
     body('totalAmount').isString().notEmpty(),
     body('startLedger').isInt({ min: 0 }),
     body('stopLedger').isInt({ min: 0 }),
+    body('cancellationDelay').optional().isInt({ min: 0 }),
+    body('irrevocable').optional().isBoolean(),
     validate,
   ],
   async (req, res, next) => {
     try {
-      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger } = req.body;
-      
+      const {
+        sender, recipient, tokenAddress, totalAmount,
+        startLedger, stopLedger,
+        cancellationDelay = 0,
+        irrevocable = false,
+      } = req.body;
+
       const service = new StreamingService(
         process.env.SOROBAN_RPC_URL,
         process.env.NETWORK_PASSPHRASE
@@ -40,7 +47,9 @@ router.post(
         tokenAddress,
         totalAmount,
         startLedger,
-        stopLedger
+        stopLedger,
+        cancellationDelay,
+        irrevocable
       );
 
       res.status(201).json({ success: true, streamId: result.streamId, txHash: result.hash });
