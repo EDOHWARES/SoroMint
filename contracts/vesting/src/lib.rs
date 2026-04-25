@@ -44,8 +44,7 @@ pub struct Milestone {
 }
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Token,
     Beneficiary,
@@ -53,6 +52,11 @@ pub enum DataKey {
     TotalAmount,
     Start,
     End,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     Claimed,
     Milestones,
 }
@@ -87,19 +91,19 @@ impl Vesting {
             &e.current_contract_address(),
             &total_amount,
         );
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::Token, &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
-            .set(&DataKey::Beneficiary, &beneficiary);
+            .set(&DataKey::Config(ConfigKey::Beneficiary), &beneficiary);
         e.storage()
             .instance()
-            .set(&DataKey::Kind, &VestingKind::Linear);
+            .set(&DataKey::Config(ConfigKey::Kind), &VestingKind::Linear);
         e.storage()
             .instance()
-            .set(&DataKey::TotalAmount, &total_amount);
-        e.storage().instance().set(&DataKey::Start, &start);
-        e.storage().instance().set(&DataKey::End, &end);
+            .set(&DataKey::Config(ConfigKey::TotalAmount), &total_amount);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Start), &start);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::End), &end);
         e.storage().instance().set(&DataKey::Claimed, &0i128);
     }
 
@@ -123,15 +127,15 @@ impl Vesting {
 
         token::Client::new(&e, &token).transfer(&admin, &e.current_contract_address(), &total);
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::Token, &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
-            .set(&DataKey::Beneficiary, &beneficiary);
+            .set(&DataKey::Config(ConfigKey::Beneficiary), &beneficiary);
         e.storage()
             .instance()
-            .set(&DataKey::Kind, &VestingKind::Milestone);
-        e.storage().instance().set(&DataKey::TotalAmount, &total);
+            .set(&DataKey::Config(ConfigKey::Kind), &VestingKind::Milestone);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TotalAmount), &total);
         e.storage().instance().set(&DataKey::Claimed, &0i128);
         e.storage().persistent().set(&DataKey::Milestones, &ms);
     }
@@ -139,7 +143,7 @@ impl Vesting {
     /// Admin releases a milestone by index (milestone vesting only).
     pub fn release_milestone(e: Env, index: u32) {
         Self::require_admin(&e);
-        let kind: VestingKind = e.storage().instance().get(&DataKey::Kind).unwrap();
+        let kind: VestingKind = e.storage().instance().get(&DataKey::Config(ConfigKey::Kind)).unwrap();
         if kind != VestingKind::Milestone {
             panic!("not milestone vesting");
         }
@@ -161,7 +165,7 @@ impl Vesting {
 
     /// Beneficiary claims all currently vested/released tokens.
     pub fn claim(e: Env) -> i128 {
-        let beneficiary: Address = e.storage().instance().get(&DataKey::Beneficiary).unwrap();
+        let beneficiary: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Beneficiary)).unwrap();
         beneficiary.require_auth();
 
         let claimable = Self::claimable_amount(&e);
@@ -174,7 +178,7 @@ impl Vesting {
             .instance()
             .set(&DataKey::Claimed, &(claimed + claimable));
 
-        let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(
             &e.current_contract_address(),
             &beneficiary,
@@ -204,14 +208,14 @@ impl Vesting {
     // -----------------------------------------------------------------------
 
     fn claimable_amount(e: &Env) -> i128 {
-        let kind: VestingKind = e.storage().instance().get(&DataKey::Kind).unwrap();
+        let kind: VestingKind = e.storage().instance().get(&DataKey::Config(ConfigKey::Kind)).unwrap();
         let claimed: i128 = e.storage().instance().get(&DataKey::Claimed).unwrap();
 
         match kind {
             VestingKind::Linear => {
-                let total: i128 = e.storage().instance().get(&DataKey::TotalAmount).unwrap();
-                let start: u64 = e.storage().instance().get(&DataKey::Start).unwrap();
-                let end: u64 = e.storage().instance().get(&DataKey::End).unwrap();
+                let total: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::TotalAmount)).unwrap();
+                let start: u64 = e.storage().instance().get(&DataKey::Config(ConfigKey::Start)).unwrap();
+                let end: u64 = e.storage().instance().get(&DataKey::Config(ConfigKey::End)).unwrap();
                 let now = e.ledger().timestamp();
                 if now <= start {
                     return 0;
@@ -239,13 +243,13 @@ impl Vesting {
     }
 
     fn assert_not_init(e: &Env) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
     }
 
     fn require_admin(e: &Env) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
     }
 }

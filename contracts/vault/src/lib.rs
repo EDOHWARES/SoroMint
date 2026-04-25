@@ -8,9 +8,8 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
-use storage::{DataKey, VaultPosition, CollateralConfig};
-use oracle::PriceOracle;
+use soroban_sdk::{contract, contractimpl, Address, Env, String, Vec, Map};
+use storage::{DataKey, ConfigKey, VaultPosition, CollateralConfig};
 
 /// Minimum collateralization ratio (150% = 15000 basis points)
 const MIN_COLLATERAL_RATIO: u32 = 15000;
@@ -33,14 +32,14 @@ impl VaultContract {
         smt_token: Address,
         oracle: Address,
     ) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
         
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::SmtToken, &smt_token);
-        e.storage().instance().set(&DataKey::Oracle, &oracle);
-        e.storage().instance().set(&DataKey::VaultCounter, &0u64);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::SmtToken), &smt_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Oracle), &oracle);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Counter), &0u64);
         
         events::emit_initialized(&e, &admin, &smt_token, &oracle);
     }
@@ -53,7 +52,7 @@ impl VaultContract {
         liquidation_threshold: u32,
         liquidation_penalty: u32,
     ) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         if min_collateral_ratio < MIN_COLLATERAL_RATIO {
@@ -71,7 +70,7 @@ impl VaultContract {
         };
 
         e.storage().persistent().set(
-            &DataKey::CollateralConfig(collateral_token.clone()),
+            &DataKey::Collateral(collateral_token.clone()),
             &config
         );
 
@@ -94,7 +93,7 @@ impl VaultContract {
 
         // Verify collateral is supported
         let config: CollateralConfig = e.storage().persistent()
-            .get(&DataKey::CollateralConfig(collateral_token.clone()))
+            .get(&DataKey::Collateral(collateral_token.clone()))
             .expect("collateral not supported");
 
         if !config.enabled {
@@ -102,7 +101,7 @@ impl VaultContract {
         }
 
         // Get prices from oracle
-        let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+        let oracle_addr: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
         let collateral_price = oracle::get_price(&e, &oracle_addr, &collateral_token);
         let smt_price = 1_0000000i128; // SMT pegged to $1 with 7 decimals
 
@@ -141,7 +140,7 @@ impl VaultContract {
         e.storage().persistent().set(&DataKey::UserVaults(user.clone()), &user_vaults);
 
         // Mint SMT to user
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         Self::mint_smt(&e, &smt_token, &user, smt_amount);
 
         events::emit_vault_created(&e, vault_id, &user, &collateral_token, collateral_amount, smt_amount);
@@ -150,7 +149,7 @@ impl VaultContract {
     }
 
     /// Add more collateral to existing vault
-    pub fn add_collateral(
+    pub fn add_collateral_to_vault(
         e: Env,
         vault_id: u64,
         collateral_token: Address,
@@ -168,7 +167,7 @@ impl VaultContract {
 
         // Verify collateral is supported
         let config: CollateralConfig = e.storage().persistent()
-            .get(&DataKey::CollateralConfig(collateral_token.clone()))
+            .get(&DataKey::Collateral(collateral_token.clone()))
             .expect("collateral not supported");
 
         if !config.enabled {
@@ -211,7 +210,7 @@ impl VaultContract {
         e.storage().persistent().set(&DataKey::Vault(vault_id), &position);
 
         // Mint SMT to user
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         Self::mint_smt(&e, &smt_token, &position.owner, smt_amount);
 
         events::emit_smt_minted(&e, vault_id, smt_amount, new_debt);
@@ -237,7 +236,7 @@ impl VaultContract {
 
         // Burn SMT from user
         if repay_amount > 0 {
-            let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+            let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
             Self::burn_smt(&e, &smt_token, &position.owner, repay_amount);
             position.debt -= repay_amount;
         }
@@ -283,18 +282,18 @@ impl VaultContract {
         }
 
         // Check if vault is liquidatable
-        let (is_liquidatable, ratio) = Self::check_liquidation(&e, &position);
+        let (is_liquidatable, _ratio) = Self::check_liquidation(&e, &position);
         if !is_liquidatable {
             panic!("vault is healthy");
         }
 
         // Calculate collateral to seize (with penalty)
-        let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+        let oracle_addr: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
         let smt_price = 1_0000000i128;
         let debt_value = (debt_to_cover * smt_price) / 1_0000000;
 
         // Burn SMT from liquidator
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         Self::burn_smt(&e, &smt_token, &liquidator, debt_to_cover);
 
         // Seize collateral proportionally with penalty
@@ -304,12 +303,17 @@ impl VaultContract {
             let value = (amount * price) / 1_0000000;
             
             // Calculate proportion to seize
-            let collateral_ratio = (value * BP_DIVISOR as i128) / Self::get_total_collateral_value(&e, &position.collaterals);
+            let total_coll_val = Self::get_total_collateral_value(&e, &position.collaterals);
+            let collateral_ratio = if total_coll_val > 0 {
+                (value * BP_DIVISOR as i128) / total_coll_val
+            } else {
+                0
+            };
             let debt_share = (debt_value * collateral_ratio) / BP_DIVISOR as i128;
             
             // Add liquidation penalty
             let config: CollateralConfig = e.storage().persistent()
-                .get(&DataKey::CollateralConfig(token.clone()))
+                .get(&DataKey::Collateral(token.clone()))
                 .unwrap();
             let penalty_multiplier = BP_DIVISOR + config.liquidation_penalty;
             let amount_to_seize = (debt_share * 1_0000000 * penalty_multiplier as i128) / (price * BP_DIVISOR as i128);
@@ -368,16 +372,16 @@ impl VaultContract {
             .get(&DataKey::Vault(vault_id))
             .expect("vault not found");
 
-        let (liquidatable, _) = Self::check_liquidation(&e, &position);
+        let (liquidatable, _ratio) = Self::check_liquidation(&e, &position);
         liquidatable
     }
 
     // Internal helper functions
 
     fn next_vault_id(e: &Env) -> u64 {
-        let current: u64 = e.storage().instance().get(&DataKey::VaultCounter).unwrap();
+        let current: u64 = e.storage().instance().get(&DataKey::Config(ConfigKey::Counter)).unwrap();
         let next = current + 1;
-        e.storage().instance().set(&DataKey::VaultCounter, &next);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Counter), &next);
         next
     }
 
@@ -405,7 +409,7 @@ impl VaultContract {
     }
 
     fn get_total_collateral_value(e: &Env, collaterals: &Map<Address, i128>) -> i128 {
-        let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+        let oracle_addr: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
         let mut total = 0i128;
 
         for (token, amount) in collaterals.iter() {
@@ -426,7 +430,7 @@ impl VaultContract {
         // Check against the strictest min collateral ratio
         let mut min_ratio = MIN_COLLATERAL_RATIO;
         for (token, _) in collaterals.iter() {
-            if let Some(config) = e.storage().persistent().get::<_, CollateralConfig>(&DataKey::CollateralConfig(token)) {
+            if let Some(config) = e.storage().persistent().get::<_, CollateralConfig>(&DataKey::Collateral(token)) {
                 if config.min_collateral_ratio > min_ratio {
                     min_ratio = config.min_collateral_ratio;
                 }
@@ -452,7 +456,7 @@ impl VaultContract {
         // Check against the highest liquidation threshold
         let mut threshold = LIQUIDATION_THRESHOLD;
         for (token, _) in position.collaterals.iter() {
-            if let Some(config) = e.storage().persistent().get::<_, CollateralConfig>(&DataKey::CollateralConfig(token)) {
+            if let Some(config) = e.storage().persistent().get::<_, CollateralConfig>(&DataKey::Collateral(token)) {
                 if config.liquidation_threshold > threshold {
                     threshold = config.liquidation_threshold;
                 }

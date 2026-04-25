@@ -6,12 +6,16 @@ const BPS_DENOMINATOR: i128 = 10_000;
 const MAX_FEE_BPS: u32 = 1_000;
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
+pub enum ConfigKey {
     Factory,
     Token,
     QuoteToken,
     FeeBps,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     ReserveToken,
     ReserveQuote,
     TotalShares,
@@ -74,7 +78,7 @@ impl AmmPool {
         quote_token: Address,
         fee_bps: u32,
     ) {
-        if e.storage().instance().has(&DataKey::Factory) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Factory)) {
             panic!("already initialized");
         }
         if token == quote_token {
@@ -84,12 +88,12 @@ impl AmmPool {
             panic!("fee too high");
         }
 
-        e.storage().instance().set(&DataKey::Factory, &factory);
-        e.storage().instance().set(&DataKey::Token, &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Factory), &factory);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
-            .set(&DataKey::QuoteToken, &quote_token);
-        e.storage().instance().set(&DataKey::FeeBps, &fee_bps);
+            .set(&DataKey::Config(ConfigKey::QuoteToken), &quote_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
         e.storage().instance().set(&DataKey::ReserveToken, &0i128);
         e.storage().instance().set(&DataKey::ReserveQuote, &0i128);
         e.storage().instance().set(&DataKey::TotalShares, &0i128);
@@ -331,26 +335,26 @@ impl AmmPool {
     fn read_factory(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::Factory)
+            .get(&DataKey::Config(ConfigKey::Factory))
             .expect("not initialized")
     }
 
     fn read_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::Token)
+            .get(&DataKey::Config(ConfigKey::Token))
             .expect("not initialized")
     }
 
     fn read_quote_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::QuoteToken)
+            .get(&DataKey::Config(ConfigKey::QuoteToken))
             .expect("not initialized")
     }
 
     fn read_fee_bps(e: &Env) -> u32 {
-        e.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap_or(0)
     }
 
     fn read_reserve_token(e: &Env) -> i128 {

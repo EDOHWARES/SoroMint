@@ -62,22 +62,17 @@ const PRECISION: i128 = 10_000_000_000_000i128;
 // ---------------------------------------------------------------------------
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
-    /// The administrator address (the token issuer).
+pub enum ConfigKey {
     Admin,
-    /// Address of the SoroMint token contract whose holders receive dividends.
     TokenContract,
-    /// The native XLM token contract address (set at init, not hardcoded for
-    /// testnet/mainnet portability).
     XlmToken,
-    /// Cumulative dividends-per-share accumulator (scaled × PRECISION).
     GlobalDps,
-    /// Running total of XLM (stroops) ever deposited into this contract.
     TotalDistributed,
-    /// Per-holder: the GlobalDps value at the time of their last claim.
-    /// This is the "debt pointer" that tracks what they have already been
-    /// credited for.
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     HolderDebt(Address),
 }
 
@@ -103,19 +98,19 @@ impl DividendDistributor {
     /// * `xlm_token`      – Address of the native XLM SEP-41 token contract.
     ///                      On testnet this is the well-known SAC address for XLM.
     pub fn initialize(e: Env, admin: Address, token_contract: Address, xlm_token: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
         e.storage()
             .instance()
-            .set(&DataKey::TokenContract, &token_contract);
-        e.storage().instance().set(&DataKey::XlmToken, &xlm_token);
-        e.storage().instance().set(&DataKey::GlobalDps, &0i128);
+            .set(&DataKey::Config(ConfigKey::TokenContract), &token_contract);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::XlmToken), &xlm_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::GlobalDps), &0i128);
         e.storage()
             .instance()
-            .set(&DataKey::TotalDistributed, &0i128);
+            .set(&DataKey::Config(ConfigKey::TotalDistributed), &0i128);
 
         events::emit_initialized(&e, &admin, &token_contract);
     }
@@ -151,7 +146,7 @@ impl DividendDistributor {
         }
 
         // Pull XLM from depositor into this contract.
-        let xlm_token: Address = e.storage().instance().get(&DataKey::XlmToken).unwrap();
+        let xlm_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::XlmToken)).unwrap();
         let xlm_client = token::Client::new(&e, &xlm_token);
         xlm_client.transfer(&depositor, &e.current_contract_address(), &amount);
 
@@ -163,20 +158,20 @@ impl DividendDistributor {
             .checked_div(total_supply)
             .expect("div by zero");
 
-        let old_dps: i128 = e.storage().instance().get(&DataKey::GlobalDps).unwrap();
+        let old_dps: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::GlobalDps)).unwrap();
         let new_dps = old_dps.checked_add(dps_increment).expect("dps overflow");
-        e.storage().instance().set(&DataKey::GlobalDps, &new_dps);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::GlobalDps), &new_dps);
 
         // Update total distributed counter.
         let old_total: i128 = e
             .storage()
             .instance()
-            .get(&DataKey::TotalDistributed)
+            .get(&DataKey::Config(ConfigKey::TotalDistributed))
             .unwrap();
         let new_total = old_total.checked_add(amount).expect("total overflow");
         e.storage()
             .instance()
-            .set(&DataKey::TotalDistributed, &new_total);
+            .set(&DataKey::Config(ConfigKey::TotalDistributed), &new_total);
 
         events::emit_deposited(&e, &depositor, amount, new_dps, new_total);
     }
@@ -204,7 +199,7 @@ impl DividendDistributor {
 
         // Update the holder's debt pointer regardless of claimable amount so
         // that future deposits are not double-counted.
-        let current_dps: i128 = e.storage().instance().get(&DataKey::GlobalDps).unwrap();
+        let current_dps: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::GlobalDps)).unwrap();
         e.storage()
             .persistent()
             .set(&DataKey::HolderDebt(holder.clone()), &current_dps);
@@ -214,7 +209,7 @@ impl DividendDistributor {
         }
 
         // Transfer XLM from this contract's balance to the holder.
-        let xlm_token: Address = e.storage().instance().get(&DataKey::XlmToken).unwrap();
+        let xlm_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::XlmToken)).unwrap();
         let xlm_client = token::Client::new(&e, &xlm_token);
         xlm_client.transfer(&e.current_contract_address(), &holder, &claimable);
 
@@ -243,7 +238,7 @@ impl DividendDistributor {
     pub fn global_dps(e: Env) -> i128 {
         e.storage()
             .instance()
-            .get(&DataKey::GlobalDps)
+            .get(&DataKey::Config(ConfigKey::GlobalDps))
             .unwrap_or(0)
     }
 
@@ -251,7 +246,7 @@ impl DividendDistributor {
     pub fn total_distributed(e: Env) -> i128 {
         e.storage()
             .instance()
-            .get(&DataKey::TotalDistributed)
+            .get(&DataKey::Config(ConfigKey::TotalDistributed))
             .unwrap_or(0)
     }
 
@@ -266,12 +261,12 @@ impl DividendDistributor {
 
     /// Returns the address of the token contract this distributor is linked to.
     pub fn token_contract(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::TokenContract).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::TokenContract)).unwrap()
     }
 
     /// Returns the admin address.
     pub fn admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Admin).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap()
     }
 
     pub fn version(e: Env) -> String {
@@ -297,7 +292,7 @@ impl DividendDistributor {
             return 0;
         }
 
-        let global_dps: i128 = e.storage().instance().get(&DataKey::GlobalDps).unwrap_or(0);
+        let global_dps: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::GlobalDps)).unwrap_or(0);
         let holder_debt: i128 = e
             .storage()
             .persistent()

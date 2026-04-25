@@ -2,14 +2,20 @@ use soroban_sdk::{contracttype, Address};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DataKey {
+#[contracttype]
+pub enum ConfigKey {
     Admin,
     SmtToken,
-    AssetConfig(Address),
-    UserCollateral(Address, Address), // User, Asset
-    UserDebt(Address),
     Oracle,
-    Assets, // Global list of supported assets
+    Assets,
+    AssetConfig(Address),
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    UserCollateral(Address, Address),
+    UserDebt(Address),
 }
 
 #[contracttype]

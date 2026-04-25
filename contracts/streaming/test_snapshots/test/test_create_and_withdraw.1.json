@@ -318,7 +318,14 @@
                   "symbol": "Stream"
                 },
                 {
-                  "u64": 0
+                  "vec": [
+                    {
+                      "symbol": "Record"
+                    },
+                    {
+                      "u64": 0
+                    }
+                  ]
                 }
               ]
             },
@@ -338,7 +345,14 @@
                       "symbol": "Stream"
                     },
                     {
-                      "u64": 0
+                      "vec": [
+                        {
+                          "symbol": "Record"
+                        },
+                        {
+                          "u64": 0
+                        }
+                      ]
                     }
                   ]
                 },
@@ -443,7 +457,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "NextStreamId"
+                              "symbol": "Stream"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Counter"
+                                }
+                              ]
                             }
                           ]
                         },

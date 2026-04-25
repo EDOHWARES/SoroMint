@@ -8,13 +8,17 @@ mod test;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
+pub enum ConfigKey {
     Admin,
+    TrustedSources,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     Price(Address),
     PriceFeeds(Address),
     LastUpdate(Address),
-    TrustedSources,
     PriceHistory(Address, u64),
 }
 
@@ -42,25 +46,25 @@ pub struct PriceOracle;
 #[contractimpl]
 impl PriceOracle {
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
         
         // Initialize empty trusted sources list
         let trusted_sources: Vec<Address> = Vec::new(&e);
-        e.storage().instance().set(&DataKey::TrustedSources, &trusted_sources);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &trusted_sources);
     }
 
     /// Add a trusted price source
     pub fn add_trusted_source(e: Env, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut sources: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::TrustedSources)
+            .get(&DataKey::Config(ConfigKey::TrustedSources))
             .unwrap_or(Vec::new(&e));
 
         // Check if source already exists
@@ -71,20 +75,20 @@ impl PriceOracle {
         }
 
         sources.push_back(source.clone());
-        e.storage().instance().set(&DataKey::TrustedSources, &sources);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &sources);
 
         events::emit_source_added(&e, &source);
     }
 
     /// Remove a trusted price source
     pub fn remove_trusted_source(e: Env, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut sources: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::TrustedSources)
+            .get(&DataKey::Config(ConfigKey::TrustedSources))
             .unwrap_or(Vec::new(&e));
 
         let mut new_sources = Vec::new(&e);
@@ -102,7 +106,7 @@ impl PriceOracle {
             panic!("source not found");
         }
 
-        e.storage().instance().set(&DataKey::TrustedSources, &new_sources);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &new_sources);
 
         events::emit_source_removed(&e, &source);
     }
@@ -118,11 +122,11 @@ impl PriceOracle {
         reporter.require_auth();
 
         // Verify reporter is admin or trusted source
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         let sources: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::TrustedSources)
+            .get(&DataKey::Config(ConfigKey::TrustedSources))
             .unwrap_or(Vec::new(&e));
 
         let mut is_authorized = reporter == admin;
@@ -167,7 +171,7 @@ impl PriceOracle {
 
     /// Legacy set_price function (admin only)
     pub fn set_price(e: Env, token: Address, price: i128, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         if price <= 0 {
@@ -293,7 +297,7 @@ impl PriceOracle {
     pub fn get_trusted_sources(e: Env) -> Vec<Address> {
         e.storage()
             .instance()
-            .get(&DataKey::TrustedSources)
+            .get(&DataKey::Config(ConfigKey::TrustedSources))
             .unwrap_or(Vec::new(&e))
     }
 

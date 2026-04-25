@@ -205,10 +205,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Balance"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                  "vec": [
+                    {
+                      "symbol": "Balance"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                    }
+                  ]
                 }
               ]
             },
@@ -225,10 +232,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Balance"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                      "vec": [
+                        {
+                          "symbol": "Balance"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -253,10 +267,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "MintLimit"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "vec": [
+                    {
+                      "symbol": "MintLimit"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    }
+                  ]
                 }
               ]
             },
@@ -273,10 +294,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "MintLimit"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                      "vec": [
+                        {
+                          "symbol": "MintLimit"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -301,10 +329,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "MintWindow"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  "vec": [
+                    {
+                      "symbol": "MintWindow"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    }
+                  ]
                 }
               ]
             },
@@ -321,10 +356,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "MintWindow"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                      "vec": [
+                        {
+                          "symbol": "MintWindow"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -386,7 +428,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Admin"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Admin"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -398,7 +447,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Decimals"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Decimals"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -410,7 +466,33 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Name"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "IsTransferable"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": true
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Name"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -422,22 +504,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Supply"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 800
-                          }
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
+                              "symbol": "Config"
+                            },
                             {
-                              "symbol": "Symbol"
+                              "vec": [
+                                {
+                                  "symbol": "Symbol"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -449,12 +523,15 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Transferable"
+                              "symbol": "TotalSupply"
                             }
                           ]
                         },
                         "val": {
-                          "bool": true
+                          "i128": {
+                            "hi": 0,
+                            "lo": 800
+                          }
                         }
                       }
                     ]

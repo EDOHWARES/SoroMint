@@ -20,9 +20,14 @@ pub struct Stream {
 }
 
 #[contracttype]
+pub enum StreamKey {
+    Record(u64),
+    Counter,
+}
+
+#[contracttype]
 pub enum DataKey {
-    Stream(u64),
-    NextStreamId,
+    Stream(StreamKey),
 }
 
 #[contract]
@@ -54,7 +59,7 @@ impl StreamingPayments {
         let client = token::Client::new(&e, &token);
         client.transfer(&sender, &e.current_contract_address(), &total_amount);
         
-        let stream_id = e.storage().instance().get(&DataKey::NextStreamId).unwrap_or(0u64);
+        let stream_id: u64 = e.storage().instance().get(&DataKey::Stream(StreamKey::Counter)).unwrap_or(0);
         
         let stream = Stream {
             sender: sender.clone(),
@@ -66,8 +71,8 @@ impl StreamingPayments {
             withdrawn: 0,
         };
         
-        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
-        e.storage().instance().set(&DataKey::NextStreamId, &(stream_id + 1));
+        e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
+        e.storage().instance().set(&DataKey::Stream(StreamKey::Counter), &(stream_id + 1));
         
         e.events().publish(
             (soroban_sdk::symbol_short!("created"), stream_id),
@@ -80,7 +85,7 @@ impl StreamingPayments {
     /// Withdraw available funds from a stream
     pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
         let mut stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(stream_id))
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
         
         stream.recipient.require_auth();
@@ -89,7 +94,7 @@ impl StreamingPayments {
         if amount > available { panic!("insufficient balance"); }
         
         stream.withdrawn += amount;
-        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+        e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
         
         let client = token::Client::new(&e, &stream.token);
         client.transfer(&e.current_contract_address(), &stream.recipient, &amount);
@@ -103,7 +108,7 @@ impl StreamingPayments {
     /// Cancel a stream and refund remaining balance
     pub fn cancel_stream(e: Env, stream_id: u64) {
         let stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(stream_id))
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
         
         stream.sender.require_auth();
@@ -126,7 +131,7 @@ impl StreamingPayments {
             client.transfer(&e.current_contract_address(), &stream.sender, &refund);
         }
         
-        e.storage().persistent().remove(&DataKey::Stream(stream_id));
+        e.storage().persistent().remove(&DataKey::Stream(StreamKey::Record(stream_id)));
         
         e.events().publish(
             (soroban_sdk::symbol_short!("canceled"), stream_id),
@@ -137,7 +142,7 @@ impl StreamingPayments {
     /// Get available balance for withdrawal
     pub fn balance_of(e: Env, stream_id: u64) -> i128 {
         let stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(stream_id))
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
         
         let streamed = Self::calculate_streamed(&e, &stream);
@@ -147,7 +152,7 @@ impl StreamingPayments {
     /// Get stream details
     pub fn get_stream(e: Env, stream_id: u64) -> Stream {
         e.storage().persistent()
-            .get(&DataKey::Stream(stream_id))
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"))
     }
     

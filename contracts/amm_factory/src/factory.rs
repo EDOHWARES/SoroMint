@@ -8,14 +8,18 @@ use soromint_amm_pool::AmmPool;
 const MAX_FEE_BPS: u32 = 1_000;
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
+pub enum ConfigKey {
     Admin,
     PoolWasmHash,
     TokenFactory,
     XlmToken,
     UsdcToken,
     FeeBps,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     Pools,
     PairPool(Address, Address),
 }
@@ -45,7 +49,7 @@ impl AmmFactory {
         usdc_token: Address,
         fee_bps: u32,
     ) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
         if xlm_token == usdc_token {
@@ -55,16 +59,16 @@ impl AmmFactory {
             panic!("fee too high");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
         e.storage()
             .instance()
-            .set(&DataKey::PoolWasmHash, &pool_wasm_hash);
+            .set(&DataKey::Config(ConfigKey::PoolWasmHash), &pool_wasm_hash);
         e.storage()
             .instance()
-            .set(&DataKey::TokenFactory, &token_factory);
-        e.storage().instance().set(&DataKey::XlmToken, &xlm_token);
-        e.storage().instance().set(&DataKey::UsdcToken, &usdc_token);
-        e.storage().instance().set(&DataKey::FeeBps, &fee_bps);
+            .set(&DataKey::Config(ConfigKey::TokenFactory), &token_factory);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::XlmToken), &xlm_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::UsdcToken), &usdc_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
         e.storage()
             .instance()
             .set(&DataKey::Pools, &Vec::<Address>::new(&e));
@@ -168,7 +172,7 @@ impl AmmFactory {
         admin.require_auth();
         e.storage()
             .instance()
-            .set(&DataKey::PoolWasmHash, &new_pool_wasm_hash);
+            .set(&DataKey::Config(ConfigKey::PoolWasmHash), &new_pool_wasm_hash);
     }
 
     pub fn update_fee_bps(e: Env, new_fee_bps: u32) {
@@ -177,7 +181,7 @@ impl AmmFactory {
         if new_fee_bps > MAX_FEE_BPS {
             panic!("fee too high");
         }
-        e.storage().instance().set(&DataKey::FeeBps, &new_fee_bps);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &new_fee_bps);
     }
 
     pub fn version(e: Env) -> String {
@@ -193,40 +197,40 @@ impl AmmFactory {
     fn read_admin(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::Admin)
+            .get(&DataKey::Config(ConfigKey::Admin))
             .expect("not initialized")
     }
 
     fn read_pool_wasm_hash(e: &Env) -> BytesN<32> {
         e.storage()
             .instance()
-            .get(&DataKey::PoolWasmHash)
+            .get(&DataKey::Config(ConfigKey::PoolWasmHash))
             .expect("not initialized")
     }
 
     fn read_token_factory(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::TokenFactory)
+            .get(&DataKey::Config(ConfigKey::TokenFactory))
             .expect("not initialized")
     }
 
     fn read_xlm_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::XlmToken)
+            .get(&DataKey::Config(ConfigKey::XlmToken))
             .expect("not initialized")
     }
 
     fn read_usdc_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::UsdcToken)
+            .get(&DataKey::Config(ConfigKey::UsdcToken))
             .expect("not initialized")
     }
 
     fn read_fee_bps(e: &Env) -> u32 {
-        e.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap_or(0)
     }
 
     fn is_registered_minted_token(e: &Env, token_factory: &Address, token: &Address) -> bool {
