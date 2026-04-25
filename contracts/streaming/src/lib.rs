@@ -17,6 +17,8 @@ pub struct Stream {
     pub start_ledger: u32,
     pub stop_ledger: u32,
     pub withdrawn: i128,
+    pub total_deposited: i128,
+    pub base_streamed: i128,
 }
 
 #[contracttype]
@@ -64,6 +66,8 @@ impl StreamingPayments {
             start_ledger,
             stop_ledger,
             withdrawn: 0,
+            total_deposited: total_amount,
+            base_streamed: 0,
         };
         
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
@@ -116,11 +120,9 @@ impl StreamingPayments {
             client.transfer(&e.current_contract_address(), &stream.recipient, &recipient_balance);
         }
         
-        // Calculate total deposited and refund unstreamed amount
-        let duration = (stream.stop_ledger - stream.start_ledger) as i128;
-        let total_deposited = stream.rate_per_ledger * duration;
+        // Refund unstreamed amount using stored total_deposited
         let total_streamed = Self::calculate_streamed(&e, &stream);
-        let refund = total_deposited - total_streamed;
+        let refund = stream.total_deposited - total_streamed;
         
         if refund > 0 {
             client.transfer(&e.current_contract_address(), &stream.sender, &refund);
@@ -155,7 +157,7 @@ impl StreamingPayments {
         let current = e.ledger().sequence();
         
         if current <= stream.start_ledger {
-            return 0;
+            return stream.base_streamed;
         }
         
         let elapsed = if current >= stream.stop_ledger {
@@ -164,7 +166,117 @@ impl StreamingPayments {
             current - stream.start_ledger
         };
         
-        stream.rate_per_ledger * (elapsed as i128)
+        stream.base_streamed + stream.rate_per_ledger * (elapsed as i128)
+    }
+
+    /// Adjust stream rate and/or end time.
+    /// Can be called by both sender and recipient together, or by a governance/DAO address.
+    /// At least one of new_rate_per_ledger or new_stop_ledger must be provided.
+    /// If only one is provided, the other is recalculated from remaining balance.
+    /// If both provided, they must satisfy: remaining_balance = new_rate * remaining_ledgers
+    pub fn adjust_stream(
+        e: Env,
+        stream_id: u64,
+        new_rate_per_ledger: Option<i128>,
+        new_stop_ledger: Option<u32>,
+        governance: Option<Address>
+    ) {
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"));
+
+        let current_ledger = e.ledger().sequence();
+
+        // Stream must be active
+        if current_ledger > stream.stop_ledger {
+            panic!("stream has already ended");
+        }
+
+        // Authorization
+        if let Some(gov) = governance {
+            gov.require_auth();
+        } else {
+            stream.sender.require_auth();
+            stream.recipient.require_auth();
+        }
+
+        // Compute amount streamed up to current ledger using the old parameters
+        let old_streamed_since_start = if current_ledger > stream.start_ledger {
+            let elapsed = (current_ledger - stream.start_ledger) as i128;
+            stream.rate_per_ledger * elapsed
+        } else {
+            0
+        };
+
+        // Update base_streamed to include what has been streamed so far
+        let new_base = stream.base_streamed + old_streamed_since_start;
+
+        // Remaining tokens available for future streaming
+        let remaining_balance = stream.total_deposited - new_base - stream.withdrawn;
+        if remaining_balance <= 0 {
+            panic!("no remaining balance to adjust");
+        }
+
+        // Determine new rate and stop ledger
+        let (new_rate, new_stop) = match (new_rate_per_ledger, new_stop_ledger) {
+            (Some(rate), Some(stop)) => {
+                if rate <= 0 {
+                    panic!("rate must be positive");
+                }
+                if stop <= current_ledger || stop <= stream.start_ledger {
+                    panic!("invalid stop ledger");
+                }
+                let remaining_ledgers = (stop - current_ledger) as i128;
+                if rate * remaining_ledgers != remaining_balance {
+                    panic!("rate and stop ledger do not match remaining balance");
+                }
+                (rate, stop)
+            }
+            (Some(rate), None) => {
+                if rate <= 0 {
+                    panic!("rate must be positive");
+                }
+                if remaining_balance % rate != 0 {
+                    panic!("remaining balance not evenly divisible by new rate");
+                }
+                let remaining_ledgers = remaining_balance / rate;
+                let stop = current_ledger + remaining_ledgers as u32;
+                if stop <= current_ledger {
+                    panic!("calculated stop ledger too short");
+                }
+                (rate, stop)
+            }
+            (None, Some(stop)) => {
+                if stop <= current_ledger || stop <= stream.start_ledger {
+                    panic!("invalid stop ledger");
+                }
+                let remaining_ledgers = (stop - current_ledger) as i128;
+                if remaining_balance % remaining_ledgers != 0 {
+                    panic!("remaining balance not evenly divisible by remaining ledgers");
+                }
+                let rate = remaining_balance / remaining_ledgers;
+                if rate <= 0 {
+                    panic!("resulting rate would be too small");
+                }
+                (rate, stop)
+            }
+            (None, None) => {
+                panic!("must provide at least one of new_rate_per_ledger or new_stop_ledger");
+            }
+        };
+
+        // Apply the adjustment: reset base and set new parameters
+        stream.base_streamed = new_base;
+        stream.start_ledger = current_ledger;
+        stream.rate_per_ledger = new_rate;
+        stream.stop_ledger = new_stop;
+
+        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+
+        e.events().publish(
+            (soroban_sdk::symbol_short!("adjusted"), stream_id),
+            (new_rate, new_stop)
+        );
     }
 }
 
@@ -230,5 +342,155 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_adjust_stream_rate_only() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        // Stream: 1000 tokens from ledger 100 to 200 = rate 10 per ledger
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        // Advance to ledger 150 - 50 ledgers elapsed, 500 streamed, 500 remaining
+        e.ledger().set_sequence_number(150);
+
+        // Adjust rate to 20 per ledger. Remaining 500 tokens => 25 more ledgers needed
+        // New stop = 150 + 25 = 175
+        client.adjust_stream(&stream_id, &Some(20), &None, &None);
+
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.rate_per_ledger, 20);
+        assert_eq!(stream.stop_ledger, 175);
+
+        // Verify balance calculation works with new rate
+        let balance = client.balance_of(&stream_id);
+        assert_eq!(balance, 500); // Still 500 remaining
+    }
+
+    #[test]
+    fn test_adjust_stream_stop_only() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        // Stream: 1000 tokens from ledger 100 to 200 = rate 10 per ledger
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        // Advance to ledger 150
+        e.ledger().set_sequence_number(150);
+
+        // Extend to ledger 250. Remaining ledgers = 100, rate = 500/100 = 5
+        client.adjust_stream(&stream_id, &None, &Some(250), &None);
+
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.rate_per_ledger, 5);
+        assert_eq!(stream.stop_ledger, 250);
+    }
+
+    #[test]
+    fn test_adjust_stream_both_params() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        e.ledger().set_sequence_number(150);
+
+        // Set rate to 25 and stop to 170: remaining ledgers = 20, balance = 25*20 = 500 ✓
+        client.adjust_stream(&stream_id, &Some(25), &Some(170), &None);
+
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.rate_per_ledger, 25);
+        assert_eq!(stream.stop_ledger, 170);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_adjust_stream_unauthorized() {
+        let e = Env::default();
+        // No mock_all_auths - manually authorize only sender for create
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let _stranger = Address::generate(&e);
+
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        // Create stream with sender auth
+        sender.require_auth();
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        // Attempt adjust without both parties' auth (stranger calls, no auth)
+        let stranger_client = StreamingPaymentsClient::new(&e, &contract_id);
+        stranger_client.adjust_stream(&stream_id, &Some(5), &None, &None);
+    }
+
+    #[test]
+    fn test_adjust_stream_governance_override() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let governance = Address::generate(&e);
+
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        e.ledger().set_sequence_number(150);
+
+        // Governance adjusts without needing both parties
+        let gov_client = StreamingPaymentsClient::new(&e, &contract_id);
+        gov_client.adjust_stream(&stream_id, &Some(25), &Some(170), &Some(governance));
+
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.rate_per_ledger, 25);
+        assert_eq!(stream.stop_ledger, 170);
     }
 }
