@@ -48,6 +48,8 @@ const referralRoutes = require('./routes/referral-routes');
 const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
+const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
+const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -57,6 +59,7 @@ const createApp = ({
 } = {}) => {
   const app = express();
   const corsMiddleware = cors(createCorsOptionsDelegate());
+  const fraudMiddleware = FraudDetectionMiddleware.getInstance();
 
   initSentry(app);
   app.use(securityHeaders);
@@ -90,6 +93,10 @@ const createApp = ({
   app.use('/api', dividendRoutes);
   app.use('/api/streaming', streamingRoutes);
   app.use('/api/bridge', bridgeRoutes);
+  app.use('/api/fraud-detection', fraudDetectionRoutes);
+
+  // Apply streaming fraud detection middleware
+  app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
 
   app.use(notFoundHandler);
   app.use(errorHandler);
