@@ -4,13 +4,13 @@ mod storage;
 mod oracle;
 mod liquidation;
 mod events;
+mod reentrancy;
 
 #[cfg(test)]
 mod test;
 
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
 use storage::{DataKey, VaultPosition, CollateralConfig};
-use oracle::PriceOracle;
 
 /// Minimum collateralization ratio (150% = 15000 basis points)
 const MIN_COLLATERAL_RATIO: u32 = 15000;
@@ -45,8 +45,8 @@ impl VaultContract {
         events::emit_initialized(&e, &admin, &smt_token, &oracle);
     }
 
-    /// Add a supported collateral token with configuration
-    pub fn add_collateral(
+    /// Add or update a supported collateral token with configuration
+    pub fn set_collateral_config(
         e: Env,
         collateral_token: Address,
         min_collateral_ratio: u32,
@@ -87,6 +87,8 @@ impl VaultContract {
         smt_amount: i128,
     ) -> u64 {
         user.require_auth();
+
+        let _guard = reentrancy::ReentrancyGuard::lock(&e, "deposit_and_mint");
 
         if collateral_amount <= 0 || smt_amount <= 0 {
             panic!("amounts must be positive");
@@ -162,6 +164,8 @@ impl VaultContract {
 
         position.owner.require_auth();
 
+        let _guard = reentrancy::ReentrancyGuard::lock(&e, "add_collateral");
+
         if amount <= 0 {
             panic!("amount must be positive");
         }
@@ -198,6 +202,8 @@ impl VaultContract {
 
         position.owner.require_auth();
 
+        let _guard = reentrancy::ReentrancyGuard::lock(&e, "mint_more");
+
         if smt_amount <= 0 {
             panic!("amount must be positive");
         }
@@ -230,6 +236,8 @@ impl VaultContract {
             .expect("vault not found");
 
         position.owner.require_auth();
+
+        let _guard = reentrancy::ReentrancyGuard::lock(&e, "repay_and_withdraw");
 
         if repay_amount < 0 || withdraw_amount < 0 {
             panic!("amounts cannot be negative");
@@ -273,6 +281,8 @@ impl VaultContract {
         debt_to_cover: i128,
     ) {
         liquidator.require_auth();
+
+        let _guard = reentrancy::ReentrancyGuard::lock(&e, "liquidate");
 
         let mut position: VaultPosition = e.storage().persistent()
             .get(&DataKey::Vault(vault_id))
