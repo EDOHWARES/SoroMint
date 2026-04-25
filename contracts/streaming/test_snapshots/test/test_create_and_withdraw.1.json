@@ -78,7 +78,8 @@
                 },
                 {
                   "u32": 200
-                }
+                },
+                "void"
               ]
             }
           },
@@ -120,6 +121,9 @@
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
               "function_name": "withdraw",
               "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                },
                 {
                   "u64": 0
                 },
@@ -345,6 +349,12 @@
                 "durability": "persistent",
                 "val": {
                   "map": [
+                    {
+                      "key": {
+                        "symbol": "operator"
+                      },
+                      "val": "void"
+                    },
                     {
                       "key": {
                         "symbol": "rate_per_ledger"
