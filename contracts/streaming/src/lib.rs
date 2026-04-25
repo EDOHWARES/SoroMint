@@ -6,6 +6,7 @@
 #![no_std]
 
 use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env};
+use soromint_lifecycle::require_admin_auth;
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -28,6 +29,54 @@ pub enum DataKey {
 #[contract]
 pub struct StreamingPayments;
 
+pub fn initialize(e: Env, admin: Address) {
+    if e.storage().instance().has(&DataKey::Admin) {
+        panic!("already initialized");
+    }
+    e.storage().instance().set(&DataKey::Admin, &admin);
+}
+
+fn is_paused(e: &Env) -> bool {
+    e.storage().persistent().get(&DataKey::IsPaused).unwrap_or(false)
+}
+
+fn require_not_paused(e: &Env) {
+    if is_paused(e) {
+        panic!("Contract is paused");
+    }
+}
+
+fn is_destroyed(e: &Env) -> bool {
+    e.storage().persistent().get(&DataKey::IsDestroyed).unwrap_or(false)
+}
+
+fn require_not_destroyed(e: &Env) {
+    if is_destroyed(e) {
+        panic!("Contract is destroyed");
+    }
+}
+
+pub fn pause(e: Env) {
+    require_not_destroyed(&e);
+    let admin = require_admin_auth(&e);
+    e.storage().persistent().set(&DataKey::IsPaused, &true);
+}
+
+pub fn unpause(e: Env) {
+    require_not_destroyed(&e);
+    let admin = require_admin_auth(&e);
+    e.storage().persistent().set(&DataKey::IsPaused, &false);
+}
+
+pub fn self_destruct(e: Env) {
+    require_not_destroyed(&e);
+    if !is_paused(&e) {
+        panic!("must be paused before self-destruct");
+    }
+    let _admin = require_admin_auth(&e);
+    e.storage().persistent().set(&DataKey::IsDestroyed, &true);
+}
+
 #[contractimpl]
 impl StreamingPayments {
     /// Create a new payment stream
@@ -40,6 +89,8 @@ impl StreamingPayments {
         start_ledger: u32,
         stop_ledger: u32,
     ) -> u64 {
+        require_not_destroyed(&e);
+        require_not_paused(&e);
         sender.require_auth();
         
         if total_amount <= 0 { panic!("amount must be positive"); }
@@ -79,6 +130,8 @@ impl StreamingPayments {
     
     /// Withdraw available funds from a stream
     pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
+        require_not_destroyed(&e);
+        require_not_paused(&e);
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
