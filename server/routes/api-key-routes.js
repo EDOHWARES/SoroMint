@@ -236,8 +236,8 @@ const createApiKeyRouter = () => {
     authenticate,
     asyncHandler(async (req, res) => {
       const apiKey = await findOwnedKey(req.params.id, req.user.publicKey);
-      await ApiUsage.deleteMany({ apiKeyId: apiKey._id });
-      await apiKey.deleteOne();
+      await ApiUsage.softDelete({ apiKeyId: apiKey._id });
+      await apiKey.softDelete();
 
       res.json({ success: true });
     })

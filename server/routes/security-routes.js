@@ -300,7 +300,7 @@ const createSecurityRouter = () => {
         );
       }
 
-      await ScanResult.deleteOne({ scanId });
+      await ScanResult.softDelete({ scanId });
 
       logger.info('[Security] Scan result deleted', {
         correlationId: req.correlationId,
