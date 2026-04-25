@@ -1,5 +1,5 @@
 use soroban_sdk::{Address, Env, Map};
-use crate::storage::{VaultPosition, CollateralConfig, DataKey};
+use crate::storage::{VaultPosition, CollateralConfig, DataKey, ConfigKey};
 
 /// Calculate liquidation bonus for liquidator
 pub fn calculate_liquidation_bonus(
@@ -33,7 +33,7 @@ pub fn calculate_total_collateral_value(
     e: &Env,
     collaterals: &Map<Address, i128>,
 ) -> i128 {
-    let oracle: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+    let oracle: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
     let mut total = 0i128;
 
     for (token, amount) in collaterals.iter() {
@@ -76,7 +76,7 @@ pub fn distribute_seized_collateral(
 ) -> Map<Address, i128> {
     let mut seized = Map::new(e);
     let total_value = calculate_total_collateral_value(e, collaterals);
-    let oracle: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+    let oracle: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
 
     for (token, amount) in collaterals.iter() {
         let price = crate::oracle::get_price(e, &oracle, &token);
@@ -88,7 +88,7 @@ pub fn distribute_seized_collateral(
         
         // Get liquidation config
         let config: CollateralConfig = e.storage().persistent()
-            .get(&DataKey::CollateralConfig(token.clone()))
+            .get(&DataKey::Collateral(token.clone()))
             .unwrap();
         
         // Calculate amount to seize with penalty

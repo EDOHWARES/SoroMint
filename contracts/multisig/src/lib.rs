@@ -6,16 +6,20 @@ mod events;
 mod test;
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String, Symbol, Vec,
 };
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Signers,
     Threshold,
-    PendingTx(u64),
     TxCounter,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    PendingTx(u64),
 }
 
 #[contracttype]
@@ -24,7 +28,7 @@ pub struct PendingTransaction {
     pub id: u64,
     pub target: Address,
     pub function: Symbol,
-    pub args: Vec<u8>,
+    pub args: Bytes,
     pub signatures: Vec<Address>,
     pub executed: bool,
 }
@@ -35,15 +39,15 @@ pub struct MultiSigAdmin;
 #[contractimpl]
 impl MultiSigAdmin {
     pub fn initialize(e: Env, signers: Vec<Address>, threshold: u32) {
-        if e.storage().instance().has(&DataKey::Signers) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Signers)) {
             panic!("already initialized");
         }
         if threshold == 0 || threshold > signers.len() {
             panic!("invalid threshold");
         }
-        e.storage().instance().set(&DataKey::Signers, &signers);
-        e.storage().instance().set(&DataKey::Threshold, &threshold);
-        e.storage().instance().set(&DataKey::TxCounter, &0u64);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Signers), &signers);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Threshold), &threshold);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TxCounter), &0u64);
     }
 
     pub fn propose_tx(
@@ -51,12 +55,12 @@ impl MultiSigAdmin {
         proposer: Address,
         target: Address,
         function: Symbol,
-        args: Vec<u8>,
+        args: Bytes,
     ) -> u64 {
         proposer.require_auth();
         Self::require_signer(&e, &proposer);
 
-        let tx_id: u64 = e.storage().instance().get(&DataKey::TxCounter).unwrap_or(0);
+        let tx_id: u64 = e.storage().instance().get(&DataKey::Config(ConfigKey::TxCounter)).unwrap_or(0);
         let next_id = tx_id + 1;
 
         let mut sigs = Vec::new(&e);
@@ -74,7 +78,7 @@ impl MultiSigAdmin {
         e.storage()
             .persistent()
             .set(&DataKey::PendingTx(next_id), &tx);
-        e.storage().instance().set(&DataKey::TxCounter, &next_id);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TxCounter), &next_id);
 
         e.events()
             .publish((symbol_short!("tx_prop"),), (next_id, proposer));
@@ -122,7 +126,7 @@ impl MultiSigAdmin {
             panic!("transaction already executed");
         }
 
-        let threshold: u32 = e.storage().instance().get(&DataKey::Threshold).unwrap();
+        let threshold: u32 = e.storage().instance().get(&DataKey::Config(ConfigKey::Threshold)).unwrap();
         if tx.signatures.len() < threshold {
             panic!("insufficient signatures");
         }
@@ -144,16 +148,16 @@ impl MultiSigAdmin {
     }
 
     pub fn get_signers(e: Env) -> Vec<Address> {
-        e.storage().instance().get(&DataKey::Signers).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Signers)).unwrap()
     }
 
     pub fn get_threshold(e: Env) -> u32 {
-        e.storage().instance().get(&DataKey::Threshold).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Threshold)).unwrap()
     }
 
     fn require_signer(e: &Env, addr: &Address) {
-        let signers: Vec<Address> = e.storage().instance().get(&DataKey::Signers).unwrap();
-        if !signers.iter().any(|s| s == *addr) {
+        let signers: Vec<Address> = e.storage().instance().get(&DataKey::Config(ConfigKey::Signers)).unwrap();
+        if !signers.iter().any(|s| s == addr.clone()) {
             panic!("not a signer");
         }
     }

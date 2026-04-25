@@ -21,10 +21,14 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, B
 // ---------------------------------------------------------------------------
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Version,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
 }
 
 // ---------------------------------------------------------------------------
@@ -38,23 +42,23 @@ pub struct Upgradeable;
 impl Upgradeable {
     /// One-time setup.
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
         admin.require_auth();
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::Version, &1u32);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Version), &1u32);
     }
 
     /// Replace the contract WASM. State is preserved across the upgrade.
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         e.deployer().update_current_contract_wasm(new_wasm_hash.clone());
 
-        let ver: u32 = e.storage().instance().get(&DataKey::Version).unwrap_or(1);
-        e.storage().instance().set(&DataKey::Version, &(ver + 1));
+        let ver: u32 = e.storage().instance().get(&DataKey::Config(ConfigKey::Version)).unwrap_or(1);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Version), &(ver + 1));
 
         e.events()
             .publish((symbol_short!("upgraded"),), new_wasm_hash);
@@ -62,19 +66,19 @@ impl Upgradeable {
 
     /// Transfer admin rights to a new address.
     pub fn set_admin(e: Env, new_admin: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
-        e.storage().instance().set(&DataKey::Admin, &new_admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &new_admin);
         e.events()
             .publish((symbol_short!("adm_set"),), new_admin);
     }
 
     pub fn get_admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Admin).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap()
     }
 
     pub fn get_version(e: Env) -> u32 {
-        e.storage().instance().get(&DataKey::Version).unwrap_or(1)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Version)).unwrap_or(1)
     }
 
     pub fn version(_e: Env) -> String {

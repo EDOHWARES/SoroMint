@@ -56,16 +56,20 @@ pub struct AIValidationScore {
 }
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Rules,
+    TrustedAIValidators,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     BlockedWords,
     BlockedPatterns,
     WhitelistedTokens,
     BlacklistedAddresses,
-    TrustedAIValidators,
-    ValidationCache(BytesN<32>), // Cache validation results by content hash
+    ValidationCache(BytesN<32>),
 }
 
 // Error codes
@@ -94,11 +98,11 @@ pub struct AIMetadataValidator;
 impl AIMetadataValidator {
     /// Initialize the validator with default rules
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
 
         // Set default validation rules
         let default_rules = ValidationRules {
@@ -114,7 +118,7 @@ impl AIMetadataValidator {
             enable_ai_validation: false, // Disabled by default
         };
 
-        e.storage().instance().set(&DataKey::Rules, &default_rules);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Rules), &default_rules);
 
         // Initialize empty lists
         let blocked_words: Vec<String> = Vec::new(&e);
@@ -125,23 +129,23 @@ impl AIMetadataValidator {
         let trusted_validators: Vec<Address> = Vec::new(&e);
         e.storage()
             .instance()
-            .set(&DataKey::TrustedAIValidators, &trusted_validators);
+            .set(&DataKey::Config(ConfigKey::TrustedAIValidators), &trusted_validators);
 
         events::emit_initialized(&e, &admin);
     }
 
     /// Update validation rules (admin only)
     pub fn update_rules(e: Env, rules: ValidationRules) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
-        e.storage().instance().set(&DataKey::Rules, &rules);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Rules), &rules);
         events::emit_rules_updated(&e);
     }
 
     /// Add a blocked word or phrase (admin only)
     pub fn add_blocked_word(e: Env, word: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut blocked_words: Vec<String> = e
@@ -160,7 +164,7 @@ impl AIMetadataValidator {
 
     /// Remove a blocked word (admin only)
     pub fn remove_blocked_word(e: Env, word: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let blocked_words: Vec<String> = e
@@ -185,26 +189,26 @@ impl AIMetadataValidator {
 
     /// Add trusted AI validator (admin only)
     pub fn add_ai_validator(e: Env, validator: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut validators: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::TrustedAIValidators)
+            .get(&DataKey::Config(ConfigKey::TrustedAIValidators))
             .unwrap_or(Vec::new(&e));
 
         validators.push_back(validator.clone());
         e.storage()
             .instance()
-            .set(&DataKey::TrustedAIValidators, &validators);
+            .set(&DataKey::Config(ConfigKey::TrustedAIValidators), &validators);
 
         events::emit_ai_validator_added(&e, &validator);
     }
 
     /// Blacklist an address (admin only)
     pub fn blacklist_address(e: Env, address: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut blacklist: Vec<Address> = e
@@ -239,7 +243,7 @@ impl AIMetadataValidator {
 
     /// Validate token name with regex and pattern matching
     pub fn validate_name(e: Env, name: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -251,7 +255,7 @@ impl AIMetadataValidator {
 
     /// Validate token symbol with regex and pattern matching
     pub fn validate_symbol(e: Env, symbol: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -263,7 +267,7 @@ impl AIMetadataValidator {
 
     /// Validate token description with regex and pattern matching
     pub fn validate_description(e: Env, description: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -316,14 +320,14 @@ impl AIMetadataValidator {
         }
 
         // Check AI validation if provided and enabled
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         if rules.enable_ai_validation {
             if let Some(ai_validation) = ai_score {
                 // Verify AI validator is trusted
                 let validators: Vec<Address> = e
                     .storage()
                     .instance()
-                    .get(&DataKey::TrustedAIValidators)
+                    .get(&DataKey::Config(ConfigKey::TrustedAIValidators))
                     .unwrap_or(Vec::new(&e));
 
                 let mut is_trusted = false;
@@ -383,7 +387,7 @@ impl AIMetadataValidator {
 
     /// Whitelist a token (bypass validation)
     pub fn whitelist_token(e: Env, token: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut whitelisted: Vec<Address> = e
@@ -418,7 +422,7 @@ impl AIMetadataValidator {
 
     /// Get current validation rules
     pub fn get_rules(e: Env) -> ValidationRules {
-        e.storage().instance().get(&DataKey::Rules).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap()
     }
 
     /// Get blocked words list
@@ -433,7 +437,7 @@ impl AIMetadataValidator {
     pub fn get_ai_validators(e: Env) -> Vec<Address> {
         e.storage()
             .instance()
-            .get(&DataKey::TrustedAIValidators)
+            .get(&DataKey::Config(ConfigKey::TrustedAIValidators))
             .unwrap_or(Vec::new(&e))
     }
 }

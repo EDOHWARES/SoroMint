@@ -37,11 +37,15 @@ pub struct Trade {
 }
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
-    Trade(u64),
-    TradeCounter,
+pub enum ConfigKey {
     Admin,
+    TradeCounter,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    Trade(u64),
 }
 
 #[contract]
@@ -51,11 +55,11 @@ pub struct OTCEscrow;
 impl OTCEscrow {
     /// Initialize the contract with an admin
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::TradeCounter, &0u64);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TradeCounter), &0u64);
     }
 
     /// Create a new trade offer
@@ -86,7 +90,7 @@ impl OTCEscrow {
         let trade_id: u64 = e
             .storage()
             .instance()
-            .get(&DataKey::TradeCounter)
+            .get(&DataKey::Config(ConfigKey::TradeCounter))
             .unwrap_or(0);
         let next_id = trade_id + 1;
 
@@ -102,14 +106,14 @@ impl OTCEscrow {
             taker_token: taker_token.clone(),
             taker_amount,
             status: TradeStatus::Pending,
-            expiration,
+            expiration: expiration as u64,
             created_at: e.ledger().timestamp(),
         };
 
         e.storage()
             .persistent()
             .set(&DataKey::Trade(next_id), &trade);
-        e.storage().instance().set(&DataKey::TradeCounter, &next_id);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TradeCounter), &next_id);
 
         events::emit_trade_created(
             &e,
@@ -119,7 +123,7 @@ impl OTCEscrow {
             maker_amount,
             &taker_token,
             taker_amount,
-            expiration,
+            expiration as u64,
         );
 
         next_id
@@ -140,7 +144,7 @@ impl OTCEscrow {
             panic!("trade not pending");
         }
 
-        if e.ledger().sequence() >= trade.expiration {
+        if e.ledger().sequence() as u64 >= trade.expiration {
             panic!("trade expired");
         }
 
@@ -207,7 +211,7 @@ impl OTCEscrow {
             panic!("trade not pending");
         }
 
-        if e.ledger().sequence() < trade.expiration {
+        if (e.ledger().sequence() as u64) < trade.expiration {
             panic!("trade not expired yet");
         }
 
@@ -244,6 +248,6 @@ impl OTCEscrow {
             .get(&DataKey::Trade(trade_id))
             .expect("trade not found");
 
-        trade.status == TradeStatus::Pending && e.ledger().sequence() < trade.expiration
+        trade.status == TradeStatus::Pending && (e.ledger().sequence() as u64) < trade.expiration
     }
 }

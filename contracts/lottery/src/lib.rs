@@ -24,15 +24,19 @@ use soroban_sdk::{
 // ---------------------------------------------------------------------------
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Token,
     TicketPrice,
-    Participants,
     VrfCommit,
-    Winner,
     Ended,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    Participants,
+    Winner,
 }
 
 // ---------------------------------------------------------------------------
@@ -46,18 +50,18 @@ pub struct Lottery;
 impl Lottery {
     /// One-time setup: set admin, prize token, and ticket price.
     pub fn initialize(e: Env, admin: Address, token: Address, ticket_price: i128) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
         admin.require_auth();
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::Token, &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
-            .set(&DataKey::TicketPrice, &ticket_price);
+            .set(&DataKey::Config(ConfigKey::TicketPrice), &ticket_price);
         e.storage()
             .instance()
-            .set(&DataKey::Ended, &false);
+            .set(&DataKey::Config(ConfigKey::Ended), &false);
         e.storage()
             .persistent()
             .set(&DataKey::Participants, &Vec::<Address>::new(&e));
@@ -66,12 +70,12 @@ impl Lottery {
     /// Admin commits to a VRF secret by storing its SHA-256 hash.
     pub fn commit_vrf(e: Env, commit_hash: BytesN<32>) {
         Self::require_admin(&e);
-        if e.storage().instance().has(&DataKey::VrfCommit) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::VrfCommit)) {
             panic!("already committed");
         }
         e.storage()
             .instance()
-            .set(&DataKey::VrfCommit, &commit_hash);
+            .set(&DataKey::Config(ConfigKey::VrfCommit), &commit_hash);
         e.events()
             .publish((symbol_short!("vrf_comm"),), commit_hash);
     }
@@ -79,10 +83,10 @@ impl Lottery {
     /// Token holder enters the lottery by paying the ticket price.
     pub fn enter(e: Env, participant: Address) {
         participant.require_auth();
-        if !e.storage().instance().has(&DataKey::VrfCommit) {
+        if !e.storage().instance().has(&DataKey::Config(ConfigKey::VrfCommit)) {
             panic!("vrf not committed");
         }
-        let ended: bool = e.storage().instance().get(&DataKey::Ended).unwrap();
+        let ended: bool = e.storage().instance().get(&DataKey::Config(ConfigKey::Ended)).unwrap();
         if ended {
             panic!("lottery ended");
         }
@@ -90,9 +94,9 @@ impl Lottery {
         let price: i128 = e
             .storage()
             .instance()
-            .get(&DataKey::TicketPrice)
+            .get(&DataKey::Config(ConfigKey::TicketPrice))
             .unwrap();
-        let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(&participant, &e.current_contract_address(), &price);
 
         let mut participants: Vec<Address> = e
@@ -112,7 +116,7 @@ impl Lottery {
     /// Admin reveals the VRF secret, verifies the commitment, picks winner, pays out.
     pub fn reveal_vrf(e: Env, secret: BytesN<32>) {
         Self::require_admin(&e);
-        let ended: bool = e.storage().instance().get(&DataKey::Ended).unwrap();
+        let ended: bool = e.storage().instance().get(&DataKey::Config(ConfigKey::Ended)).unwrap();
         if ended {
             panic!("lottery ended");
         }
@@ -121,10 +125,11 @@ impl Lottery {
         let committed: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::VrfCommit)
+            .get(&DataKey::Config(ConfigKey::VrfCommit))
             .expect("no commitment");
-        let digest = e.crypto().sha256(&secret.into());
-        if digest != committed {
+        let digest = e.crypto().sha256(&secret.clone().into());
+        let digest_bytes: BytesN<32> = digest.into();
+        if digest_bytes != committed {
             panic!("vrf secret mismatch");
         }
 
@@ -146,13 +151,13 @@ impl Lottery {
         let winner = participants.get(winner_idx).unwrap();
 
         // Transfer entire prize pool to winner
-        let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
-        let price: i128 = e.storage().instance().get(&DataKey::TicketPrice).unwrap();
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
+        let price: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::TicketPrice)).unwrap();
         let prize = price * participants.len() as i128;
         token::Client::new(&e, &tok).transfer(&e.current_contract_address(), &winner, &prize);
 
         e.storage().instance().set(&DataKey::Winner, &winner);
-        e.storage().instance().set(&DataKey::Ended, &true);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Ended), &true);
 
         e.events()
             .publish((symbol_short!("winner"),), winner);
@@ -181,7 +186,7 @@ impl Lottery {
     // -----------------------------------------------------------------------
 
     fn require_admin(e: &Env) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
     }
 }

@@ -18,11 +18,16 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Ve
 
 #[contracttype]
 #[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     MerkleRoot,
     RootVersion,
-    UsedNonces(Address),
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    Nonce(Address),
 }
 
 #[contracttype]
@@ -40,52 +45,49 @@ pub struct MerkleWhitelist;
 impl MerkleWhitelist {
     /// Initialize the contract with admin and initial Merkle root
     pub fn initialize(e: Env, admin: Address, merkle_root: BytesN<32>) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::MerkleRoot, &merkle_root);
-        e.storage().instance().set(&DataKey::RootVersion, &1u32);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::MerkleRoot), &merkle_root);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::RootVersion), &1u32);
 
         events::emit_initialized(&e, &admin, &merkle_root);
     }
 
     /// Update the Merkle root (admin only)
-    /// This allows updating the whitelist without storing individual addresses
     pub fn update_merkle_root(e: Env, new_root: BytesN<32>) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let version: u32 = e
             .storage()
             .instance()
-            .get(&DataKey::RootVersion)
+            .get(&DataKey::Config(ConfigKey::RootVersion))
             .unwrap_or(0);
         let new_version = version + 1;
 
-        e.storage().instance().set(&DataKey::MerkleRoot, &new_root);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::MerkleRoot), &new_root);
         e.storage()
             .instance()
-            .set(&DataKey::RootVersion, &new_version);
+            .set(&DataKey::Config(ConfigKey::RootVersion), &new_version);
 
         events::emit_root_updated(&e, &new_root, new_version);
     }
 
     /// Verify if an address is whitelisted using a Merkle proof
-    /// This is a view function that doesn't modify state
     pub fn verify_whitelist(e: Env, address: Address, proof: Vec<BytesN<32>>) -> bool {
         let merkle_root: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::MerkleRoot)
+            .get(&DataKey::Config(ConfigKey::MerkleRoot))
             .expect("merkle root not set");
 
         merkle::verify_proof(&e, &address, &proof, &merkle_root)
     }
 
     /// Claim whitelist status (requires valid proof)
-    /// This function can be used to gate access to other functions
     pub fn claim_whitelist(e: Env, address: Address, proof: Vec<BytesN<32>>) {
         address.require_auth();
 
@@ -97,7 +99,6 @@ impl MerkleWhitelist {
     }
 
     /// Verify and execute with nonce (prevents replay attacks)
-    /// Useful for one-time actions that require whitelist verification
     pub fn verify_with_nonce(
         e: Env,
         address: Address,
@@ -106,8 +107,7 @@ impl MerkleWhitelist {
     ) -> bool {
         address.require_auth();
 
-        // Check if nonce was already used
-        let used_nonces_key = DataKey::UsedNonces(address.clone());
+        let used_nonces_key = DataKey::Nonce(address.clone());
         let mut used_nonces: Vec<u64> = e
             .storage()
             .persistent()
@@ -120,12 +120,10 @@ impl MerkleWhitelist {
             }
         }
 
-        // Verify whitelist
         if !Self::verify_whitelist(e.clone(), address.clone(), proof) {
             return false;
         }
 
-        // Mark nonce as used
         used_nonces.push_back(nonce);
         e.storage()
             .persistent()
@@ -137,7 +135,7 @@ impl MerkleWhitelist {
 
     /// Check if a nonce has been used for an address
     pub fn is_nonce_used(e: Env, address: Address, nonce: u64) -> bool {
-        let used_nonces_key = DataKey::UsedNonces(address);
+        let used_nonces_key = DataKey::Nonce(address);
         let used_nonces: Vec<u64> = e
             .storage()
             .persistent()
@@ -156,7 +154,7 @@ impl MerkleWhitelist {
     pub fn get_merkle_root(e: Env) -> BytesN<32> {
         e.storage()
             .instance()
-            .get(&DataKey::MerkleRoot)
+            .get(&DataKey::Config(ConfigKey::MerkleRoot))
             .expect("merkle root not set")
     }
 
@@ -164,7 +162,7 @@ impl MerkleWhitelist {
     pub fn get_root_version(e: Env) -> u32 {
         e.storage()
             .instance()
-            .get(&DataKey::RootVersion)
+            .get(&DataKey::Config(ConfigKey::RootVersion))
             .unwrap_or(0)
     }
 
@@ -173,12 +171,12 @@ impl MerkleWhitelist {
         let merkle_root: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::MerkleRoot)
+            .get(&DataKey::Config(ConfigKey::MerkleRoot))
             .expect("merkle root not set");
         let version: u32 = e
             .storage()
             .instance()
-            .get(&DataKey::RootVersion)
+            .get(&DataKey::Config(ConfigKey::RootVersion))
             .unwrap_or(0);
 
         WhitelistConfig {
@@ -188,7 +186,7 @@ impl MerkleWhitelist {
         }
     }
 
-    /// Batch verify multiple addresses (gas efficient)
+    /// Batch verify multiple addresses
     pub fn batch_verify(e: Env, addresses: Vec<Address>, proofs: Vec<Vec<BytesN<32>>>) -> Vec<bool> {
         if addresses.len() != proofs.len() {
             panic!("addresses and proofs length mismatch");
@@ -197,7 +195,7 @@ impl MerkleWhitelist {
         let merkle_root: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::MerkleRoot)
+            .get(&DataKey::Config(ConfigKey::MerkleRoot))
             .expect("merkle root not set");
 
         let mut results = Vec::new(&e);
@@ -213,15 +211,15 @@ impl MerkleWhitelist {
 
     /// Get admin address
     pub fn get_admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Admin).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap()
     }
 
     /// Transfer admin rights
     pub fn transfer_admin(e: Env, new_admin: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
-        e.storage().instance().set(&DataKey::Admin, &new_admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &new_admin);
         events::emit_admin_transferred(&e, &admin, &new_admin);
     }
 }

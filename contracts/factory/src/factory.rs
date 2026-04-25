@@ -4,11 +4,15 @@ use soroban_sdk::{
 };
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
-    WasmHash,
+pub enum ConfigKey {
     Admin,
+    WasmHash,
     Tokens,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
 }
 
 #[contract]
@@ -25,17 +29,17 @@ impl TokenFactory {
     /// # Panics
     /// Panics if the contract has already been initialized.
     pub fn initialize(e: Env, admin: Address, wasm_hash: BytesN<32>) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::WasmHash, &wasm_hash);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::WasmHash), &wasm_hash);
 
         // Initialize an empty registry
         let initial_tokens: Vec<Address> = Vec::new(&e);
         e.storage()
             .instance()
-            .set(&DataKey::Tokens, &initial_tokens);
+            .set(&DataKey::Config(ConfigKey::Tokens), &initial_tokens);
     }
 
     /// Deploys a new token contract with multi-sig admin support.
@@ -65,7 +69,7 @@ impl TokenFactory {
         let wasm_hash: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::WasmHash)
+            .get(&DataKey::Config(ConfigKey::WasmHash))
             .expect("not initialized");
 
         let address = e
@@ -86,10 +90,10 @@ impl TokenFactory {
         let mut tokens: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::Tokens)
+            .get(&DataKey::Config(ConfigKey::Tokens))
             .unwrap_or(Vec::new(&e));
         tokens.push_back(address.clone());
-        e.storage().instance().set(&DataKey::Tokens, &tokens);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Tokens), &tokens);
 
         let topics = if is_multisig {
             (symbol_short!("factory"), symbol_short!("multisig"))
@@ -126,7 +130,7 @@ impl TokenFactory {
         let wasm_hash: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::WasmHash)
+            .get(&DataKey::Config(ConfigKey::WasmHash))
             .expect("not initialized");
 
         // Deploy the contract using the provided salt and stored WASM hash
@@ -154,10 +158,10 @@ impl TokenFactory {
         let mut tokens: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::Tokens)
+            .get(&DataKey::Config(ConfigKey::Tokens))
             .unwrap_or(Vec::new(&e));
         tokens.push_back(address.clone());
-        e.storage().instance().set(&DataKey::Tokens, &tokens);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Tokens), &tokens);
 
         // Emit success event for off-chain listeners to track new token deployments
         let topics = (symbol_short!("factory"), symbol_short!("deploy"));
@@ -193,7 +197,7 @@ impl TokenFactory {
         let wasm_hash: BytesN<32> = e
             .storage()
             .instance()
-            .get(&DataKey::WasmHash)
+            .get(&DataKey::Config(ConfigKey::WasmHash))
             .expect("not initialized");
 
         let address = e
@@ -220,10 +224,10 @@ impl TokenFactory {
         let mut tokens: Vec<Address> = e
             .storage()
             .instance()
-            .get(&DataKey::Tokens)
+            .get(&DataKey::Config(ConfigKey::Tokens))
             .unwrap_or(Vec::new(&e));
         tokens.push_back(address.clone());
-        e.storage().instance().set(&DataKey::Tokens, &tokens);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Tokens), &tokens);
 
         // Emit success event for off-chain listeners to track new token deployments
         let topics = (symbol_short!("factory"), symbol_short!("deploy"));
@@ -236,7 +240,7 @@ impl TokenFactory {
     pub fn get_tokens(e: Env) -> Vec<Address> {
         e.storage()
             .instance()
-            .get(&DataKey::Tokens)
+            .get(&DataKey::Config(ConfigKey::Tokens))
             .unwrap_or(Vec::new(&e))
     }
 
@@ -268,11 +272,11 @@ impl TokenFactory {
         let admin: Address = e
             .storage()
             .instance()
-            .get(&DataKey::Admin)
+            .get(&DataKey::Config(ConfigKey::Admin))
             .expect("not initialized");
         admin.require_auth();
         e.storage()
             .instance()
-            .set(&DataKey::WasmHash, &new_wasm_hash);
+            .set(&DataKey::Config(ConfigKey::WasmHash), &new_wasm_hash);
     }
 }

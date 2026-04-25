@@ -8,10 +8,14 @@ use soroban_sdk::{
 mod test_ownership;
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
+pub enum ConfigKey {
     Owner,
     PendingOwner,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
 }
 
 const OWNER_TRANSFERRED: Symbol = symbol_short!("owner_tr");
@@ -21,21 +25,21 @@ const OWNER_PENDING: Symbol = symbol_short!("owner_pe");
 pub fn get_owner(e: &Env) -> Address {
     e.storage()
         .instance()
-        .get(&DataKey::Owner)
+        .get(&DataKey::Config(ConfigKey::Owner))
         .expect("Owner not initialized")
 }
 
 /// Sets the initial owner address. Only callable if owner is not yet set.
 pub fn initialize_owner(e: &Env, owner: Address) {
-    if e.storage().instance().has(&DataKey::Owner) {
+    if e.storage().instance().has(&DataKey::Config(ConfigKey::Owner)) {
         panic!("Owner already initialized");
     }
-    e.storage().instance().set(&DataKey::Owner, &owner);
+    e.storage().instance().set(&DataKey::Config(ConfigKey::Owner), &owner);
 }
 
 /// Returns the pending owner address, if any.
 pub fn get_pending_owner(e: &Env) -> Option<Address> {
-    e.storage().instance().get(&DataKey::PendingOwner)
+    e.storage().instance().get(&DataKey::Config(ConfigKey::PendingOwner))
 }
 
 /// @notice Initiates the transfer of ownership to a new address.
@@ -46,11 +50,11 @@ pub fn get_pending_owner(e: &Env) -> Option<Address> {
 pub fn transfer_ownership(e: Env, new_owner: Address) {
     let instance = e.storage().instance();
     let owner: Address = instance
-        .get(&DataKey::Owner)
+        .get(&DataKey::Config(ConfigKey::Owner))
         .expect("Owner not initialized");
     owner.require_auth();
 
-    instance.set(&DataKey::PendingOwner, &new_owner);
+    instance.set(&DataKey::Config(ConfigKey::PendingOwner), &new_owner);
 
     e.events().publish((OWNER_PENDING, owner), new_owner);
 }
@@ -62,13 +66,13 @@ pub fn transfer_ownership(e: Env, new_owner: Address) {
 pub fn accept_ownership(e: Env) {
     let instance = e.storage().instance();
     let pending_owner: Address = instance
-        .get(&DataKey::PendingOwner)
+        .get(&DataKey::Config(ConfigKey::PendingOwner))
         .expect("No pending owner");
     pending_owner.require_auth();
 
-    let old_owner: Address = instance.get(&DataKey::Owner).expect("Owner not set");
-    instance.set(&DataKey::Owner, &pending_owner);
-    instance.remove(&DataKey::PendingOwner);
+    let old_owner: Address = instance.get(&DataKey::Config(ConfigKey::Owner)).expect("Owner not set");
+    instance.set(&DataKey::Config(ConfigKey::Owner), &pending_owner);
+    instance.remove(&DataKey::Config(ConfigKey::PendingOwner));
 
     e.events()
         .publish((OWNER_TRANSFERRED, old_owner), pending_owner);

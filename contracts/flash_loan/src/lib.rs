@@ -5,9 +5,14 @@ use soroban_sdk::{
 use soroban_sdk::token::Client as TokenClient;
 
 #[contracttype]
-pub enum DataKey {
+pub enum ConfigKey {
     Token,
-    FeeBps, 
+    FeeBps,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
 }
 
 #[contract]
@@ -16,8 +21,8 @@ pub struct SmtFlashLoanProvider;
 #[contractimpl]
 impl SmtFlashLoanProvider {
     pub fn initialize(env: Env, token: Address, fee_bps: u32) {
-        env.storage().instance().set(&DataKey::Token, &token);
-        env.storage().instance().set(&DataKey::FeeBps, &fee_bps);
+        env.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
+        env.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
     }
 
     pub fn flash_loan(
@@ -26,8 +31,8 @@ impl SmtFlashLoanProvider {
         amount: i128,
         params: Bytes,
     ) {
-        let token_id: Address = env.storage().instance().get(&DataKey::Token).unwrap();
-        let fee_bps: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap();
+        let token_id: Address = env.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
+        let fee_bps: u32 = env.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap();
         let token = TokenClient::new(&env, &token_id);
 
         let fee = (amount * (fee_bps as i128)) / 10000;

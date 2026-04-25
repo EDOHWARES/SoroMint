@@ -17,32 +17,32 @@ pub struct LendingPool;
 #[contractimpl]
 impl LendingPool {
     pub fn initialize(e: Env, admin: Address, smt_token: Address, oracle: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::SmtToken, &smt_token);
-        e.storage().instance().set(&DataKey::Oracle, &oracle);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::SmtToken), &smt_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Oracle), &oracle);
     }
 
     pub fn set_asset_config(e: Env, asset: Address, config: AssetConfig) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
         
-        if !e.storage().instance().has(&DataKey::AssetConfig(asset.clone())) {
-            let mut assets: Vec<Address> = e.storage().instance().get(&DataKey::Assets).unwrap_or(Vec::new(&e));
+        if !e.storage().instance().has(&DataKey::Config(ConfigKey::AssetConfig(asset.clone()))) {
+            let mut assets: Vec<Address> = e.storage().instance().get(&DataKey::Config(ConfigKey::Assets)).unwrap_or(Vec::new(&e));
             assets.push_back(asset.clone());
-            e.storage().instance().set(&DataKey::Assets, &assets);
+            e.storage().instance().set(&DataKey::Config(ConfigKey::Assets), &assets);
         }
 
-        e.storage().instance().set(&DataKey::AssetConfig(asset), &config);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::AssetConfig(asset)), &config);
     }
 
     pub fn deposit(e: Env, user: Address, asset: Address, amount: i128) {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
 
-        let config: AssetConfig = e.storage().instance().get(&DataKey::AssetConfig(asset.clone())).expect("asset not supported");
+        let config: AssetConfig = e.storage().instance().get(&DataKey::Config(ConfigKey::AssetConfig(asset.clone()))).expect("asset not supported");
         if !config.is_active { panic!("asset not active"); }
 
         // Transfer asset to pool
@@ -84,7 +84,7 @@ impl LendingPool {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
 
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         
         let debt_key = DataKey::UserDebt(user.clone());
         let current_debt: i128 = e.storage().persistent().get(&debt_key).unwrap_or(0);
@@ -111,7 +111,7 @@ impl LendingPool {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
 
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         let debt_key = DataKey::UserDebt(user.clone());
         let current_debt: i128 = e.storage().persistent().get(&debt_key).unwrap_or(0);
         
@@ -135,7 +135,7 @@ impl LendingPool {
             panic!("borrower is healthy");
         }
 
-        let smt_token: Address = e.storage().instance().get(&DataKey::SmtToken).unwrap();
+        let smt_token: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::SmtToken)).unwrap();
         let debt_key = DataKey::UserDebt(borrower.clone());
         let current_debt: i128 = e.storage().persistent().get(&debt_key).unwrap_or(0);
         
@@ -147,11 +147,11 @@ impl LendingPool {
         e.storage().persistent().set(&debt_key, &(current_debt - repay_amount));
 
         // Calculate collateral to give to liquidator
-        let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+        let oracle_addr: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
         let oracle = OracleClient::new(&e, &oracle_addr);
         let price = oracle.get_price(&asset); // Price of asset in SMT
 
-        let config: AssetConfig = e.storage().instance().get(&DataKey::AssetConfig(asset.clone())).unwrap();
+        let config: AssetConfig = e.storage().instance().get(&DataKey::Config(ConfigKey::AssetConfig(asset.clone()))).unwrap();
         
         // value_of_repay_in_asset = repay_amount / price
         // collateral_to_give = value_of_repay_in_asset * (1 + bonus)
@@ -180,10 +180,10 @@ impl LendingPool {
     }
 
     pub fn get_account_collateral_value(e: Env, user: Address, use_threshold: bool) -> i128 {
-        let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
+        let oracle_addr: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Oracle)).unwrap();
         let oracle = OracleClient::new(&e, &oracle_addr);
         
-        let assets: Vec<Address> = e.storage().instance().get(&DataKey::Assets).unwrap_or(Vec::new(&e));
+        let assets: Vec<Address> = e.storage().instance().get(&DataKey::Config(ConfigKey::Assets)).unwrap_or(Vec::new(&e));
         let mut total_value: i128 = 0;
 
         for asset in assets.iter() {
@@ -191,7 +191,7 @@ impl LendingPool {
             let amount: i128 = e.storage().persistent().get(&coll_key).unwrap_or(0);
             if amount > 0 {
                 let price = oracle.get_price(&asset);
-                let config: AssetConfig = e.storage().instance().get(&DataKey::AssetConfig(asset)).unwrap();
+                let config: AssetConfig = e.storage().instance().get(&DataKey::Config(ConfigKey::AssetConfig(asset))).unwrap();
                 
                 let value = (amount * price) / 10_000_000; // Base 7 decimals
                 let adjusted_value = if use_threshold {

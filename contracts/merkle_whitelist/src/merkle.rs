@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{xdr::ToXdr, Address, Bytes, BytesN, Env, Vec};
 
 /// Verify a Merkle proof for an address
 pub fn verify_proof(
@@ -15,18 +15,12 @@ pub fn verify_proof(
 }
 
 /// Compute the leaf hash for an address
-fn compute_leaf(e: &Env, address: &Address) -> BytesN<32> {
-    // Create a bytes representation of the address
-    let mut data = Bytes::new(e);
-    
-    // Serialize address to bytes
-    let addr_bytes = address.to_string();
-    for byte in addr_bytes.as_bytes() {
-        data.push(*byte);
-    }
+pub(crate) fn compute_leaf(e: &Env, address: &Address) -> BytesN<32> {
+    // Serialize address to bytes using XDR
+    let data = address.to_xdr(e);
     
     // Hash the address to create the leaf
-    e.crypto().sha256(&data)
+    e.crypto().sha256(&data).into()
 }
 
 /// Compute the Merkle root from a leaf and proof
@@ -50,22 +44,22 @@ fn hash_pair(e: &Env, a: &BytesN<32>, b: &BytesN<32>) -> BytesN<32> {
     if compare_hashes(a, b) {
         // a < b
         for i in 0..32 {
-            data.push(a.get(i).unwrap());
+            data.push_back(a.get(i).unwrap());
         }
         for i in 0..32 {
-            data.push(b.get(i).unwrap());
+            data.push_back(b.get(i).unwrap());
         }
     } else {
         // b <= a
         for i in 0..32 {
-            data.push(b.get(i).unwrap());
+            data.push_back(b.get(i).unwrap());
         }
         for i in 0..32 {
-            data.push(a.get(i).unwrap());
+            data.push_back(a.get(i).unwrap());
         }
     }
     
-    e.crypto().sha256(&data)
+    e.crypto().sha256(&data).into()
 }
 
 /// Compare two hashes (returns true if a < b)
@@ -140,9 +134,9 @@ pub fn generate_proof(e: &Env, leaves: &Vec<BytesN<32>>, index: u32) -> Vec<Byte
                 
                 // Add sibling to proof if current index is in this pair
                 if current_index == i {
-                    proof.push_back(right);
+                    proof.push_back(right.clone());
                 } else if current_index == i + 1 {
-                    proof.push_back(left);
+                    proof.push_back(left.clone());
                 }
                 
                 let parent = hash_pair(e, &left, &right);

@@ -35,10 +35,14 @@ pub struct ValidationRules {
 }
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Rules,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     BlockedWords,
     BlockedPatterns,
     WhitelistedTokens,
@@ -64,11 +68,11 @@ pub struct MetadataValidator;
 impl MetadataValidator {
     /// Initialize the validator with default rules
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
 
         // Set default validation rules
         let default_rules = ValidationRules {
@@ -81,7 +85,7 @@ impl MetadataValidator {
             require_uppercase_symbol: true,
         };
 
-        e.storage().instance().set(&DataKey::Rules, &default_rules);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Rules), &default_rules);
 
         // Initialize empty blocked words list
         let blocked_words: Vec<String> = Vec::new(&e);
@@ -92,16 +96,16 @@ impl MetadataValidator {
 
     /// Update validation rules (admin only)
     pub fn update_rules(e: Env, rules: ValidationRules) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
-        e.storage().instance().set(&DataKey::Rules, &rules);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Rules), &rules);
         events::emit_rules_updated(&e);
     }
 
     /// Add a blocked word (admin only)
     pub fn add_blocked_word(e: Env, word: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut blocked_words: Vec<String> = e
@@ -120,7 +124,7 @@ impl MetadataValidator {
 
     /// Remove a blocked word (admin only)
     pub fn remove_blocked_word(e: Env, word: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let blocked_words: Vec<String> = e
@@ -145,7 +149,7 @@ impl MetadataValidator {
 
     /// Validate token name
     pub fn validate_name(e: Env, name: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -157,7 +161,7 @@ impl MetadataValidator {
 
     /// Validate token symbol
     pub fn validate_symbol(e: Env, symbol: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -169,7 +173,7 @@ impl MetadataValidator {
 
     /// Validate token description
     pub fn validate_description(e: Env, description: String) -> ValidationResult {
-        let rules: ValidationRules = e.storage().instance().get(&DataKey::Rules).unwrap();
+        let rules: ValidationRules = e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap();
         let blocked_words: Vec<String> = e
             .storage()
             .persistent()
@@ -203,7 +207,7 @@ impl MetadataValidator {
 
     /// Whitelist a token (bypass validation)
     pub fn whitelist_token(e: Env, token: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
         let mut whitelisted: Vec<Address> = e
@@ -238,7 +242,7 @@ impl MetadataValidator {
 
     /// Get current validation rules
     pub fn get_rules(e: Env) -> ValidationRules {
-        e.storage().instance().get(&DataKey::Rules).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Rules)).unwrap()
     }
 
     /// Get blocked words list
