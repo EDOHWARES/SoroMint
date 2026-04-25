@@ -10,6 +10,7 @@ const http = require("http");
 const { URL } = require("url");
 const Token = require("../models/Token");
 const DeploymentAudit = require("../models/DeploymentAudit");
+const SorobanEvent = require("../models/SorobanEvent");
 const { logger } = require("../utils/logger");
 
 /**
@@ -180,4 +181,296 @@ async function syncAnalytics() {
   return { exportedAt: payload.exportedAt, summary: payload.summary, results };
 }
 
-module.exports = { syncAnalytics, buildAnalyticsPayload };
+/**
+ * Aggregate transfer data for all tokens minted via the platform.
+ * Queries SorobanEvent records with eventType containing 'transfer' patterns.
+ * @returns {Promise<Object>} transfer aggregation data
+ */
+async function getTransferAggregation() {
+  try {
+    // Get all tokens in the system
+    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
+    
+    const transferData = [];
+    let totalTransfers = 0;
+    let totalUniqueTransferers = new Set();
+
+    for (const token of tokens) {
+      // Find all transfer events for this token
+      const transfers = await SorobanEvent.find({
+        contractId: token.contractId,
+        eventType: { $regex: "transfer", $options: "i" },
+      }).lean();
+
+      const transferCount = transfers.length;
+      totalTransfers += transferCount;
+
+      // Extract unique senders from topics/value
+      const uniqueSenders = new Set();
+      transfers.forEach((event) => {
+        if (event.topics && event.topics.length > 0) {
+          uniqueSenders.add(event.topics[0]);
+          totalUniqueTransferers.add(event.topics[0]);
+        }
+      });
+
+      // Calculate total volume from all transfers
+      let totalVolume = 0n;
+      transfers.forEach((event) => {
+        if (event.value && typeof event.value === "object" && event.value.amount) {
+          try {
+            totalVolume += BigInt(event.value.amount || 0);
+          } catch (e) {
+            // Skip invalid parsing
+          }
+        }
+      });
+
+      transferData.push({
+        contractId: token.contractId,
+        tokenName: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        transferCount,
+        uniqueTransferers: uniqueSenders.size,
+        totalVolume: totalVolume.toString(),
+        lastTransferAt: transfers.length > 0 
+          ? new Date(Math.max(...transfers.map(t => new Date(t.ledgerClosedAt).getTime())))
+          : null,
+      });
+    }
+
+    return {
+      exportedAt: new Date().toISOString(),
+      summary: {
+        totalTransfers,
+        totalUniqueTransferers: totalUniqueTransferers.size,
+        tokensWithTransfers: transferData.filter(t => t.transferCount > 0).length,
+      },
+      transfers: transferData,
+    };
+  } catch (error) {
+    logger.error("Error getting transfer aggregation", { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Get holder distribution across all tokens.
+ * Aggregates unique holders per token based on transfer events.
+ * @returns {Promise<Object>} holder distribution data
+ */
+async function getHolderDistribution() {
+  try {
+    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
+    
+    const holderData = [];
+    let totalHolders = new Set();
+
+    for (const token of tokens) {
+      // Find all transfer events involving this token
+      const transfers = await SorobanEvent.find({
+        contractId: token.contractId,
+        eventType: { $regex: "transfer", $options: "i" },
+      }).lean();
+
+      // Extract unique recipients (typically second topic) and senders (first topic)
+      const uniqueHolders = new Set();
+      transfers.forEach((event) => {
+        if (event.topics && event.topics.length > 0) {
+          uniqueHolders.add(event.topics[0]); // sender
+          if (event.topics.length > 1) {
+            uniqueHolders.add(event.topics[1]); // recipient
+          }
+        }
+      });
+
+      uniqueHolders.forEach(holder => totalHolders.add(holder));
+
+      holderData.push({
+        contractId: token.contractId,
+        tokenName: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        uniqueHolders: uniqueHolders.size,
+        topHolderCount: Math.min(10, uniqueHolders.size), // Can be extended to track top holders
+      });
+    }
+
+    return {
+      exportedAt: new Date().toISOString(),
+      summary: {
+        totalUniquePlatformHolders: totalHolders.size,
+        tokensWithHolders: holderData.filter(h => h.uniqueHolders > 0).length,
+        averageHoldersPerToken: holderData.length > 0 
+          ? Math.round(holderData.reduce((sum, h) => sum + h.uniqueHolders, 0) / holderData.length)
+          : 0,
+      },
+      holders: holderData,
+    };
+  } catch (error) {
+    logger.error("Error getting holder distribution", { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Get volume metrics for all tokens.
+ * Aggregates transfer volume and trends over time.
+ * @param {number} [days=30] - Number of days to analyze
+ * @returns {Promise<Object>} volume metrics data
+ */
+async function getVolumeMetrics(days = 30) {
+  try {
+    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
+    
+    const volumeData = [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    let totalPlatformVolume = 0n;
+
+    for (const token of tokens) {
+      // Get recent transfer events
+      const recentTransfers = await SorobanEvent.find({
+        contractId: token.contractId,
+        eventType: { $regex: "transfer", $options: "i" },
+        ledgerClosedAt: { $gte: cutoffDate },
+      }).sort({ ledgerClosedAt: -1 }).lean();
+
+      // Calculate volume metrics
+      let volume24h = 0n;
+      let volume7d = 0n;
+      let volume30d = 0n;
+
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      recentTransfers.forEach((event) => {
+        let eventAmount = 0n;
+        try {
+          eventAmount = BigInt(event.value?.amount || 0);
+        } catch (e) {
+          // Skip invalid amounts
+        }
+
+        const eventDate = new Date(event.ledgerClosedAt);
+        
+        if (eventDate >= oneDayAgo) volume24h += eventAmount;
+        if (eventDate >= sevenDaysAgo) volume7d += eventAmount;
+        volume30d += eventAmount;
+      });
+
+      totalPlatformVolume += volume30d;
+
+      // Calculate daily average
+      const dailyAverage = days > 0 
+        ? (BigInt(Math.floor(Number(volume30d) / days))).toString()
+        : "0";
+
+      volumeData.push({
+        contractId: token.contractId,
+        tokenName: token.name,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        volume24h: volume24h.toString(),
+        volume7d: volume7d.toString(),
+        volume30d: volume30d.toString(),
+        dailyAverage,
+        transferCount30d: recentTransfers.length,
+        avgTransferSize: recentTransfers.length > 0
+          ? (BigInt(Math.floor(Number(volume30d) / recentTransfers.length))).toString()
+          : "0",
+      });
+    }
+
+    return {
+      exportedAt: new Date().toISOString(),
+      period: { days, startDate: cutoffDate.toISOString() },
+      summary: {
+        totalPlatformVolume30d: totalPlatformVolume.toString(),
+        volumeMetricsTokens: volumeData.filter(v => BigInt(v.volume30d) > 0n).length,
+      },
+      volumes: volumeData,
+    };
+  } catch (error) {
+    logger.error("Error getting volume metrics", { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Get comprehensive metrics for all tokens combining transfers, holders, and volume.
+ * @param {number} [days=30] - Number of days for volume analysis
+ * @returns {Promise<Object>} comprehensive token metrics
+ */
+async function getTokensMetrics(days = 30) {
+  try {
+    const [transfers, holders, volumes] = await Promise.all([
+      getTransferAggregation(),
+      getHolderDistribution(),
+      getVolumeMetrics(days),
+    ]);
+
+    // Merge all metrics by contractId
+    const metricsMap = new Map();
+
+    // Add transfer data
+    transfers.transfers.forEach((t) => {
+      metricsMap.set(t.contractId, {
+        contractId: t.contractId,
+        tokenName: t.tokenName,
+        symbol: t.symbol,
+        decimals: t.decimals,
+        ...t,
+      });
+    });
+
+    // Merge holder data
+    holders.holders.forEach((h) => {
+      const existing = metricsMap.get(h.contractId) || {};
+      metricsMap.set(h.contractId, {
+        ...existing,
+        ...h,
+      });
+    });
+
+    // Merge volume data
+    volumes.volumes.forEach((v) => {
+      const existing = metricsMap.get(v.contractId) || {};
+      metricsMap.set(v.contractId, {
+        ...existing,
+        ...v,
+      });
+    });
+
+    const metrics = Array.from(metricsMap.values());
+
+    return {
+      exportedAt: new Date().toISOString(),
+      volumePeriod: { days, startDate: volumes.period.startDate },
+      platformSummary: {
+        totalTokens: metrics.length,
+        totalTransfers: transfers.summary.totalTransfers,
+        totalUniqueTransferers: transfers.summary.totalUniqueTransferers,
+        totalUniquePlatformHolders: holders.summary.totalUniquePlatformHolders,
+        totalPlatformVolume30d: volumes.summary.totalPlatformVolume30d,
+        tokensWithActivity: metrics.filter(m => (m.transferCount || 0) > 0).length,
+      },
+      tokens: metrics,
+    };
+  } catch (error) {
+    logger.error("Error getting comprehensive tokens metrics", { error: error.message });
+    throw error;
+  }
+}
+
+module.exports = { 
+  syncAnalytics, 
+  buildAnalyticsPayload,
+  getTransferAggregation,
+  getHolderDistribution,
+  getVolumeMetrics,
+  getTokensMetrics,
+};

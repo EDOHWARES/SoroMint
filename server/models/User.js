@@ -138,18 +138,48 @@ const UserSchema = new mongoose.Schema({
    */
   sponsorshipLastSponsoredAt: {
     type: Date,
+  },
+  /**
+   * User who referred this user
+   */
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  /**
+   * Unique referral code for this user
+   */
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
   }
 }, {
   timestamps: true
 });
 
 /**
- * @notice Ensure at least one authentication method is present
+ * @notice Ensure at least one authentication method is present and generate referral code
  */
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', async function (next) {
   if (!this.publicKey && !this.googleId && !this.githubId) {
     return next(new Error('At least one authentication method (Stellar, Google, or GitHub) is required.'));
   }
+
+  // Generate a unique referral code if not present
+  if (!this.referralCode) {
+    let isUnique = false;
+    let code;
+    while (!isUnique) {
+      code = 'SM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const existing = await mongoose.models.User.findOne({ referralCode: code });
+      if (!existing) isUnique = true;
+    }
+    this.referralCode = code;
+  }
+
   next();
 });
 

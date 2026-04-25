@@ -239,7 +239,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   router.post(
     '/register',
     asyncHandler(async (req, res) => {
-      const { username } = req.body;
+      const { username, referralCode } = req.body;
       const publicKey = validatePublicKey(req.body.publicKey);
 
       // Prevent duplicate registrations
@@ -250,6 +250,15 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
           409,
           'USER_EXISTS'
         );
+      }
+
+      // Look up referrer if referralCode is provided
+      let referrer = null;
+      if (referralCode) {
+        referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+        if (!referrer) {
+          logger.warn('Invalid referral code provided during registration', { referralCode });
+        }
       }
 
       // Optional username constraints
@@ -264,6 +273,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
       const user = new User({
         publicKey,
         username: username ? username.trim() : undefined,
+        referredBy: referrer ? referrer._id : null
       });
       await user.save();
 
@@ -277,6 +287,7 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
             id: user._id,
             publicKey: user.publicKey,
             username: user.username,
+            referralCode: user.referralCode,
             createdAt: user.createdAt,
           },
           token,

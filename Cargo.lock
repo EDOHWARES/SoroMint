@@ -1561,28 +1561,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "soromint-amm-factory"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
- "soromint-amm-pool",
- "soromint-factory",
- "soromint-token",
-]
-
-[[package]]
-name = "soromint-amm-pool"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
- "soromint-token",
-]
-
-[[package]]
 name = "soromint-compliance"
 version = "0.1.0"
 dependencies = [
  "proptest",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "soromint-dividend"
+version = "1.0.0"
+dependencies = [
  "soroban-sdk",
 ]
 
@@ -1610,6 +1599,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-oracle"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-ownership"
 version = "0.1.0"
 dependencies = [
@@ -1624,6 +1620,13 @@ dependencies = [
  "proptest",
  "soroban-sdk",
  "soromint-lifecycle",
+]
+
+[[package]]
+name = "soromint-vault"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
 ]
 
 [[package]]

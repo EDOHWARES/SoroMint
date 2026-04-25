@@ -41,8 +41,8 @@ const securityScanGate = asyncHandler(async (req, res, next) => {
   if (!scanId) {
     throw new AppError(
       'Security scan required before deployment. ' +
-        'Please scan your WASM contract via POST /api/security/scan and ' +
-        'include the returned scanId in this request.',
+      'Please scan your WASM contract via POST /api/security/scan and ' +
+      'include the returned scanId in this request.',
       400,
       'SCAN_REQUIRED'
     );
@@ -53,7 +53,7 @@ const securityScanGate = asyncHandler(async (req, res, next) => {
   if (!scan) {
     throw new AppError(
       `Security scan result not found: ${scanId}. ` +
-        'Submit a fresh scan via POST /api/security/scan.',
+      'Submit a fresh scan via POST /api/security/scan.',
       404,
       'SCAN_NOT_FOUND'
     );
@@ -71,8 +71,8 @@ const securityScanGate = asyncHandler(async (req, res, next) => {
   if (scan.deploymentBlocked) {
     throw new AppError(
       `Deployment blocked: the security scan (${scanId}) found ` +
-        `${scan.summary.critical} critical and ${scan.summary.high} high-severity issue(s). ` +
-        'Resolve all critical and high findings before deploying.',
+      `${scan.summary.critical} critical and ${scan.summary.high} high-severity issue(s). ` +
+      'Resolve all critical and high findings before deploying.',
       422,
       'SCAN_BLOCKED'
     );
@@ -206,6 +206,8 @@ const createTokenRouter = ({
       const scanRef = req.securityScan || null;
       const cacheService = getCacheService();
 
+      const { emitEvent } = require('../utils/socket');
+
       logger.info('Creating new token', {
         correlationId: req.correlationId,
         name,
@@ -213,6 +215,13 @@ const createTokenRouter = ({
         ownerPublicKey,
         userId,
       });
+
+      emitEvent('minting_progress', {
+        name,
+        symbol,
+        status: 'PENDING',
+        message: 'Initializing token deployment...'
+      }, ownerPublicKey);
 
       try {
         const newToken = new Token({
@@ -229,6 +238,14 @@ const createTokenRouter = ({
           tokenId: newToken._id,
           securityScanId: scanRef ? scanRef.scanId : null,
         });
+
+        emitEvent('minting_progress', {
+          tokenId: newToken._id,
+          name,
+          symbol,
+          status: 'SUCCESS',
+          message: 'Token minted successfully'
+        }, ownerPublicKey);
 
         try {
           await cacheService.deleteByPattern(
@@ -257,6 +274,13 @@ const createTokenRouter = ({
           correlationId: req.correlationId,
           error: error.message,
         });
+
+        emitEvent('minting_progress', {
+          name,
+          symbol,
+          status: 'FAILED',
+          message: error.message
+        }, ownerPublicKey);
 
         await DeploymentAudit.create({
           userId,

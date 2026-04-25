@@ -19,13 +19,13 @@ class SorobanEventIndexer {
     const env = getEnv();
     const rpcUrl = env.SOROBAN_RPC_URLS?.split(',')[0] || env.SOROBAN_RPC_URL;
     this.server = new StellarSdk.SorobanRpc.Server(rpcUrl);
-    
+
     const lastEvent = await SorobanEvent.findOne().sort({ ledger: -1 });
     this.lastCursor = lastEvent?.pagingToken || undefined;
-    
-    logger.info('SorobanEventIndexer initialized', { 
-      rpcUrl, 
-      startCursor: this.lastCursor || 'genesis' 
+
+    logger.info('SorobanEventIndexer initialized', {
+      rpcUrl,
+      startCursor: this.lastCursor || 'genesis'
     });
   }
 
@@ -68,10 +68,12 @@ class SorobanEventIndexer {
       }
 
       const response = await this.server.getEvents(request);
-      
+
       if (!response.events || response.events.length === 0) {
         return;
       }
+
+      const { emitEvent } = require('../utils/socket');
 
       const events = response.events.map(e => ({
         contractId: e.contractId,
@@ -85,15 +87,19 @@ class SorobanEventIndexer {
         inSuccessfulContractCall: e.inSuccessfulContractCall ?? true,
       }));
 
+      for (const event of events) {
+        emitEvent('ledger_event', event);
+      }
+
       await SorobanEvent.insertMany(events, { ordered: false }).catch(err => {
         if (err.code !== 11000) throw err;
       });
 
       this.lastCursor = events[events.length - 1].pagingToken;
-      
-      logger.info('Indexed events batch', { 
-        count: events.length, 
-        lastLedger: events[events.length - 1].ledger 
+
+      logger.info('Indexed events batch', {
+        count: events.length,
+        lastLedger: events[events.length - 1].ledger
       });
     } finally {
       this.processingBatch = false;

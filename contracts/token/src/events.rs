@@ -158,3 +158,25 @@ pub fn emit_transferability_updated(e: &Env, admin: &Address, transferable: bool
     let topics = (symbol_short!("xferable"), admin.clone());
     e.events().publish(topics, transferable);
 }
+
+pub fn emit_minter_mint(
+    e: &Env,
+    minter: &Address,
+    to: &Address,
+    amount: i128,
+    new_balance: i128,
+    new_supply: i128,
+) {
+    let topics = (Symbol::new(e, "mtr_mint"), minter.clone(), to.clone());
+    e.events().publish(topics, (amount, new_balance, new_supply));
+}
+
+pub fn emit_snapshot_taken(e: &Env, account: &Address, ledger: u32, balance: i128) {
+    let topics = (Symbol::new(e, "snapshot"), account.clone());
+    e.events().publish(topics, (ledger, balance));
+}
+
+pub fn emit_supply_snapshot_taken(e: &Env, ledger: u32, supply: i128) {
+    let topics = (symbol_short!("sup_snap"),);
+    e.events().publish(topics, (ledger, supply));
+}
