@@ -10,6 +10,7 @@ const { initEnv, getEnv } = require('./config/env-config');
 initEnv();
 
 const { scheduleBackups } = require('./services/backup-service');
+const { startFeeMonitor } = require('./services/fee-monitor-service');
 const { getCacheService } = require('./services/cache-service');
 
 const express = require('express');
@@ -134,6 +135,7 @@ const startServer = async () => {
       `API Documentation available at http://localhost:${env.PORT}/api-docs`
     );
     scheduleBackups();
+    startFeeMonitor();
   });
 
   initSocket(server);

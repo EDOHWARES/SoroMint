@@ -86,4 +86,40 @@ router.get('/fees/suggestions', asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * @route GET /api/fees/alerts
+ * @description Returns the current network congestion status
+ * @access Public
+ *
+ * @returns {Object} 200 - Network congestion alert status
+ * @returns {Object} 503 - Cache unavailable or network status unknown
+ */
+router.get('/fees/alerts', asyncHandler(async (req, res) => {
+  const { getCacheService } = require('../services/cache-service');
+  const { CACHE_KEY_ALERT } = require('../services/fee-monitor-service');
+  
+  const cacheService = getCacheService();
+  const alertStatus = await cacheService.get(CACHE_KEY_ALERT);
+
+  if (!alertStatus) {
+    // If we have no data, we might be starting up or the monitor failed
+    // we can return a default un-congested state, or a warning
+    return res.json({
+      success: true,
+      data: {
+        congested: false,
+        currentP90Fee: null,
+        baseFee: null,
+        message: 'Fee monitor is starting up or status is currently unknown',
+        timestamp: new Date().toISOString(),
+      }
+    });
+  }
+
+  res.json({
+    success: true,
+    data: alertStatus,
+  });
+}));
+
 module.exports = router;
