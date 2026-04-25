@@ -7,6 +7,7 @@
 const { logger } = require("../utils/logger");
 const { getEnv } = require("../config/env-config");
 const { SOURCE_CHAINS } = require("../validators/bridge-validator");
+const { retryWithBackoff } = require("../utils/retry");
 
 /**
  * Event action classification
@@ -442,33 +443,35 @@ class BridgeRelayer {
   }
 
   /**
-   * Make EVM JSON-RPC call
+   * Make EVM JSON-RPC call with exponential backoff retry
    */
   async _evmRpcCall(method, params) {
-    const response = await fetch(this.config.evmRpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method,
-        params,
-        id: Date.now(),
-      }),
-    });
+    return retryWithBackoff(async () => {
+      const response = await fetch(this.config.evmRpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method,
+          params,
+          id: Date.now(),
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`EVM RPC request failed with HTTP ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`EVM RPC request failed with HTTP ${response.status}`);
+      }
 
-    const payload = await response.json();
+      const payload = await response.json();
 
-    if (payload.error) {
-      throw new Error(
-        payload.error.message || "Unknown EVM RPC error",
-      );
-    }
+      if (payload.error) {
+        throw new Error(
+          payload.error.message || "Unknown EVM RPC error",
+        );
+      }
 
-    return payload.result;
+      return payload.result;
+    }, { label: `EVM RPC [${method}]` });
   }
 
   /**
