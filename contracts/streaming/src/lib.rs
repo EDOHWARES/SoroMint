@@ -21,6 +21,9 @@ pub struct Stream {
 
 #[contracttype]
 pub enum DataKey {
+    Admin,
+    Treasury,
+    FeeBasisPoints,
     Stream(u64),
     NextStreamId,
 }
@@ -30,6 +33,51 @@ pub struct StreamingPayments;
 
 #[contractimpl]
 impl StreamingPayments {
+    /// Initialize the contract with an admin address
+    pub fn initialize(e: Env, admin: Address) {
+        if e.storage().instance().has(&DataKey::Admin) {
+            panic!("already initialized");
+        }
+        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::NextStreamId, &0u64);
+        // Default fee 0, treasury optional; not set here
+    }
+
+    /// Set the treasury address (admin only)
+    pub fn set_treasury(e: Env, treasury: Address) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::Treasury, &treasury);
+        e.events().publish(
+            (soroban_sdk::symbol_short!("trsry_set"),),
+            (treasury,)
+        );
+    }
+
+    /// Get treasury address
+    pub fn get_treasury(e: Env) -> Address {
+        e.storage().instance().get(&DataKey::Treasury).unwrap()
+    }
+
+    /// Set fee basis points (admin only). 10000 = 100%
+    pub fn set_fee_basis_points(e: Env, fee_bp: u32) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        if fee_bp > 10000 {
+            panic!("fee basis points cannot exceed 10000");
+        }
+        e.storage().instance().set(&DataKey::FeeBasisPoints, &fee_bp);
+        e.events().publish(
+            (soroban_sdk::symbol_short!("feebp_set"),),
+            (fee_bp,)
+        );
+    }
+
+    /// Get fee basis points
+    pub fn get_fee_basis_points(e: Env) -> u32 {
+        e.storage().instance().get(&DataKey::FeeBasisPoints).unwrap_or(0)
+    }
+
     /// Create a new payment stream
     pub fn create_stream(
         e: Env,
@@ -82,24 +130,45 @@ impl StreamingPayments {
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
-        
+
         stream.recipient.require_auth();
-        
+
         let available = Self::balance_of(e.clone(), stream_id);
         if amount > available { panic!("insufficient balance"); }
-        
+
+        // Calculate fee
+        let fee_bp: u32 = e.storage().instance().get(&DataKey::FeeBasisPoints).unwrap_or(0);
+        let fee_amount = if fee_bp > 0 {
+            (amount * (fee_bp as i128)) / 10000
+        } else {
+            0
+        };
+        let net_amount = amount - fee_amount;
+
+        // Update withdrawn with gross amount
         stream.withdrawn += amount;
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
-        
+
         let client = token::Client::new(&e, &stream.token);
-        client.transfer(&e.current_contract_address(), &stream.recipient, &amount);
-        
+
+        // Transfer net to recipient
+        if net_amount > 0 {
+            client.transfer(&e.current_contract_address(), &stream.recipient, &net_amount);
+        }
+
+        // Transfer fee to treasury if applicable
+        if fee_amount > 0 {
+            let treasury: Address = e.storage().instance().get(&DataKey::Treasury)
+                .unwrap_or_else(|| panic!("treasury not set for fee collection"));
+            client.transfer(&e.current_contract_address(), &treasury, &fee_amount);
+        }
+
         e.events().publish(
             (soroban_sdk::symbol_short!("withdraw"), stream_id),
-            (stream.recipient.clone(), amount)
+            (stream.recipient.clone(), amount, fee_amount)
         );
     }
-    
+
     /// Cancel a stream and refund remaining balance
     pub fn cancel_stream(e: Env, stream_id: u64) {
         let stream: Stream = e.storage().persistent()
@@ -230,5 +299,65 @@ mod test {
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_fee_collection() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let treasury = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        // Initialize admin and set treasury + fee (10% = 1000 bp)
+        client.initialize(&admin);
+        client.set_treasury(&treasury);
+        client.set_fee_basis_points(&1000); // 10%
+
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        e.ledger().set_sequence_number(150);
+        // Withdraw 500; with 10% fee => 50 fee, net 450
+        client.withdraw(&stream_id, &500);
+
+        assert_eq!(token_client.balance(&recipient), 450);
+        assert_eq!(token_client.balance(&treasury), 50);
+        assert_eq!(token_client.balance(&sender), 9000); // after deposit transfer
+    }
+
+    #[test]
+    fn test_no_fee_by_default() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        // Initialize without setting fee (default 0)
+        client.initialize(&admin);
+
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+
+        e.ledger().set_sequence_number(150);
+        client.withdraw(&stream_id, &500);
+
+        assert_eq!(token_client.balance(&recipient), 500);
     }
 }
