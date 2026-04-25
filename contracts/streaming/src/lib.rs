@@ -17,6 +17,7 @@ pub struct Stream {
     pub start_ledger: u32,
     pub stop_ledger: u32,
     pub withdrawn: i128,
+    pub operator: Option<Address>,
 }
 
 #[contracttype]
@@ -39,6 +40,7 @@ impl StreamingPayments {
         total_amount: i128,
         start_ledger: u32,
         stop_ledger: u32,
+        operator: Option<Address>,
     ) -> u64 {
         sender.require_auth();
         
@@ -64,6 +66,7 @@ impl StreamingPayments {
             start_ledger,
             stop_ledger,
             withdrawn: 0,
+            operator: operator.clone(),
         };
         
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
@@ -71,19 +74,39 @@ impl StreamingPayments {
         
         e.events().publish(
             (soroban_sdk::symbol_short!("created"), stream_id),
-            (sender, recipient, total_amount)
+            (sender, recipient, total_amount, operator)
         );
         
         stream_id
     }
+
+    /// Set or update the operator for a stream
+    pub fn set_operator(e: Env, stream_id: u64, operator: Option<Address>) {
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"));
+            
+        stream.sender.require_auth();
+        stream.operator = operator;
+        
+        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+    }
     
     /// Withdraw available funds from a stream
-    pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
+    pub fn withdraw(e: Env, spender: Address, stream_id: u64, amount: i128) {
+        spender.require_auth();
+        
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
         
-        stream.recipient.require_auth();
+        // Verify spender is either recipient or operator
+        let is_authorized = spender == stream.recipient || 
+            (stream.operator.is_some() && Some(spender.clone()) == stream.operator);
+            
+        if !is_authorized {
+            panic!("not authorized to withdraw");
+        }
         
         let available = Self::balance_of(e.clone(), stream_id);
         if amount > available { panic!("insufficient balance"); }
@@ -96,17 +119,25 @@ impl StreamingPayments {
         
         e.events().publish(
             (soroban_sdk::symbol_short!("withdraw"), stream_id),
-            (stream.recipient.clone(), amount)
+            (stream.recipient.clone(), amount, spender)
         );
     }
     
     /// Cancel a stream and refund remaining balance
-    pub fn cancel_stream(e: Env, stream_id: u64) {
+    pub fn cancel_stream(e: Env, spender: Address, stream_id: u64) {
+        spender.require_auth();
+        
         let stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
         
-        stream.sender.require_auth();
+        // Verify spender is either sender or operator
+        let is_authorized = spender == stream.sender || 
+            (stream.operator.is_some() && Some(spender.clone()) == stream.operator);
+            
+        if !is_authorized {
+            panic!("not authorized to cancel");
+        }
         
         let recipient_balance = Self::balance_of(e.clone(), stream_id);
         let client = token::Client::new(&e, &stream.token);
@@ -130,7 +161,7 @@ impl StreamingPayments {
         
         e.events().publish(
             (soroban_sdk::symbol_short!("canceled"), stream_id),
-            (recipient_balance, refund)
+            (recipient_balance, refund, spender)
         );
     }
     
@@ -196,14 +227,14 @@ mod test {
         
         e.ledger().set_sequence_number(100);
         
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &None);
         
         e.ledger().set_sequence_number(150);
         
         let balance = client.balance_of(&stream_id);
         assert_eq!(balance, 500);
         
-        client.withdraw(&stream_id, &500);
+        client.withdraw(&recipient, &stream_id, &500);
         assert_eq!(token_client.balance(&recipient), 500);
     }
 
@@ -223,12 +254,70 @@ mod test {
         let client = StreamingPaymentsClient::new(&e, &contract_id);
         
         e.ledger().set_sequence_number(100);
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &None);
         
         e.ledger().set_sequence_number(150);
-        client.cancel_stream(&stream_id);
+        client.cancel_stream(&sender, &stream_id);
         
         assert_eq!(token_client.balance(&recipient), 500);
         assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_operator_delegation() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let operator = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        
+        // Create with operator
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &Some(operator.clone()));
+        
+        e.ledger().set_sequence_number(150);
+        
+        // Test operator withdrawal
+        client.withdraw(&operator, &stream_id, &200);
+        assert_eq!(token_client.balance(&recipient), 200);
+        
+        // Test operator cancellation
+        client.cancel_stream(&operator, &stream_id);
+        
+        assert_eq!(token_client.balance(&recipient), 500); 
+        assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    fn test_set_operator() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        let operator = Address::generate(&e);
+        
+        let (token_addr, _, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &None);
+        
+        client.set_operator(&stream_id, &Some(operator.clone()));
+        
+        let stream = client.get_stream(&stream_id);
+        assert_eq!(stream.operator, Some(operator));
     }
 }
