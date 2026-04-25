@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { HorizonEventStream } = require('../services/event-stream');
 const { authenticate } = require('../middleware/auth');
@@ -6,10 +8,15 @@ const { logger } = require('../utils/logger');
 const router = express.Router();
 
 /**
+ * @openapi
  * @route GET /api/events/stream
- * @description Server-Sent Events endpoint that proxies Horizon's operation stream.
- * @queryparam {string} [account] - Optional Stellar account ID to filter events.
- * @security JWT
+ * @name getEventStream
+ * @description Server-Sent Events endpoint that proxies Horizon's operation stream
+ * @tags System
+ * @security BearerAuth
+ * @param {string} account - Optional Stellar account ID to filter events
+ * @produces text/event-stream
+ * @returns {string} 200 - SSE stream of events
  */
 router.get('/events/stream', authenticate, (req, res) => {
   const accountId = req.query.account || undefined;

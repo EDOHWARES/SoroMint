@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { asyncHandler } = require('../middleware/error-handler');
 const { AppError } = require('../middleware/error-handler');
@@ -7,16 +9,15 @@ const { logger } = require('../utils/logger');
 const router = express.Router();
 
 /**
+ * @openapi
  * @route GET /api/fees/recommended
- * @description Returns a recommended transaction fee based on current Horizon fee stats.
- *              Automatically applies a surge multiplier when network congestion is detected.
- * @access Public
- *
- * @param {number} [ops=1] - Number of operations in the transaction (query param)
- *
- * @returns {Object} 200 - Fee recommendation
- * @returns {Object} 400 - Invalid ops parameter
- * @returns {Object} 502 - Failed to fetch fee stats from Horizon
+ * @name getRecommendedFee
+ * @description Returns a recommended transaction fee based on current Horizon fee stats with automatic surge multiplier
+ * @tags Analytics
+ * @param {integer} ops - Number of operations in the transaction (optional, default: 1, max: 100)
+ * @returns {object} 200 - Fee recommendation
+ * @returns {object} 400 - Invalid ops parameter
+ * @returns {object} 502 - Failed to fetch fee stats from Horizon
  */
 router.get('/fees/recommended', asyncHandler(async (req, res) => {
   const rawOps = req.query.ops;
@@ -46,18 +47,15 @@ router.get('/fees/recommended', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * @openapi
  * @route GET /api/fees/suggestions
- * @description Returns low/medium/high fee suggestions based on current Horizon fee stats.
- *              For Soroban transactions, these values represent inclusion-fee guidance
- *              (the classic `fee` field in stroops). Add Soroban resource fees separately
- *              based on simulation.
- * @access Public
- *
- * @param {number} [ops=1] - Number of operations in the transaction (query param)
- *
- * @returns {Object} 200 - Fee suggestions
- * @returns {Object} 400 - Invalid ops parameter
- * @returns {Object} 502 - Failed to fetch fee stats from Horizon
+ * @name getFeeSuggestions
+ * @description Returns low/medium/high fee suggestions based on current Horizon fee stats. For Soroban transactions, these represent inclusion-fee guidance.
+ * @tags Analytics
+ * @param {integer} ops - Number of operations in the transaction (optional, default: 1, max: 100)
+ * @returns {object} 200 - Fee suggestions (low, medium, high)
+ * @returns {object} 400 - Invalid ops parameter
+ * @returns {object} 502 - Failed to fetch fee stats from Horizon
  */
 router.get('/fees/suggestions', asyncHandler(async (req, res) => {
   const rawOps = req.query.ops;

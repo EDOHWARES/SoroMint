@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { Transform } = require('stream');
 const DeploymentAudit = require('../models/DeploymentAudit');
@@ -21,6 +23,15 @@ const rowToCSV = (doc) =>
     .map(escapeCSV)
     .join(',') + '\n';
 
+/**
+ * @openapi
+ * @route GET /api/logs
+ * @name getLogs
+ * @description Get deployment audit logs for the authenticated user
+ * @tags Audit
+ * @security BearerAuth
+ * @returns {array} 200 - Array of deployment audit logs
+ */
 router.get('/logs', authenticate, asyncHandler(async (req, res) => {
   const logs = await DeploymentAudit.find({ userId: req.user._id })
     .sort({ createdAt: -1 })
@@ -28,6 +39,18 @@ router.get('/logs', authenticate, asyncHandler(async (req, res) => {
   res.json(logs);
 }));
 
+/**
+ * @openapi
+ * @route GET /api/logs/export
+ * @name exportLogs
+ * @description Export deployment audit logs as CSV with optional date range filter
+ * @tags Audit
+ * @security BearerAuth
+ * @param {string} from - Start date filter (ISO 8601 format)
+ * @param {string} to - End date filter (ISO 8601 format)
+ * @produces text/csv
+ * @returns {file} 200 - CSV file download
+ */
 router.get('/logs/export', authenticate, asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const filter = { userId: req.user._id };
@@ -61,6 +84,18 @@ router.get('/logs/export', authenticate, asyncHandler(async (req, res) => {
   cursor.pipe(transformer).pipe(res, { end: true });
 }));
 
+/**
+ * @openapi
+ * @route GET /api/admin/logs
+ * @name getAdminLogs
+ * @description Get all deployment audit logs (admin only) with filtering options
+ * @tags Audit
+ * @security BearerAuth
+ * @param {string} status - Filter by status (optional)
+ * @param {string} userId - Filter by user ID (optional)
+ * @param {string} tokenName - Filter by token name regex (optional)
+ * @returns {array} 200 - Array of deployment audit logs
+ */
 router.get('/admin/logs', authenticate, authorize('admin'), asyncHandler(async (req, res) => {
   const { status, userId, tokenName } = req.query;
   const filter = {};

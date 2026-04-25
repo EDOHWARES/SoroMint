@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { asyncHandler } = require('../middleware/error-handler');
 const { authenticate } = require('../middleware/auth');
@@ -18,6 +20,21 @@ const {
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * @route POST /api/dao/proposals
+ * @name createProposal
+ * @description Create a new DAO governance proposal
+ * @tags Voting
+ * @security BearerAuth
+ * @param {string} tokenId - Token ID associated with the proposal
+ * @param {string} contractId - Contract ID (optional)
+ * @param {string} proposer - Proposer's public key
+ * @param {object} changes - Proposed changes
+ * @param {number} quorum - Quorum threshold
+ * @param {number} durationDays - Voting duration in days
+ * @returns {object} 201 - Created proposal
+ */
 router.post(
   '/proposals',
   authenticate,
@@ -44,6 +61,18 @@ router.post(
   })
 );
 
+/**
+ * @openapi
+ * @route POST /api/dao/votes
+ * @name castVote
+ * @description Cast a vote on a DAO proposal
+ * @tags Voting
+ * @security BearerAuth
+ * @param {string} proposalId - Proposal ID to vote on
+ * @param {string} voter - Voter's public key
+ * @param {boolean} support - Whether the voter supports the proposal
+ * @returns {object} 201 - Cast vote
+ */
 router.post(
   '/votes',
   authenticate,
@@ -64,6 +93,16 @@ router.post(
   })
 );
 
+/**
+ * @openapi
+ * @route GET /api/dao/proposals/{proposalId}
+ * @name getProposal
+ * @description Get details of a specific DAO proposal
+ * @tags Voting
+ * @security BearerAuth
+ * @param {string} proposalId - Proposal ID
+ * @returns {object} 200 - Proposal details
+ */
 router.get(
   '/proposals/:proposalId',
   authenticate,
@@ -77,6 +116,17 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * @route GET /api/dao/proposals
+ * @name getProposalsByToken
+ * @description Get all DAO proposals for a specific token with optional status filter
+ * @tags Voting
+ * @security BearerAuth
+ * @param {string} tokenId - Token ID to filter proposals
+ * @param {string} status - Filter by status (optional)
+ * @returns {array} 200 - Array of proposals
+ */
 router.get(
   '/proposals',
   authenticate,
@@ -90,6 +140,16 @@ router.get(
   })
 );
 
+/**
+ * @openapi
+ * @route GET /api/dao/proposals/{proposalId}/votes
+ * @name getVotesByProposal
+ * @description Get all votes cast for a specific DAO proposal
+ * @tags Voting
+ * @security BearerAuth
+ * @param {string} proposalId - Proposal ID
+ * @returns {array} 200 - Array of votes
+ */
 router.get(
   '/proposals/:proposalId/votes',
   authenticate,

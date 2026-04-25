@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { z } = require('zod');
 const ApiKey = require('../models/ApiKey');
@@ -5,15 +7,6 @@ const ApiUsage = require('../models/ApiUsage');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { logger } = require('../utils/logger');
-
-/**
- * @title API Key Management Routes
- * @author SoroMint Team
- * @notice JWT-authenticated endpoints allowing users to create, list, rotate,
- *         update, revoke, and inspect usage of their developer API keys.
- *         The Developer API Gateway itself is defined in
- *         developer-gateway-routes.js and authenticates via the API key.
- */
 
 const createSchema = z.object({
   name: z
@@ -77,9 +70,18 @@ const createApiKeyRouter = () => {
   const router = express.Router();
 
   /**
+   * @openapi
    * @route POST /api/api-keys
-   * @desc  Issue a new API key for the authenticated user. The plaintext
-   *        value is returned exactly once in this response.
+   * @name createApiKey
+   * @description Issue a new API key for the authenticated user. The plaintext value is returned exactly once in this response.
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} name - API key name (required, 1-100 chars)
+   * @param {string} tier - Tier level (optional, e.g., 'free', 'pro')
+   * @param {array} scopes - Permission scopes array (optional)
+   * @param {object} rateLimit - Rate limit configuration (optional)
+   * @param {string} expiresAt - Expiration datetime ISO string (optional)
+   * @returns {object} 201 - Created API key with plaintext (shown once only)
    */
   router.post(
     '/',
@@ -121,8 +123,13 @@ const createApiKeyRouter = () => {
   );
 
   /**
+   * @openapi
    * @route GET /api/api-keys
-   * @desc  List the authenticated user's API keys (no plaintext).
+   * @name listApiKeys
+   * @description List the authenticated user's API keys (no plaintext)
+   * @tags API Keys
+   * @security BearerAuth
+   * @returns {array} 200 - Array of API keys
    */
   router.get(
     '/',
@@ -140,8 +147,14 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route GET /api/api-keys/:id
-   * @desc  Fetch a single API key by id.
+   * @openapi
+   * @route GET /api/api-keys/{id}
+   * @name getApiKey
+   * @description Fetch a single API key by ID
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @returns {object} 200 - API key details
    */
   router.get(
     '/:id',
@@ -153,8 +166,19 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route PATCH /api/api-keys/:id
-   * @desc  Update mutable fields (name, tier, scopes, rateLimit, expiresAt).
+   * @openapi
+   * @route PATCH /api/api-keys/{id}
+   * @name updateApiKey
+   * @description Update mutable fields of an API key (name, tier, scopes, rateLimit, expiresAt)
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @param {string} name - New name (optional)
+   * @param {string} tier - New tier (optional)
+   * @param {array} scopes - New scopes array (optional)
+   * @param {object} rateLimit - New rate limit (optional)
+   * @param {string} expiresAt - New expiration datetime (optional)
+   * @returns {object} 200 - Updated API key
    */
   router.patch(
     '/:id',
@@ -178,8 +202,14 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route POST /api/api-keys/:id/rotate
-   * @desc  Invalidate the current secret and issue a new plaintext value.
+   * @openapi
+   * @route POST /api/api-keys/{id}/rotate
+   * @name rotateApiKey
+   * @description Invalidate the current secret and issue a new plaintext value
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @returns {object} 200 - New API key with plaintext (shown once only)
    */
   router.post(
     '/:id/rotate',
@@ -212,8 +242,14 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route POST /api/api-keys/:id/revoke
-   * @desc  Permanently disable the API key.
+   * @openapi
+   * @route POST /api/api-keys/{id}/revoke
+   * @name revokeApiKey
+   * @description Permanently disable the API key
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @returns {object} 200 - Revoked API key
    */
   router.post(
     '/:id/revoke',
@@ -228,8 +264,14 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route DELETE /api/api-keys/:id
-   * @desc  Delete the API key and all associated usage records.
+   * @openapi
+   * @route DELETE /api/api-keys/{id}
+   * @name deleteApiKey
+   * @description Delete the API key and all associated usage records
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @returns {object} 200 - Success confirmation
    */
   router.delete(
     '/:id',
@@ -244,10 +286,16 @@ const createApiKeyRouter = () => {
   );
 
   /**
-   * @route GET /api/api-keys/:id/usage
-   * @desc  Aggregated usage stats for a key over the given window.
-   * @query {string} [from] - ISO timestamp, defaults to 24h ago
-   * @query {string} [to]   - ISO timestamp, defaults to now
+   * @openapi
+   * @route GET /api/api-keys/{id}/usage
+   * @name getApiKeyUsage
+   * @description Aggregated usage stats for an API key over the given time window
+   * @tags API Keys
+   * @security BearerAuth
+   * @param {string} id - API key ID
+   * @param {string} from - Start timestamp ISO string (optional, defaults to 24h ago)
+   * @param {string} to - End timestamp ISO string (optional, defaults to now)
+   * @returns {object} 200 - Usage statistics including total requests, status breakdown, and top endpoints
    */
   router.get(
     '/:id/usage',
