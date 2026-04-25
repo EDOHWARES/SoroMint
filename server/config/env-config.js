@@ -141,6 +141,13 @@ function validateEnv() {
         default: false,
         desc: 'When true, token deployment requires a passing security scan result (scanId must be provided and must not be blocked)',
       }),
+      FEE_MONITOR_INTERVAL_MS: envalid.num({
+        default: 30000,
+        desc: 'Interval in milliseconds for checking Soroban fee stats (default: 30 seconds)',
+      }),
+      ALERT_FEE_THRESHOLD_STROOPS: envalid.num({
+        default: 300,
+        desc: 'Threshold for p90 fee in stroops to trigger a network congestion alert (default: 300)',
       DISCORD_WEBHOOK_URL: envalid.str({
         default: '',
         desc: 'Discord webhook URL for fraud detection alerts (optional)',
