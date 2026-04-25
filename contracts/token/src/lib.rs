@@ -34,6 +34,7 @@ pub enum DataKey {
     MintWindow(Address),
     Snapshot(Address, u32),  // (account, ledger_sequence) -> i128
     SupplySnapshot(u32),     // ledger_sequence -> i128
+    Nonce(Address),
 }
 
 // Rolling 24-hour window state for a minter
@@ -106,122 +107,61 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Symbol, &symbol);
         e.storage().instance().set(&DataKey::Supply, &0i128);
         e.storage().instance().set(&DataKey::Transferable, &true);
+        events::emit_initialized(&e, &admin, decimals, &name, &symbol);
+    }
+
+    pub fn admin(e: Env) -> Address {
+        e.storage().instance().get(&DataKey::Admin).expect("not initialized")
     }
 
     pub fn set_fee_config(e: Env, enabled: bool, fee_bps: u32, treasury: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
-        e.storage().instance().set(&DataKey::FeeConfig, &FeeConfig { enabled, fee_bps, treasury });
+        e.storage().instance().set(&DataKey::FeeConfig, &FeeConfig { enabled, fee_bps, treasury: treasury.clone() });
+        events::emit_fee_config_updated(&e, &admin, enabled, fee_bps, &treasury);
     }
 
     pub fn set_metadata_hash(e: Env, hash: Bytes) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
         e.storage().instance().set(&DataKey::MetadataHash, &hash);
     }
 
     pub fn set_transferable(e: Env, transferable: bool) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
         e.storage().instance().set(&DataKey::Transferable, &transferable);
+        events::emit_transferability_updated(&e, &admin, transferable);
+    }
+
+    pub fn is_transferable(e: Env) -> bool {
+        e.storage().instance().get(&DataKey::Transferable).unwrap_or(true)
     }
 
     pub fn mint(e: Env, to: Address, amount: i128) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
-        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
-        let new_to = Self::read_balance(&e, &to) + amount;
-        Self::write_balance(&e, &to, new_to);
-        e.storage().instance().set(&DataKey::Supply, &(supply + amount));
-        events::emit_mint(&e, admin, to, amount);
+        let mut supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap_or(0);
+        let mut balance = Self::read_balance(&e, &to);
+        balance += amount;
+        supply += amount;
+        Self::write_balance(&e, &to, balance);
+        e.storage().instance().set(&DataKey::Supply, &supply);
+        events::emit_mint(&e, &admin, &to, amount, balance, supply);
     }
 
-    pub fn set_minter_limit(e: Env, minter: Address, limit: i128) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        admin.require_auth();
-        e.storage().persistent().set(&DataKey::MintLimit(minter), &limit);
-    }
-
-    pub fn minter_mint(e: Env, minter: Address, to: Address, amount: i128) {
-        minter.require_auth();
-        
-        let limit: i128 = e.storage().persistent().get(&DataKey::MintLimit(minter.clone())).expect("no mint limit set for this minter");
-        let mut window: MintWindowState = e.storage().persistent().get(&DataKey::MintWindow(minter.clone())).unwrap_or(MintWindowState { minted: 0, window_start: e.ledger().timestamp() });
-
-        if e.ledger().timestamp() >= window.window_start + 86400 {
-            window.minted = 0;
-            window.window_start = e.ledger().timestamp();
-        }
-
-        if window.minted + amount > limit {
-            panic!("minting limit exceeded for this 24h window");
-        }
-
-        window.minted += amount;
-        e.storage().persistent().set(&DataKey::MintWindow(minter.clone()), &window);
-
-        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
-        let new_to = Self::read_balance(&e, &to) + amount;
-        Self::write_balance(&e, &to, new_to);
-        e.storage().instance().set(&DataKey::Supply, &(supply + amount));
-        events::emit_mint(&e, minter, to, amount);
-    }
-
-    pub fn set_verified(e: Env, addr: Address, status: bool) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        admin.require_auth();
-        e.storage().persistent().set(&DataKey::Verified(addr), &status);
-    }
-
-    pub fn is_verified(e: Env, addr: Address) -> bool {
-        e.storage().persistent().get(&DataKey::Verified(addr)).unwrap_or(false)
-    }
-
-    pub fn verify_with_proof(e: Env, addr: Address, proof: Bytes) {
-        // Mock ZK-Proof verification logic
-        if proof.len() > 0 {
-            e.storage().persistent().set(&DataKey::Verified(addr), &true);
-        }
-    }
-
-    pub fn take_snapshot(e: Env) -> u32 {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        admin.require_auth();
-        let sequence = e.ledger().sequence();
-        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
-        e.storage().persistent().set(&DataKey::SupplySnapshot(sequence), &supply);
-        sequence
-    }
-
-    pub fn record_balance_snapshot(e: Env, id: Address) {
-        let sequence = e.ledger().sequence();
-        let balance = Self::read_balance(&e, &id);
-        e.storage().persistent().set(&DataKey::Snapshot(id, sequence), &balance);
-    }
-
-    pub fn get_balance_at(e: Env, id: Address, sequence: u32) -> i128 {
-        e.storage().persistent().get(&DataKey::Snapshot(id, sequence)).unwrap_or(0)
-    }
-
-    pub fn get_supply_at(e: Env, sequence: u32) -> i128 {
-        e.storage().persistent().get(&DataKey::SupplySnapshot(sequence)).unwrap_or(0)
-    }
-
-    /// Set the maximum tokens a Minter role address may mint within any rolling 24-hour window.
     pub fn set_minter_limit(e: Env, minter: Address, limit: i128) {
         soromint_lifecycle::require_not_paused(&e);
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
         if limit <= 0 { panic!("limit must be positive"); }
         e.storage().persistent().set(&DataKey::MintLimit(minter), &limit);
     }
 
-    /// Returns the configured 24-hour mint limit for a minter, or None if unset.
     pub fn minter_limit(e: Env, minter: Address) -> Option<i128> {
         e.storage().persistent().get(&DataKey::MintLimit(minter))
     }
 
-    /// Mint tokens as a Minter role address, subject to the rolling 24-hour cap.
     pub fn minter_mint(e: Env, minter: Address, to: Address, amount: i128) {
         soromint_lifecycle::require_not_paused(&e);
         if amount <= 0 { panic!("mint amount must be positive"); }
@@ -233,7 +173,7 @@ impl SoroMintToken {
             .expect("no mint limit configured for minter");
 
         let now: u64 = e.ledger().timestamp();
-        const WINDOW: u64 = 86_400; // 24 hours in seconds
+        const WINDOW: u64 = 86_400; // 24 hours
 
         let mut state: MintWindowState = e.storage()
             .persistent()
@@ -262,42 +202,57 @@ impl SoroMintToken {
         events::emit_minter_mint(&e, &minter, &to, amount, balance, supply);
     }
 
-    /// Record the current balance of `account` at the current ledger sequence.
-    /// Anyone may call this; it is a read-then-write with no auth requirement.
+    pub fn set_verified(e: Env, addr: Address, status: bool) {
+        let admin = Self::admin(e.clone());
+        admin.require_auth();
+        e.storage().persistent().set(&DataKey::Verified(addr), &status);
+    }
+
+    pub fn is_verified(e: Env, addr: Address) -> bool {
+        e.storage().persistent().get(&DataKey::Verified(addr)).unwrap_or(false)
+    }
+
     pub fn take_snapshot(e: Env, account: Address) -> u32 {
         let ledger = e.ledger().sequence();
         let balance = Self::read_balance(&e, &account);
-        e.storage()
-            .persistent()
-            .set(&DataKey::Snapshot(account.clone(), ledger), &balance);
+        e.storage().persistent().set(&DataKey::Snapshot(account.clone(), ledger), &balance);
         events::emit_snapshot_taken(&e, &account, ledger, balance);
         ledger
     }
 
-    /// Return the balance recorded for `account` at `ledger`, or None if no snapshot exists.
     pub fn snapshot_balance(e: Env, account: Address, ledger: u32) -> Option<i128> {
-        e.storage()
-            .persistent()
-            .get(&DataKey::Snapshot(account, ledger))
+        e.storage().persistent().get(&DataKey::Snapshot(account, ledger))
     }
 
-    /// Record the total supply at the current ledger sequence.
-    /// Admin-only to prevent spam.
     pub fn take_supply_snapshot(e: Env) -> u32 {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin = Self::admin(e.clone());
         admin.require_auth();
         let ledger = e.ledger().sequence();
         let supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        e.storage()
-            .persistent()
-            .set(&DataKey::SupplySnapshot(ledger), &supply);
+        e.storage().persistent().set(&DataKey::SupplySnapshot(ledger), &supply);
         events::emit_supply_snapshot_taken(&e, ledger, supply);
         ledger
     }
 
-    /// Return the total supply recorded at `ledger`, or None if no snapshot exists.
     pub fn snapshot_supply(e: Env, ledger: u32) -> Option<i128> {
         e.storage().persistent().get(&DataKey::SupplySnapshot(ledger))
+    }
+
+    pub fn supply(e: Env) -> i128 {
+        e.storage().instance().get(&DataKey::Supply).unwrap_or(0)
+    }
+
+    pub fn nonce(e: Env, id: Address) -> i128 {
+        e.storage().persistent().get(&DataKey::Nonce(id)).unwrap_or(0)
+    }
+
+    pub fn permit(e: Env, from: Address, spender: Address, amount: i128, deadline: u64, _signature: Bytes) {
+        if e.ledger().timestamp() > deadline { panic!("permit expired"); }
+        from.require_auth();
+        let nonce = Self::nonce(e.clone(), from.clone());
+        e.storage().persistent().set(&DataKey::Nonce(from.clone()), &(nonce + 1));
+        Self::write_allowance(&e, &from, &spender, amount);
+        events::emit_approve(&e, &from, &spender, amount);
     }
 }
 
@@ -307,10 +262,11 @@ impl TokenInterface for SoroMintToken {
         Self::read_allowance(&e, &from, &spender)
     }
 
-    fn approve(e: Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
+    fn approve(e: Env, from: Address, spender: Address, amount: i128, _expiration_ledger: u32) {
+        if !Self::is_transferable(e.clone()) { panic!("Token is non-transferable"); }
         from.require_auth();
         Self::write_allowance(&e, &from, &spender, amount);
-        events::emit_approve(&e, from, spender, amount, expiration_ledger);
+        events::emit_approve(&e, &from, &spender, amount);
     }
 
     fn balance(e: Env, id: Address) -> i128 {
@@ -318,47 +274,52 @@ impl TokenInterface for SoroMintToken {
     }
 
     fn transfer(e: Env, from: Address, to: Address, amount: i128) {
+        if !Self::is_transferable(e.clone()) { panic!("Token is non-transferable"); }
         from.require_auth();
-        if !e.storage().instance().get::<_, bool>(&DataKey::Transferable).unwrap_or(true) {
-            panic!("transfers are disabled");
-        }
         let (new_from, new_to) = Self::move_balance(&e, &from, &to, amount);
-        events::emit_transfer(&e, from, to, amount);
+        events::emit_transfer(&e, &from, &to, amount, new_from, new_to);
     }
 
     fn transfer_from(e: Env, spender: Address, from: Address, to: Address, amount: i128) {
+        if !Self::is_transferable(e.clone()) { panic!("Token is non-transferable"); }
         spender.require_auth();
-        if !e.storage().instance().get::<_, bool>(&DataKey::Transferable).unwrap_or(true) {
-            panic!("transfers are disabled");
-        }
         let allowance = Self::read_allowance(&e, &from, &spender);
         if allowance < amount { panic!("insufficient allowance"); }
         Self::write_allowance(&e, &from, &spender, allowance - amount);
         let (new_from, new_to) = Self::move_balance(&e, &from, &to, amount);
-        events::emit_transfer(&e, from, to, amount);
+        events::emit_transfer_from(&e, &spender, &from, &to, amount, allowance - amount, new_from, new_to);
     }
 
     fn burn(e: Env, from: Address, amount: i128) {
         from.require_auth();
         let balance = Self::read_balance(&e, &from);
         if balance < amount { panic!("insufficient balance"); }
-        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
-        Self::write_balance(&e, &from, balance - amount);
-        e.storage().instance().set(&DataKey::Supply, &(supply - amount));
-        events::emit_burn(&e, from, amount);
+        let mut supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap_or(0);
+        let new_balance = balance - amount;
+        supply -= amount;
+        Self::write_balance(&e, &from, new_balance);
+        e.storage().instance().set(&DataKey::Supply, &supply);
+        
+        let admin = Self::admin(e.clone());
+        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
     }
 
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
+        if !Self::is_transferable(e.clone()) { panic!("Token is non-transferable"); }
         spender.require_auth();
         let allowance = Self::read_allowance(&e, &from, &spender);
         if allowance < amount { panic!("insufficient allowance"); }
         let balance = Self::read_balance(&e, &from);
         if balance < amount { panic!("insufficient balance"); }
-        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
+        let mut supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap_or(0);
+        let new_balance = balance - amount;
+        supply -= amount;
         Self::write_allowance(&e, &from, &spender, allowance - amount);
-        Self::write_balance(&e, &from, balance - amount);
-        e.storage().instance().set(&DataKey::Supply, &(supply - amount));
-        events::emit_burn(&e, from, amount);
+        Self::write_balance(&e, &from, new_balance);
+        e.storage().instance().set(&DataKey::Supply, &supply);
+        
+        let admin = Self::admin(e.clone());
+        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
     }
 
     fn decimals(e: Env) -> u32 {
