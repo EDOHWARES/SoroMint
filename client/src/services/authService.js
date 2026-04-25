@@ -279,12 +279,13 @@ export const login = async (publicKey, challengeToken, signedXDR) => {
     body: JSON.stringify({ publicKey, challengeToken, signedXDR }),
   });
 
-  if (!body?.data?.token) {
+  if (!body?.data?.accessToken) {
     throw new Error('Server did not return a JWT token after successful login');
   }
 
   return {
-    token: body.data.token,
+    token: body.data.accessToken,
+    refreshToken: body.data.refreshToken,
     expiresIn: body.data.expiresIn,
     user: body.data.user,
   };
@@ -309,12 +310,13 @@ export const register = async (publicKey, username) => {
     body: JSON.stringify(payload),
   });
 
-  if (!body?.data?.token) {
+  if (!body?.data?.accessToken) {
     throw new Error('Server did not return a JWT token after registration');
   }
 
   return {
-    token: body.data.token,
+    token: body.data.accessToken,
+    refreshToken: body.data.refreshToken,
     expiresIn: body.data.expiresIn,
     user: body.data.user,
   };
@@ -338,24 +340,27 @@ export const getProfile = async (token) => {
 };
 
 /**
- * @notice Refreshes an existing JWT token.
+ * @notice Rotates refresh token to get new tokens.
  *
- * @param  {string} token - Current (still valid) JWT
- * @returns {Promise<{ token: string, expiresIn: string }>}
+ * @param  {string} refreshToken - Current refresh token
+ * @returns {Promise<{ accessToken: string, refreshToken: string, expiresIn: string }>}
  */
-export const refreshToken = async (token) => {
-  if (!token) throw new Error('token is required');
+export const rotateToken = async (refreshToken) => {
+  if (!refreshToken) throw new Error('refreshToken is required');
 
-  const body = await apiFetch('/auth/refresh', {
+  const body = await apiFetch('/auth/rotate', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ refreshToken }),
   });
 
   return {
-    token: body.data.token,
+    accessToken: body.data.accessToken,
+    refreshToken: body.data.refreshToken,
     expiresIn: body.data.expiresIn,
   };
 };
+
+export const refreshToken = rotateToken;
 
 /**
  * @notice Full SEP-10 authentication flow in a single call.
@@ -436,9 +441,9 @@ export const registerAndAuthenticate = async () => {
   }
 
   const signedXDR = await signChallenge(transactionXDR);
-  const { token, expiresIn, user } = await login(publicKey, challengeToken, signedXDR);
+  const { token, refreshToken, expiresIn, user } = await login(publicKey, challengeToken, signedXDR);
 
-  return { publicKey, token, expiresIn, user, isNewUser };
+  return { publicKey, token, refreshToken, expiresIn, user, isNewUser };
 };
 
 export default {
@@ -450,6 +455,7 @@ export default {
   register,
   getProfile,
   refreshToken,
+  rotateToken,
   authenticate,
   registerAndAuthenticate,
 };

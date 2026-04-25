@@ -1,8 +1,9 @@
 const express = require('express');
 const { StrKey } = require('@stellar/stellar-sdk');
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
 const passport = require('passport');
-const { generateToken, authenticate, optionalAuthenticate } = require('../middleware/auth');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken, authenticate, optionalAuthenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { loginRateLimiter } = require('../middleware/rate-limiter');
 const {
@@ -108,10 +109,15 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     username: username ? username.trim() : undefined
   });
 
-  await user.save();
+await user.save();
 
   // Generate JWT token
-  const token = generateToken(user);
+  const accessToken = generateAccessToken(user);
+  const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+    userAgent: req.headers['user-agent'],
+    ipAddress: req.ip
+  });
+  const refreshToken = refreshTokenDoc.token;
 
   // Return user data and token
   res.status(201).json({
@@ -124,11 +130,13 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
         username: user.username,
         createdAt: user.createdAt
       },
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+      accessToken,
+      refreshToken,
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+      refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
     }
   });
-  }));
+}));
   router.get(
     '/challenge',
     asyncHandler(async (req, res) => {
@@ -218,8 +226,13 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   // Update last login timestamp
   await user.updateLastLogin();
 
-  // Generate JWT token
-  const token = generateToken(user);
+  // Generate JWT tokens
+  const accessToken = generateAccessToken(user);
+  const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+    userAgent: req.headers['user-agent'],
+    ipAddress: req.ip
+  });
+  const refreshToken = refreshTokenDoc.token;
 
   res.json({
     success: true,
@@ -231,8 +244,10 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
         username: user.username,
         lastLoginAt: user.lastLoginAt
       },
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+      accessToken,
+      refreshToken,
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+      refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
     }
   });
   }));
@@ -277,7 +292,12 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
       });
       await user.save();
 
-      const token = generateToken(publicKey, user.username);
+      const accessToken = generateAccessToken(user);
+      const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip
+      });
+      const refreshToken = refreshTokenDoc.token;
 
       res.status(201).json({
         success: true,
@@ -290,8 +310,10 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
             referralCode: user.referralCode,
             createdAt: user.createdAt,
           },
-          token,
-          expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+          refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
         },
       });
     })
@@ -397,7 +419,13 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
 
       // ── Issue JWT ───────────────────────────────────────────────────────────
       await user.updateLastLogin();
-      const token = generateToken(publicKey, user.username);
+      
+      const accessToken = generateAccessToken(user);
+      const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip
+      });
+      const refreshToken = refreshTokenDoc.token;
 
       res.json({
         success: true,
@@ -409,8 +437,10 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
             username: user.username,
             lastLoginAt: user.lastLoginAt,
           },
-          token,
-          expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+          accessToken,
+          refreshToken,
+          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+          refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
         },
       });
     })
@@ -430,18 +460,31 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
    * @returns {Object} 200 - User profile
    * @returns {Object} 401 - Invalid / missing token
    */
-  router.post('/refresh', authenticate, asyncHandler(async (req, res) => {
-  // Generate new token with same user data
-  const newToken = generateToken(req.user);
-
-  res.json({
-    success: true,
-    message: 'Token refreshed successfully',
-    data: {
-      token: newToken,
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+router.post('/refresh', asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      throw new AppError('Refresh token is required', 400, 'REFRESH_TOKEN_REQUIRED');
     }
-  });
+    
+    const { user } = await verifyRefreshToken(refreshToken);
+    
+    const accessToken = generateAccessToken(user);
+    const newRefreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip
+    });
+    
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: {
+        accessToken,
+        refreshToken: newRefreshTokenDoc.token,
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+      },
+    });
   }));
   router.get(
     '/me',
@@ -469,26 +512,39 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
 
   /**
    * @route  POST /api/auth/refresh
-   * @description Refresh the JWT for the currently authenticated user.
-   * @access Private (requires valid JWT)
+   * @description Rotate refresh token and get new access token.
+   * @access Public (no auth required)
    *
-   * @header {string} Authorization - Bearer <token>
+   * @body {string} refreshToken - The refresh token
    *
-   * @returns {Object} 200 - New JWT
-   * @returns {Object} 401 - Invalid / expired token
+   * @returns {Object} 200 - New access token
+   * @returns {Object} 401 - Invalid / expired refresh token
    */
   router.post(
-    '/refresh',
-    authenticate,
+    '/rotate',
     asyncHandler(async (req, res) => {
-      const newToken = generateToken(req.user.publicKey, req.user.username);
-
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        throw new AppError('Refresh token is required', 400, 'REFRESH_TOKEN_REQUIRED');
+      }
+      
+      const { user } = await verifyRefreshToken(refreshToken);
+      
+      const accessToken = generateAccessToken(user);
+      const newRefreshTokenDoc = await RefreshToken.createRefreshToken(user, {
+        userAgent: req.headers['user-agent'],
+        ipAddress: req.ip
+      });
+      
       res.json({
         success: true,
-        message: 'Token refreshed successfully',
+        message: 'Token rotated successfully',
         data: {
-          token: newToken,
-          expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+          accessToken,
+          refreshToken: newRefreshTokenDoc.token,
+          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+          refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
         },
       });
     })
@@ -556,21 +612,29 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })(req, res, next);
   });
 
-  /**
+/**
    * @route GET /api/auth/google/callback
    * @description Google OAuth2 callback
    */
-  router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/login', session: false }), (req, res) => {
-    const token = generateToken(req.user);
-    // In a real app, redirect to frontend with token in URL or cookie
+  router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/login', session: false }), asyncHandler(async (req, res) => {
+    await req.user.updateLastLogin();
+    const accessToken = generateAccessToken(req.user);
+    const refreshTokenDoc = await RefreshToken.createRefreshToken(req.user, {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip
+    });
+    const refreshToken = refreshTokenDoc.token;
     res.json({
       success: true,
       data: {
         user: req.user,
-        token
+        accessToken,
+        refreshToken,
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
       }
     });
-  });
+  }));
 
   /**
    * @route GET /api/auth/github
@@ -584,49 +648,87 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
    * @route GET /api/auth/github/callback
    * @description GitHub OAuth2 callback
    */
-  router.get('/github/callback', passport.authenticate('github', { failureRedirect: '/login', session: false }), (req, res) => {
-    const token = generateToken(req.user);
+  router.get('/github/callback', passport.authenticate('github', { failureRedirect: '/login', session: false }), asyncHandler(async (req, res) => {
+    await req.user.updateLastLogin();
+    const accessToken = generateAccessToken(req.user);
+    const refreshTokenDoc = await RefreshToken.createRefreshToken(req.user, {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip
+    });
+    const refreshToken = refreshTokenDoc.token;
     res.json({
       success: true,
       data: {
         user: req.user,
-        token
+        accessToken,
+        refreshToken,
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
       }
     });
-  });
+  }));
+
+  // =========================================================================
+  // POST /api/auth/revoke
+  // =========================================================================
 
   /**
-   * @route POST /api/auth/link-stellar
-   * @description Link a Stellar public key to the current social account
+   * @route  POST /api/auth/revoke
+   * @description Revoke a refresh token or all tokens for a user.
+   * @access Private (requires valid JWT)
+   *
+   * @header {string} Authorization - Bearer <token>
+   * @body   {string} [refreshToken] - Specific token to revoke
+   * @body   {boolean} [revokeAll]   - Revoke all user tokens
+   *
+   * @returns {Object} 200 - Token(s) revoked
+   * @returns {Object} 401 - Invalid token
    */
-  router.post('/link-stellar', authenticate, asyncHandler(async (req, res) => {
-    const { publicKey } = req.body;
-
-    if (!publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new AppError('Valid Stellar public key is required', 400, 'INVALID_PUBLIC_KEY');
+  router.post('/revoke', authenticate, asyncHandler(async (req, res) => {
+    const { refreshToken, revokeAll } = req.body;
+    
+    if (revokeAll) {
+      await RefreshToken.revokeAllUserTokens(req.user._id);
+      res.json({
+        success: true,
+        message: 'All tokens revoked successfully'
+      });
+      return;
     }
-
-    const normalizedPublicKey = publicKey.toUpperCase();
-
-    // Check if public key is already used by another account
-    const existingUser = await User.findOne({ publicKey: normalizedPublicKey });
-    if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
-      throw new AppError('This Stellar public key is already linked to another account', 409, 'KEY_ALREADY_LINKED');
+    
+    if (refreshToken) {
+      const revoked = await RefreshToken.revokeToken(refreshToken);
+      if (!revoked) {
+        throw new AppError('Invalid refresh token', 401, 'INVALID_REFRESH_TOKEN');
+      }
+      res.json({
+        success: true,
+        message: 'Token revoked successfully'
+      });
+      return;
     }
+    
+    throw new AppError('Either refreshToken or revokeAll is required', 400, 'VALIDATION_ERROR');
+  }));
 
-    req.user.publicKey = normalizedPublicKey;
-    await req.user.save();
+  // =========================================================================
+  // POST /api/auth/logout
+  // =========================================================================
 
+  /**
+   * @route  POST /api/auth/logout
+   * @description Logout and revoke all refresh tokens.
+   * @access Private (requires valid JWT)
+   *
+   * @header {string} Authorization - Bearer <token>
+   *
+   * @returns {Object} 200 - Logged out successfully
+   */
+  router.post('/logout', authenticate, asyncHandler(async (req, res) => {
+    await RefreshToken.revokeAllUserTokens(req.user._id);
     res.json({
       success: true,
-      message: 'Stellar wallet linked successfully',
-      data: {
-        user: {
-          id: req.user._id,
-          publicKey: req.user.publicKey,
-          username: req.user.username
-        }
-      }
+      message: 'Logged out successfully'
     });
   }));
 
