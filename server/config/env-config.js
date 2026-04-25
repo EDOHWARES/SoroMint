@@ -148,6 +148,15 @@ function validateEnv() {
       ALERT_FEE_THRESHOLD_STROOPS: envalid.num({
         default: 300,
         desc: 'Threshold for p90 fee in stroops to trigger a network congestion alert (default: 300)',
+      DISCORD_WEBHOOK_URL: envalid.str({
+        default: '',
+        desc: 'Discord webhook URL for fraud detection alerts (optional)',
+        example: 'https://discordapp.com/api/webhooks/...',
+      }),
+      SLACK_WEBHOOK_URL: envalid.str({
+        default: '',
+        desc: 'Slack webhook URL for fraud detection alerts (optional)',
+        example: 'https://hooks.slack.com/services/...',
       }),
     },
     {
