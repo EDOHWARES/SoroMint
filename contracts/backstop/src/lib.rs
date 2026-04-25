@@ -74,9 +74,12 @@ impl Backstop {
             .instance()
             .get(&DataKey::TotalDeposited)
             .unwrap();
+        let new_total = total
+            .checked_add(amount)
+            .expect("total deposited addition overflow");
         e.storage()
             .instance()
-            .set(&DataKey::TotalDeposited, &(total + amount));
+            .set(&DataKey::TotalDeposited, &new_total);
 
         e.events()
             .publish((symbol_short!("fee_dep"),), (from, amount));
@@ -96,9 +99,12 @@ impl Backstop {
             .instance()
             .get(&DataKey::TotalWithdrawn)
             .unwrap();
+        let new_total = total
+            .checked_add(amount)
+            .expect("total withdrawn addition overflow");
         e.storage()
             .instance()
-            .set(&DataKey::TotalWithdrawn, &(total + amount));
+            .set(&DataKey::TotalWithdrawn, &new_total);
 
         e.events()
             .publish((symbol_short!("withdraw"),), (to, amount));
@@ -118,7 +124,11 @@ impl Backstop {
     /// Calculate the fee for a given principal amount.
     pub fn calc_fee(e: Env, principal: i128) -> i128 {
         let bps: u32 = e.storage().instance().get(&DataKey::FeeBps).unwrap();
-        principal * bps as i128 / 10_000
+        principal
+            .checked_mul(bps as i128)
+            .expect("fee multiplication overflow")
+            .checked_div(10_000)
+            .expect("fee division failed")
     }
 
     pub fn get_fee_bps(e: Env) -> u32 {

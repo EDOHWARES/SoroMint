@@ -2,7 +2,7 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
+    testutils::Address as _,
     token::{Client as TokenClient, StellarAssetClient},
     Address, BytesN, Env,
 };
@@ -34,7 +34,7 @@ fn test_lottery_flow() {
 
     // secret = [1u8; 32], commit = sha256([1u8; 32])
     let secret = BytesN::from_array(&e, &[1u8; 32]);
-    let commit = e.crypto().sha256(&secret.clone().into());
+    let commit = e.crypto().sha256(&secret.clone().into()).to_bytes();
     client.commit_vrf(&commit);
 
     client.enter(&player1);
@@ -48,5 +48,5 @@ fn test_lottery_flow() {
     let winner = client.get_winner();
     assert!(winner == player1 || winner == player2);
     // Winner receives 200 (2 tickets * 100)
-    assert_eq!(token.balance(&winner), 900 + 200 - 100); // minted 1000, paid 100, received 200
+    assert_eq!(token.balance(&winner), 1000 - 100 + 200); // minted 1000, paid 100, received 200
 }

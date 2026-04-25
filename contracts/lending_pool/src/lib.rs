@@ -52,7 +52,10 @@ impl LendingPool {
         // Update storage
         let key = DataKey::UserCollateral(user.clone(), asset.clone());
         let current: i128 = e.storage().persistent().get(&key).unwrap_or(0);
-        e.storage().persistent().set(&key, &(current + amount));
+        let new_collateral = current
+            .checked_add(amount)
+            .expect("collateral addition overflow");
+        e.storage().persistent().set(&key, &new_collateral);
 
         events::emit_deposit(&e, &user, &asset, amount);
     }
@@ -66,7 +69,9 @@ impl LendingPool {
         if current < amount { panic!("insufficient collateral"); }
 
         // Check health after withdrawal
-        let new_collateral = current - amount;
+        let new_collateral = current
+            .checked_sub(amount)
+            .expect("collateral subtraction underflow");
         e.storage().persistent().set(&key, &new_collateral);
 
         if !Self::is_healthy(e.clone(), user.clone()) {
@@ -91,12 +96,15 @@ impl LendingPool {
 
         // Check borrow power
         let total_borrow_power = Self::get_account_collateral_value(e.clone(), user.clone(), false);
-        if current_debt + amount > total_borrow_power {
+        let new_debt = current_debt
+            .checked_add(amount)
+            .expect("debt addition overflow");
+        if new_debt > total_borrow_power {
             panic!("insufficient collateral for borrow");
         }
 
         // Update debt
-        e.storage().persistent().set(&debt_key, &(current_debt + amount));
+        e.storage().persistent().set(&debt_key, &new_debt);
 
         // Transfer/Mint SMT to user
         // For this implementation, we assume the pool has SMT or can mint it.
@@ -122,7 +130,10 @@ impl LendingPool {
         client.transfer(&user, &e.current_contract_address(), &repay_amount);
 
         // Update storage
-        e.storage().persistent().set(&debt_key, &(current_debt - repay_amount));
+        let new_debt = current_debt
+            .checked_sub(repay_amount)
+            .expect("debt subtraction underflow");
+        e.storage().persistent().set(&debt_key, &new_debt);
 
         events::emit_repay(&e, &user, repay_amount);
     }
@@ -144,7 +155,10 @@ impl LendingPool {
         // Liquidator pays debt in SMT
         let smt_client = token::Client::new(&e, &smt_token);
         smt_client.transfer(&liquidator, &e.current_contract_address(), &repay_amount);
-        e.storage().persistent().set(&debt_key, &(current_debt - repay_amount));
+        let new_debt = current_debt
+            .checked_sub(repay_amount)
+            .expect("liquidation debt subtraction underflow");
+        e.storage().persistent().set(&debt_key, &new_debt);
 
         // Calculate collateral to give to liquidator
         let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
@@ -156,13 +170,28 @@ impl LendingPool {
         // value_of_repay_in_asset = repay_amount / price
         // collateral_to_give = value_of_repay_in_asset * (1 + bonus)
         // Using fixed point math (7 decimals for price/smt)
-        let collateral_to_give = (repay_amount * 10_000_000 / price) * (10000 + config.liquidation_bonus as i128) / 10000;
+        let base_collateral = repay_amount
+            .checked_mul(10_000_000)
+            .expect("liquidation base collateral multiplication overflow")
+            .checked_div(price)
+            .expect("liquidation division by zero");
+        let bonus_multiplier = 10_000i128
+            .checked_add(config.liquidation_bonus as i128)
+            .expect("liquidation bonus addition overflow");
+        let collateral_to_give = base_collateral
+            .checked_mul(bonus_multiplier)
+            .expect("liquidation collateral multiplication overflow")
+            .checked_div(10_000)
+            .expect("liquidation collateral division failed");
 
         let coll_key = DataKey::UserCollateral(borrower.clone(), asset.clone());
         let borrower_coll: i128 = e.storage().persistent().get(&coll_key).unwrap_or(0);
         
         let actual_give = if collateral_to_give > borrower_coll { borrower_coll } else { collateral_to_give };
-        e.storage().persistent().set(&coll_key, &(borrower_coll - actual_give));
+        let new_borrower_coll = borrower_coll
+            .checked_sub(actual_give)
+            .expect("borrower collateral subtraction underflow");
+        e.storage().persistent().set(&coll_key, &new_borrower_coll);
 
         // Transfer collateral to liquidator
         let asset_client = token::Client::new(&e, &asset);
@@ -193,13 +222,27 @@ impl LendingPool {
                 let price = oracle.get_price(&asset);
                 let config: AssetConfig = e.storage().instance().get(&DataKey::AssetConfig(asset)).unwrap();
                 
-                let value = (amount * price) / 10_000_000; // Base 7 decimals
+                let value = amount
+                    .checked_mul(price)
+                    .expect("collateral value multiplication overflow")
+                    .checked_div(10_000_000)
+                    .expect("collateral value division failed"); // Base 7 decimals
                 let adjusted_value = if use_threshold {
-                    (value * config.liquidation_threshold as i128) / 10000
+                    value
+                        .checked_mul(config.liquidation_threshold as i128)
+                        .expect("threshold adjustment multiplication overflow")
+                        .checked_div(10000)
+                        .expect("threshold adjustment division failed")
                 } else {
-                    (value * config.ltv_bps as i128) / 10000
+                    value
+                        .checked_mul(config.ltv_bps as i128)
+                        .expect("ltv adjustment multiplication overflow")
+                        .checked_div(10000)
+                        .expect("ltv adjustment division failed")
                 };
-                total_value += adjusted_value;
+                total_value = total_value
+                    .checked_add(adjusted_value)
+                    .expect("total collateral value addition overflow");
             }
         }
         total_value

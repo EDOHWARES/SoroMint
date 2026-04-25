@@ -2,14 +2,19 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::Address as _,
     token, Address, Env, String,
 };
 
-fn create_token_contract<'a>(e: &Env, admin: &Address) -> (Address, token::StellarAssetClient<'a>) {
-    let contract_address = e.register_stellar_asset_contract_v2(admin.clone());
+fn create_token_contract<'a>(
+    e: &Env,
+    admin: &Address,
+) -> (Address, token::Client<'a>, token::StellarAssetClient<'a>) {
+    let contract = e.register_stellar_asset_contract_v2(admin.clone());
+    let contract_address = contract.address();
     (
         contract_address.clone(),
+        token::Client::new(e, &contract_address),
         token::StellarAssetClient::new(e, &contract_address),
     )
 }
@@ -24,7 +29,7 @@ fn test_initialize() {
     e.mock_all_auths();
 
     let admin = Address::generate(&e);
-    let (underlying_token_id, _) = create_token_contract(&e, &admin);
+    let (underlying_token_id, _, _) = create_token_contract(&e, &admin);
     let wrapper = create_wrapper_contract(&e);
 
     wrapper.initialize(
@@ -49,7 +54,7 @@ fn test_wrap_and_unwrap() {
 
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
-    let (underlying_token_id, underlying_token) = create_token_contract(&e, &admin);
+    let (underlying_token_id, token_client, underlying_token) = create_token_contract(&e, &admin);
     let wrapper = create_wrapper_contract(&e);
 
     // Initialize wrapper
@@ -63,19 +68,19 @@ fn test_wrap_and_unwrap() {
 
     // Mint underlying tokens to user
     underlying_token.mint(&user, &1000);
-    assert_eq!(underlying_token.balance(&user), 1000);
+    assert_eq!(token_client.balance(&user), 1000);
 
     // Wrap tokens
     wrapper.wrap(&user, &500);
     assert_eq!(wrapper.balance(&user), 500);
     assert_eq!(wrapper.supply(), 500);
-    assert_eq!(underlying_token.balance(&user), 500);
+    assert_eq!(token_client.balance(&user), 500);
 
     // Unwrap tokens
     wrapper.unwrap(&user, &200);
     assert_eq!(wrapper.balance(&user), 300);
     assert_eq!(wrapper.supply(), 300);
-    assert_eq!(underlying_token.balance(&user), 700);
+    assert_eq!(token_client.balance(&user), 700);
 }
 
 #[test]
@@ -87,7 +92,7 @@ fn test_transfer_with_fees() {
     let user1 = Address::generate(&e);
     let user2 = Address::generate(&e);
     let treasury = Address::generate(&e);
-    let (underlying_token_id, underlying_token) = create_token_contract(&e, &admin);
+    let (underlying_token_id, _, underlying_token) = create_token_contract(&e, &admin);
     let wrapper = create_wrapper_contract(&e);
 
     // Initialize
@@ -124,7 +129,7 @@ fn test_wrap_zero_amount() {
 
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
-    let (underlying_token_id, _) = create_token_contract(&e, &admin);
+    let (underlying_token_id, _, _) = create_token_contract(&e, &admin);
     let wrapper = create_wrapper_contract(&e);
 
     wrapper.initialize(
@@ -146,7 +151,7 @@ fn test_unwrap_insufficient_balance() {
 
     let admin = Address::generate(&e);
     let user = Address::generate(&e);
-    let (underlying_token_id, underlying_token) = create_token_contract(&e, &admin);
+    let (underlying_token_id, _, underlying_token) = create_token_contract(&e, &admin);
     let wrapper = create_wrapper_contract(&e);
 
     wrapper.initialize(

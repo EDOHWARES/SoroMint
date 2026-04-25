@@ -154,16 +154,16 @@ impl AmmPool {
 
         let new_token_reserve = Self::read_reserve_token(&e)
             .checked_add(position.token_amount)
-            .unwrap();
+            .expect("token reserve addition overflow");
         let new_quote_reserve = Self::read_reserve_quote(&e)
             .checked_add(position.quote_amount)
-            .unwrap();
+            .expect("quote reserve addition overflow");
         let new_total_shares = Self::read_total_shares(&e)
             .checked_add(position.shares)
-            .unwrap();
+            .expect("total shares addition overflow");
         let new_provider_shares = Self::read_share_balance(&e, &provider)
             .checked_add(position.shares)
-            .unwrap();
+            .expect("provider shares addition overflow");
 
         e.storage()
             .instance()
@@ -214,8 +214,16 @@ impl AmmPool {
 
         let token_reserve = Self::read_reserve_token(&e);
         let quote_reserve = Self::read_reserve_quote(&e);
-        let token_amount = token_reserve.checked_mul(shares).unwrap() / total_shares;
-        let quote_amount = quote_reserve.checked_mul(shares).unwrap() / total_shares;
+        let token_amount = token_reserve
+            .checked_mul(shares)
+            .expect("token withdrawal multiplication overflow")
+            .checked_div(total_shares)
+            .expect("token withdrawal division failed");
+        let quote_amount = quote_reserve
+            .checked_mul(shares)
+            .expect("quote withdrawal multiplication overflow")
+            .checked_div(total_shares)
+            .expect("quote withdrawal division failed");
 
         if token_amount <= 0 || quote_amount <= 0 {
             panic!("withdrawal too small");
@@ -224,10 +232,18 @@ impl AmmPool {
             panic!("slippage exceeded");
         }
 
-        let new_token_reserve = token_reserve.checked_sub(token_amount).unwrap();
-        let new_quote_reserve = quote_reserve.checked_sub(quote_amount).unwrap();
-        let new_total_shares = total_shares.checked_sub(shares).unwrap();
-        let new_provider_shares = provider_shares.checked_sub(shares).unwrap();
+        let new_token_reserve = token_reserve
+            .checked_sub(token_amount)
+            .expect("token reserve subtraction underflow");
+        let new_quote_reserve = quote_reserve
+            .checked_sub(quote_amount)
+            .expect("quote reserve subtraction underflow");
+        let new_total_shares = total_shares
+            .checked_sub(shares)
+            .expect("total shares subtraction underflow");
+        let new_provider_shares = provider_shares
+            .checked_sub(shares)
+            .expect("provider shares subtraction underflow");
 
         e.storage()
             .instance()
@@ -396,7 +412,11 @@ impl AmmPool {
 
         if total_shares == 0 {
             let shares =
-                Self::integer_sqrt(max_token_amount.checked_mul(max_quote_amount).unwrap());
+                Self::integer_sqrt(
+                    max_token_amount
+                        .checked_mul(max_quote_amount)
+                        .expect("initial liquidity multiplication overflow"),
+                );
             if shares <= 0 {
                 panic!("initial liquidity too small");
             }
@@ -412,16 +432,28 @@ impl AmmPool {
             panic!("pool reserves out of sync");
         }
 
-        let left = max_token_amount.checked_mul(quote_reserve).unwrap();
-        let right = max_quote_amount.checked_mul(token_reserve).unwrap();
+        let left = max_token_amount
+            .checked_mul(quote_reserve)
+            .expect("liquidity ratio multiplication overflow");
+        let right = max_quote_amount
+            .checked_mul(token_reserve)
+            .expect("liquidity ratio multiplication overflow");
 
         let (token_amount, quote_amount, shares) = if left <= right {
             let quote_amount = Self::ceil_div(left, token_reserve);
-            let shares = max_token_amount.checked_mul(total_shares).unwrap() / token_reserve;
+            let shares = max_token_amount
+                .checked_mul(total_shares)
+                .expect("share calculation multiplication overflow")
+                .checked_div(token_reserve)
+                .expect("share calculation division failed");
             (max_token_amount, quote_amount, shares)
         } else {
             let token_amount = Self::ceil_div(right, quote_reserve);
-            let shares = max_quote_amount.checked_mul(total_shares).unwrap() / quote_reserve;
+            let shares = max_quote_amount
+                .checked_mul(total_shares)
+                .expect("share calculation multiplication overflow")
+                .checked_div(quote_reserve)
+                .expect("share calculation division failed");
             (token_amount, max_quote_amount, shares)
         };
 
@@ -465,14 +497,24 @@ impl AmmPool {
         }
 
         let amount_in_after_fee =
-            amount_in.checked_mul(BPS_DENOMINATOR - fee_bps).unwrap() / BPS_DENOMINATOR;
+            amount_in
+                .checked_mul(BPS_DENOMINATOR - fee_bps)
+                .expect("swap fee multiplication overflow")
+                .checked_div(BPS_DENOMINATOR)
+                .expect("swap fee division failed");
         if amount_in_after_fee <= 0 {
             panic!("swap amount too small");
         }
 
-        let numerator = reserve_out.checked_mul(amount_in_after_fee).unwrap();
-        let denominator = reserve_in.checked_add(amount_in_after_fee).unwrap();
-        let amount_out = numerator / denominator;
+        let numerator = reserve_out
+            .checked_mul(amount_in_after_fee)
+            .expect("swap numerator multiplication overflow");
+        let denominator = reserve_in
+            .checked_add(amount_in_after_fee)
+            .expect("swap denominator addition overflow");
+        let amount_out = numerator
+            .checked_div(denominator)
+            .expect("swap output division failed");
 
         if amount_out <= 0 || amount_out >= reserve_out {
             panic!("insufficient output amount");
@@ -489,8 +531,12 @@ impl AmmPool {
     ) -> (i128, i128) {
         let token = Self::read_token(e);
         if *input_token == token {
-            let new_token_reserve = Self::read_reserve_token(e).checked_add(amount_in).unwrap();
-            let new_quote_reserve = Self::read_reserve_quote(e).checked_sub(amount_out).unwrap();
+            let new_token_reserve = Self::read_reserve_token(e)
+                .checked_add(amount_in)
+                .expect("token reserve swap addition overflow");
+            let new_quote_reserve = Self::read_reserve_quote(e)
+                .checked_sub(amount_out)
+                .expect("quote reserve swap subtraction underflow");
             e.storage()
                 .instance()
                 .set(&DataKey::ReserveToken, &new_token_reserve);
@@ -499,8 +545,12 @@ impl AmmPool {
                 .set(&DataKey::ReserveQuote, &new_quote_reserve);
             (new_token_reserve, new_quote_reserve)
         } else {
-            let new_quote_reserve = Self::read_reserve_quote(e).checked_add(amount_in).unwrap();
-            let new_token_reserve = Self::read_reserve_token(e).checked_sub(amount_out).unwrap();
+            let new_quote_reserve = Self::read_reserve_quote(e)
+                .checked_add(amount_in)
+                .expect("quote reserve swap addition overflow");
+            let new_token_reserve = Self::read_reserve_token(e)
+                .checked_sub(amount_out)
+                .expect("token reserve swap subtraction underflow");
             e.storage()
                 .instance()
                 .set(&DataKey::ReserveQuote, &new_quote_reserve);
@@ -515,7 +565,15 @@ impl AmmPool {
         if divisor <= 0 {
             panic!("invalid divisor");
         }
-        value.checked_add(divisor - 1).unwrap() / divisor
+        value
+            .checked_add(
+                divisor
+                    .checked_sub(1)
+                    .expect("ceil_div divisor decrement underflow"),
+            )
+            .expect("ceil_div addition overflow")
+            .checked_div(divisor)
+            .expect("ceil_div division failed")
     }
 
     fn integer_sqrt(value: i128) -> i128 {
@@ -527,11 +585,24 @@ impl AmmPool {
         }
 
         let mut x0 = value;
-        let mut x1 = (x0 + value / x0) / 2;
+        let mut x1 = x0
+            .checked_add(value.checked_div(x0).expect("sqrt division failed"))
+            .expect("sqrt addition overflow")
+            .checked_div(2)
+            .expect("sqrt division failed");
         while x1 < x0 {
             x0 = x1;
-            x1 = (x0 + value / x0) / 2;
+            x1 = x0
+                .checked_add(value.checked_div(x0).expect("sqrt division failed"))
+                .expect("sqrt addition overflow")
+                .checked_div(2)
+                .expect("sqrt division failed");
         }
-        min(x0, value / x0)
+        min(
+            x0,
+            value
+                .checked_div(x0)
+                .expect("sqrt final division failed"),
+        )
     }
 }

@@ -46,7 +46,9 @@ impl StreamingPayments {
         if stop_ledger <= start_ledger { panic!("invalid ledger range"); }
         
         let duration = (stop_ledger - start_ledger) as i128;
-        let rate_per_ledger = total_amount / duration;
+        let rate_per_ledger = total_amount
+            .checked_div(duration)
+            .expect("stream rate division failed");
         
         if rate_per_ledger == 0 { panic!("amount too small for duration"); }
         
@@ -67,7 +69,10 @@ impl StreamingPayments {
         };
         
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
-        e.storage().instance().set(&DataKey::NextStreamId, &(stream_id + 1));
+        let next_stream_id = stream_id
+            .checked_add(1)
+            .expect("stream id overflow");
+        e.storage().instance().set(&DataKey::NextStreamId, &next_stream_id);
         
         e.events().publish(
             (soroban_sdk::symbol_short!("created"), stream_id),
@@ -79,6 +84,9 @@ impl StreamingPayments {
     
     /// Withdraw available funds from a stream
     pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
+        if amount <= 0 {
+            panic!("withdraw amount must be positive");
+        }
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
@@ -88,7 +96,10 @@ impl StreamingPayments {
         let available = Self::balance_of(e.clone(), stream_id);
         if amount > available { panic!("insufficient balance"); }
         
-        stream.withdrawn += amount;
+        stream.withdrawn = stream
+            .withdrawn
+            .checked_add(amount)
+            .expect("stream withdrawn addition overflow");
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
         
         let client = token::Client::new(&e, &stream.token);
@@ -118,9 +129,14 @@ impl StreamingPayments {
         
         // Calculate total deposited and refund unstreamed amount
         let duration = (stream.stop_ledger - stream.start_ledger) as i128;
-        let total_deposited = stream.rate_per_ledger * duration;
+        let total_deposited = stream
+            .rate_per_ledger
+            .checked_mul(duration)
+            .expect("total deposited multiplication overflow");
         let total_streamed = Self::calculate_streamed(&e, &stream);
-        let refund = total_deposited - total_streamed;
+        let refund = total_deposited
+            .checked_sub(total_streamed)
+            .expect("refund subtraction underflow");
         
         if refund > 0 {
             client.transfer(&e.current_contract_address(), &stream.sender, &refund);
@@ -141,7 +157,9 @@ impl StreamingPayments {
             .unwrap_or_else(|| panic!("stream not found"));
         
         let streamed = Self::calculate_streamed(&e, &stream);
-        streamed - stream.withdrawn
+        streamed
+            .checked_sub(stream.withdrawn)
+            .expect("stream balance subtraction underflow")
     }
     
     /// Get stream details
@@ -164,7 +182,10 @@ impl StreamingPayments {
             current - stream.start_ledger
         };
         
-        stream.rate_per_ledger * (elapsed as i128)
+        stream
+            .rate_per_ledger
+            .checked_mul(elapsed as i128)
+            .expect("streamed amount multiplication overflow")
     }
 }
 
