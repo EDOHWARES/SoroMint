@@ -279,6 +279,7 @@ app.use('/api/v1', streamingRoutes);
 4. **Refund Safety**: Cancellation properly handles all balances
 5. **Rate Limiting**: API endpoints should be rate-limited
 6. **Input Validation**: All inputs validated before contract calls
+7. **Privacy Status**: Standard streams reveal amounts, rates, withdrawals, parties, tokens, and events. Private stream functions are commitment-only stubs and must not be used for value movement until a real Groth16 verifier, nullifier tracking, and audited circuits are integrated. See [Private Streaming Roadmap](private-streaming-roadmap.md).
 
 ## Gas Optimization
 
@@ -304,6 +305,7 @@ Track these metrics:
 4. **Cliff Period**: Delay before streaming starts
 5. **Batch Operations**: Create/cancel multiple streams
 6. **NFT Integration**: Stream NFT royalties
+7. **Privacy-preserving stream amounts**: Follow the phased ZK roadmap in [Private Streaming Roadmap](private-streaming-roadmap.md); the current contract only stores commitments and an intentionally non-validating proof stub.
 
 ## Support
 

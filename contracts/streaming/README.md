@@ -97,6 +97,31 @@ Retrieves complete stream details.
 
 **Returns:** `Stream` - Full stream data
 
+### `create_private_stream_stub`
+Creates a commitment-only placeholder for a future private stream.
+
+**Parameters:**
+- `sender`: Address authorizing the stub
+- `recipient`: Intended recipient
+- `token`: Token contract address
+- `amount_commitment`: 32-byte commitment to the intended total amount
+- `rate_commitment`: 32-byte commitment to the intended rate
+- `start_ledger`: Ledger when streaming begins
+- `stop_ledger`: Ledger when streaming ends
+- `verifier`: Address reserved for the future verifier contract
+
+**Returns:** `u64` - Unique private stream stub ID
+
+**Important:** This function does not transfer tokens and does not accept or reveal a raw amount. It is not production privacy.
+
+### `get_private_stream_stub`
+Retrieves private stream stub commitments and metadata.
+
+### `verify_private_stream_proof_stub`
+Checks that the private stream stub exists, emits a non-sensitive verification event, and intentionally returns `false`. It must be replaced with a real Groth16 verifier before any value movement can depend on it.
+
+See [`docs/private-streaming-roadmap.md`](../../docs/private-streaming-roadmap.md) for the privacy roadmap.
+
 ## Use Cases
 
 ### 1. Real-Time Payroll
@@ -159,6 +184,18 @@ Emitted when a stream is canceled.
 (symbol_short!("canceled"), stream_id) => (recipient_balance, refund_amount)
 ```
 
+### `p_create`
+Emitted when a private stream stub is created. Contains commitments and metadata, not raw amounts.
+```rust
+(symbol_short!("p_create"), private_stream_id) => (sender, recipient, token, amount_commitment, rate_commitment, withdrawn_commitment)
+```
+
+### `p_verify`
+Emitted when the proof verification stub is called for an existing private stream.
+```rust
+(symbol_short!("p_verify"), private_stream_id) => (verifier, proof_commitment, public_input_commitment)
+```
+
 ## Testing
 
 Run the test suite:
@@ -194,12 +231,14 @@ soroban contract deploy \
 2. **Balance Checks**: Prevents over-withdrawal and ensures sufficient funds
 3. **Atomic Operations**: Token transfers and state updates are atomic
 4. **Cancellation Safety**: Properly handles refunds and recipient balances
+5. **Privacy Caveat**: Standard streams reveal amounts, rates, withdrawals, parties, tokens, and events. Private stream functions are stubs only; commitments alone do not provide confidentiality, and `verify_private_stream_proof_stub` must not gate token movement.
 
 ## Limitations
 
 - Minimum stream duration must allow `rate_per_ledger > 0`
 - Tokens must be transferred to contract before streaming begins
 - No pause/resume functionality (cancel and recreate instead)
+- Private streaming is roadmap work; see [`docs/private-streaming-roadmap.md`](../../docs/private-streaming-roadmap.md)
 
 ## Integration Example
 
