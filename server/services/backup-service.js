@@ -158,15 +158,24 @@ async function enforceRetentionPolicy(s3, bucket) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
 
-  const listed = await s3.send(
-    new ListObjectsV2Command({ Bucket: bucket, Prefix: "backups/encrypted-" })
-  );
+  const prefixes = ["backups/encrypted-", "backups/metadata/"];
+  const toDelete = [];
 
-  if (!listed.Contents || listed.Contents.length === 0) return;
+  for (const prefix of prefixes) {
+    const listed = await s3.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix })
+    );
 
-  const toDelete = listed.Contents.filter(
-    (obj) => obj.LastModified && obj.LastModified < cutoff
-  ).map((obj) => ({ Key: obj.Key }));
+    if (!listed.Contents || listed.Contents.length === 0) {
+      continue;
+    }
+
+    listed.Contents.forEach((obj) => {
+      if (obj.LastModified && obj.LastModified < cutoff) {
+        toDelete.push({ Key: obj.Key });
+      }
+    });
+  }
 
   if (toDelete.length === 0) {
     logger.info("Retention policy: no expired backups found");
