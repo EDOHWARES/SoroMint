@@ -1,0 +1,59 @@
+   Compiling soromint-token v0.1.0 (/Users/victor/Desktop/SoroMint/contracts/token)
+error: expected one of `:`, `@`, or `|`, found keyword `in`
+   --> contracts/token/src/test.rs:399:37
+    |
+399 | ...red(caller in any::<u64>()) {
+    |               ^^ expected one of `:`, `@`, or `|`
+
+error: an inner attribute is not permitted in this context
+   --> contracts/token/src/test.rs:396:5
+    |
+396 |       #![proptest_config(ProptestConfig::with_cases(10))]
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+399 | /     fn prop_no_auth_required(caller in any::<u64>()) {
+400 | |         let e = Env::default();
+401 | |         let token_id = e.register(SoroMintToken, ());
+402 | |         let client = SoroMintTokenClient::new(&e, &token_id);
+...   |
+405 | |         let _ = client.decimals();
+406 | |     }
+    | |_____- the inner attribute doesn't annotate this function
+    |
+    = note: inner attributes, like `#![no_std]`, annotate the item enclosing them, and are usually found at the beginning of source files
+
+error: expected expression, found keyword `fn`
+   --> contracts/token/src/test.rs:399:5
+    |
+399 |     fn prop_no_auth_required(call...
+    |     ^^ expected expression
+    |
+   ::: /Users/victor/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proptest-1.11.0/src/sugar.rs:225:6
+    |
+225 |     ($config:expr, |($($parm:pat ...
+    |      ------------ while parsing argument for this `expr` macro fragment
+
+warning: unused imports: `FromVal` and `Vec`
+ --> contracts/token/src/test.rs:7:19
+  |
+7 | ...v, FromVal, IntoVal, String, Symbol, TryFromVal, Val, Vec,
+  |       ^^^^^^^                                            ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `soroban_sdk::token::TokenInterface`
+  --> contracts/token/src/test.rs:11:5
+   |
+11 | use soroban_sdk::token::TokenInterface as _;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `e`
+   --> contracts/token/src/test.rs:359:10
+    |
+359 |     let (e, _, user, client) = se...
+    |          ^ help: if this is intentional, prefix it with an underscore: `_e`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `soromint-token` (lib test) generated 3 warnings
+error: could not compile `soromint-token` (lib test) due to 3 previous errors; 3 warnings emitted

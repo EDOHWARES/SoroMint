@@ -18,6 +18,11 @@ client/dist/
 client/build/
 client/coverage/
 
+# Backend artifacts
+server/coverage/
+server/logs/
+server/test_output.txt
+
 # Misc
 .DS_Store
 *.log
@@ -30,3 +35,23 @@ yarn-error.log*
 *.swp
 *.bak
 Cargo.lock
+contracts/factory/test_snapshots/test_factory/test_double_initialize.1.json
+contracts/factory/test_snapshots/test_factory/test_initialize_and_create_token.1.json
+contracts/factory/test_snapshots/test_factory/test_update_wasm_hash_not_admin.1.json
+contracts/factory/test_snapshots/test_factory/test_update_wasm_hash.1.json
+contracts/factory/test_snapshots/test_integration/test_burn_insufficient_balance_on_factory_token.1.json
+contracts/factory/test_snapshots/test_integration/test_burn_on_factory_deployed_token.1.json
+contracts/factory/test_snapshots/test_integration/test_complex_workflow_deploy_mint_transfer_mint.1.json
+contracts/factory/test_snapshots/test_integration/test_cross_contract_events.1.json
+contracts/factory/test_snapshots/test_integration/test_factory_deploys_and_initializes_token.1.json
+contracts/factory/test_snapshots/test_integration/test_factory_deploys_multiple_tokens.1.json
+contracts/factory/test_snapshots/test_integration/test_factory_rejects_duplicate_salt.1.json
+contracts/factory/test_snapshots/test_integration/test_factory_requires_initialization.1.json
+contracts/factory/test_snapshots/test_integration/test_mint_on_factory_deployed_token.1.json
+contracts/factory/test_snapshots/test_integration/test_multiple_users_on_factory_token.1.json
+contracts/factory/test_snapshots/test_integration/test_supply_invariant_across_operations.1.json
+contracts/factory/test_snapshots/test_integration/test_token_events_through_factory_deployment.1.json
+contracts/factory/test_snapshots/test_integration/test_update_wasm_hash_and_deploy.1.json
+
+# Local backup archives
+server/.backups/

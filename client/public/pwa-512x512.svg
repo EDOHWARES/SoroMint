@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="256" cy="256" r="256" fill="#0EA5E9"/>
+  
+  <!-- Inner Circle -->
+  <circle cx="256" cy="256" r="220" fill="#0284C7"/>
+  
+  <!-- Coin Symbol -->
+  <circle cx="256" cy="256" r="150" fill="#38BDF8"/>
+  <text x="256" y="290" font-family="Arial, sans-serif" font-size="180" font-weight="bold" fill="#0C4A6E" text-anchor="middle">S</text>
+  
+  <!-- Decorative Elements -->
+  <path d="M256 100 L256 140" stroke="#7DD3FC" stroke-width="8" stroke-linecap="round"/>
+  <path d="M256 372 L256 412" stroke="#7DD3FC" stroke-width="8" stroke-linecap="round"/>
+  <path d="M100 256 L140 256" stroke="#7DD3FC" stroke-width="8" stroke-linecap="round"/>
+  <path d="M372 256 L412 256" stroke="#7DD3FC" stroke-width="8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,24 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (/home/edohwares/Desktop/Room/drips/ceejay/SoroMint/target/debug/deps/soromint_factory-165a7e089faa0c58)
+
+running 4 tests
+test test_factory::test_double_initialize - should panic ... ok
+test test_factory::test_update_wasm_hash_not_admin - should panic ... ok
+test test_factory::test_update_wasm_hash ... ok
+test test_factory::test_initialize_and_create_token ... FAILED
+
+failures:
+
+---- test_factory::test_initialize_and_create_token stdout ----
+
+thread 'test_factory::test_initialize_and_create_token' (230203) panicked at contracts/factory/src/test_factory.rs:49:5:
+no events emitted at all
+Writing test snapshot file for test "test_factory::test_initialize_and_create_token" to "test_snapshots/test_factory/test_initialize_and_create_token.1.json".
+
+
+failures:
+    test_factory::test_initialize_and_create_token
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `--lib`

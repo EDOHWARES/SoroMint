@@ -90,6 +90,8 @@ function parseIssues(filename) {
                 currentIssue.labels.push('smart-contract');
             } else if (title.includes('Backend')) {
                 currentIssue.labels.push('backend');
+            } else if (title.includes('Frontend')) {
+                currentIssue.labels.push('frontend');
             }
         } else if (currentIssue) {
             currentIssue.body += line + '\n';

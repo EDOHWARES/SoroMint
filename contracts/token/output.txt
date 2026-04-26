@@ -1,0 +1,4 @@
+error: failed to parse lock file at: /home/edohwares/Desktop/Room/drips/ceejay/SoroMint/Cargo.lock
+
+Caused by:
+  package `primeorder` is specified twice in the lockfile

@@ -14,17 +14,49 @@ const UserSchema = new mongoose.Schema({
    */
   publicKey: {
     type: String,
-    required: [true, 'Public key is required'],
+    required: false,
     unique: true,
+    sparse: true, // Allow multiple nulls but enforce uniqueness for non-null values
     trim: true,
     validate: {
       validator: function (value) {
-        // Basic validation for Stellar public key format
-        // G followed by 55 base32 characters (A-Z, 2-7)
+        if (!value) return true;
         return /^G[A-Z2-7]{55}$/.test(value);
       },
-      message: 'Invalid Stellar public key format. Must start with G and be 56 characters long.'
+      message: 'Invalid Stellar public key format.'
     }
+  },
+  /**
+   * User's email address (from social profiles)
+   */
+  email: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    lowercase: true
+  },
+  /**
+   * Google OAuth2 ID
+   */
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  /**
+   * GitHub OAuth2 ID
+   */
+  githubId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  /**
+   * URL to user's profile picture
+   */
+  avatarUrl: {
+    type: String
   },
   /**
    * Optional username/nickname for the user
@@ -55,9 +87,100 @@ const UserSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'suspended', 'deleted'],
     default: 'active'
+  },
+  /**
+   * User role for access control
+   */
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
+  /**
+   * Whether the user has opted into sponsored transactions
+   */
+  sponsorshipEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  /**
+   * Sponsorship approval lifecycle state
+   */
+  sponsorshipStatus: {
+    type: String,
+    enum: ['inactive', 'pending', 'approved', 'rejected', 'suspended'],
+    default: 'inactive',
+  },
+  /**
+   * Maximum lifetime sponsorship budget allocated to the user, in stroops
+   */
+  sponsorshipBudgetLimitStroops: {
+    type: Number,
+    default: 0,
+    min: [0, 'Sponsorship budget limit cannot be negative'],
+  },
+  /**
+   * Lifetime sponsored fee usage for the user, in stroops
+   */
+  sponsorshipBudgetUsedStroops: {
+    type: Number,
+    default: 0,
+    min: [0, 'Sponsorship budget used cannot be negative'],
+  },
+  /**
+   * Most recent time sponsorship was approved
+   */
+  sponsorshipApprovedAt: {
+    type: Date,
+  },
+  /**
+   * Most recent time a sponsored transaction was executed
+   */
+  sponsorshipLastSponsoredAt: {
+    type: Date,
+  },
+  /**
+   * User who referred this user
+   */
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  /**
+   * Unique referral code for this user
+   */
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
   }
 }, {
   timestamps: true
+});
+
+/**
+ * @notice Ensure at least one authentication method is present and generate referral code
+ */
+UserSchema.pre('save', async function (next) {
+  if (!this.publicKey && !this.googleId && !this.githubId) {
+    return next(new Error('At least one authentication method (Stellar, Google, or GitHub) is required.'));
+  }
+
+  // Generate a unique referral code if not present
+  if (!this.referralCode) {
+    let isUnique = false;
+    let code;
+    while (!isUnique) {
+      code = 'SM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      const existing = await mongoose.models.User.findOne({ referralCode: code });
+      if (!existing) isUnique = true;
+    }
+    this.referralCode = code;
+  }
+
+  next();
 });
 
 /**

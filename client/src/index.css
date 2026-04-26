@@ -2,22 +2,118 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Brand Colors */
+    --stellar-blue: #146ef5;
+    --stellar-light: #f8fafc;
+    --stellar-dark: #0e141b;
+    
+    /* Layout Defaults (Light Mode) */
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Dark Mode Variables */
+  .dark {
+    --bg-primary: #0e141b;
+    --bg-secondary: #1a2030;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  body {
+    @apply min-h-screen font-sans transition-colors duration-300;
+    @apply bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100;
+  }
+  
+  /* RTL support */
+  [dir="rtl"] body {
+    direction: rtl;
+    text-align: right;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card System */
+  .glass-card {
+    @apply rounded-3xl border border-black/5 dark:border-white/10 bg-white shadow-xl backdrop-blur-lg;
+    @apply dark:bg-white/5 dark:shadow-slate-950/50;
+    @apply p-6 transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    @apply shadow-2xl scale-[1.005] border-black/10 dark:border-white/20;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply rounded-xl bg-stellar-blue px-6 py-3 font-semibold text-white;
+    @apply transition-all duration-200 hover:bg-blue-600 active:scale-95 shadow-lg shadow-blue-500/30;
+  }
+
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed transform-none shadow-none;
+  }
+
+  /* Form Elements */
+  .input-field {
+    @apply rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5;
+    @apply px-4 py-3 outline-none transition-all placeholder:text-slate-400;
+    @apply focus:border-stellar-blue focus:ring-2 focus:ring-stellar-blue/20;
+    @apply text-slate-900 dark:text-slate-100;
+  }
+
+  /* View Switcher Controls */
+  .view-switcher {
+    @apply inline-flex rounded-2xl border border-black/5 dark:border-white/10 bg-black/5 dark:bg-slate-950/70 p-1.5 shadow-sm;
+  }
+
+  .view-pill {
+    @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white;
+  }
+
+  .view-pill-active {
+    @apply bg-white dark:bg-white/10 text-stellar-blue dark:text-white shadow-sm;
+  }
+
+  /* Developer Hub Helper Classes */
+  .hub-badge {
+    @apply rounded-full border border-sky-300/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-100;
+  }
+
+  .doc-prose {
+    @apply mt-8 max-w-none text-slate-700 dark:text-slate-200;
+  }
+
+  .doc-prose h1, .doc-prose h2, .doc-prose h3 {
+    @apply font-semibold tracking-tight text-slate-900 dark:text-white;
+  }
+
+  .doc-prose p, .doc-prose li {
+    @apply mt-4 leading-7 text-slate-600 dark:text-slate-300;
+  }
+
+  .doc-prose code:not(pre code) {
+    @apply rounded-md border border-black/10 dark:border-white/10 bg-black/5 dark:bg-slate-900/80 px-1.5 py-1 text-sm text-sky-600 dark:text-sky-200;
+  }
+
+  .doc-prose pre {
+    @apply mt-6 overflow-x-auto rounded-2xl border border-black/10 dark:border-white/10 bg-slate-100 dark:bg-slate-950/95 p-4 shadow-inner;
+  }
+}
+
+/* Toastify Customization */
 :root {
-  color-scheme: dark;
+  --toastify-color-progress-dark: #146ef5;
+  --toastify-color-progress-light: #146ef5;
 }
 
-body {
-  @apply bg-stellar-dark text-slate-100 min-h-screen font-sans;
-}
-
-.glass-card {
-  @apply bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-xl;
-}
-
-.btn-primary {
-  @apply bg-stellar-blue hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 active:scale-95;
-}
-
-.input-field {
-  @apply bg-white/5 border border-white/10 rounded-lg px-4 py-2 outline-none focus:border-stellar-blue transition-colors;
+.Toastify__toast {
+  @apply rounded-2xl border border-black/5 dark:border-white/10 backdrop-blur-lg !important;
+  @apply bg-white/95 dark:bg-slate-900/95 !important;
 }

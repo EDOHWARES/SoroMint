@@ -63,6 +63,7 @@ All authentication endpoints are prefixed with `/api/auth`.
 Registers a new user with their Stellar public key.
 
 **Request Body:**
+
 ```json
 {
   "publicKey": "GDKIJJIKXLOM2NRMPNQZUUYK24ZPVFC64CZGCEVDEDG67DJKHS2XVLT5",
@@ -71,6 +72,7 @@ Registers a new user with their Stellar public key.
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "success": true,
@@ -89,6 +91,7 @@ Registers a new user with their Stellar public key.
 ```
 
 **Error Responses:**
+
 - `400 Bad Request` - Invalid or missing public key
 - `409 Conflict` - User already exists
 
@@ -101,6 +104,7 @@ Registers a new user with their Stellar public key.
 Authenticates an existing user and returns a JWT token.
 
 **Request Body:**
+
 ```json
 {
   "publicKey": "GDKIJJIKXLOM2NRMPNQZUUYK24ZPVFC64CZGCEVDEDG67DJKHS2XVLT5"
@@ -108,6 +112,7 @@ Authenticates an existing user and returns a JWT token.
 ```
 
 **Optional (Future Enhancement):**
+
 ```json
 {
   "publicKey": "GDKIJJIKXLOM2NRMPNQZUUYK24ZPVFC64CZGCEVDEDG67DJKHS2XVLT5",
@@ -117,6 +122,7 @@ Authenticates an existing user and returns a JWT token.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -135,6 +141,7 @@ Authenticates an existing user and returns a JWT token.
 ```
 
 **Error Responses:**
+
 - `400 Bad Request` - Invalid or missing public key
 - `401 Unauthorized` - User not found
 - `403 Forbidden` - Account suspended or deleted
@@ -148,11 +155,13 @@ Authenticates an existing user and returns a JWT token.
 Retrieves the authenticated user's profile.
 
 **Headers:**
+
 ```
 Authorization: Bearer <JWT token>
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -170,6 +179,7 @@ Authorization: Bearer <JWT token>
 ```
 
 **Error Responses:**
+
 - `401 Unauthorized` - Missing, invalid, or expired token
 
 ---
@@ -181,11 +191,13 @@ Authorization: Bearer <JWT token>
 Generates a new JWT token for the authenticated user.
 
 **Headers:**
+
 ```
 Authorization: Bearer <JWT token>
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -198,6 +210,7 @@ Authorization: Bearer <JWT token>
 ```
 
 **Error Responses:**
+
 - `401 Unauthorized` - Invalid or expired token
 
 ---
@@ -209,11 +222,13 @@ Authorization: Bearer <JWT token>
 Updates the authenticated user's profile information.
 
 **Headers:**
+
 ```
 Authorization: Bearer <JWT token>
 ```
 
 **Request Body:**
+
 ```json
 {
   "username": "newusername"
@@ -221,6 +236,7 @@ Authorization: Bearer <JWT token>
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -238,6 +254,7 @@ Authorization: Bearer <JWT token>
 ```
 
 **Error Responses:**
+
 - `400 Bad Request` - Invalid username format
 - `401 Unauthorized` - Invalid or expired token
 
@@ -250,17 +267,17 @@ Authorization: Bearer <JWT token>
 To protect a route, import and use the `authenticate` middleware:
 
 ```javascript
-const { authenticate } = require('./middleware/auth');
+const { authenticate } = require("./middleware/auth");
 
 // Protected route
-app.post('/api/tokens', authenticate, async (req, res) => {
+app.post("/api/tokens", authenticate, async (req, res) => {
   // req.user contains the authenticated user
   // req.token contains the decoded JWT payload
   const { name, symbol } = req.body;
   const newToken = new Token({
     name,
     symbol,
-    ownerPublicKey: req.user.publicKey
+    ownerPublicKey: req.user.publicKey,
   });
   await newToken.save();
   res.json(newToken);
@@ -272,9 +289,9 @@ app.post('/api/tokens', authenticate, async (req, res) => {
 For routes that behave differently for authenticated vs anonymous users:
 
 ```javascript
-const { optionalAuthenticate } = require('./middleware/auth');
+const { optionalAuthenticate } = require("./middleware/auth");
 
-app.get('/api/public-data', optionalAuthenticate, (req, res) => {
+app.get("/api/public-data", optionalAuthenticate, (req, res) => {
   if (req.user) {
     // Return personalized data
     res.json({ authenticated: true, data: getUserData(req.user) });
@@ -290,16 +307,17 @@ app.get('/api/public-data', optionalAuthenticate, (req, res) => {
 For routes requiring specific roles (extensible for future use):
 
 ```javascript
-const { authenticate, authorize } = require('./middleware/auth');
+const { authenticate, authorize } = require("./middleware/auth");
 
-app.delete('/api/admin/users/:id',
+app.delete(
+  "/api/admin/users/:id",
   authenticate,
-  authorize('admin'),
+  authorize("admin"),
   async (req, res) => {
     // Only users with 'admin' role can access
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true });
-  }
+  },
 );
 ```
 
@@ -321,15 +339,15 @@ app.delete('/api/admin/users/:id',
 
 ### Claims
 
-| Claim | Description |
-|-------|-------------|
+| Claim       | Description                           |
+| ----------- | ------------------------------------- |
 | `publicKey` | User's Stellar public key (G-address) |
-| `username` | Optional username |
-| `type` | Token type (always "access") |
-| `iss` | Issuer ("SoroMint") |
-| `aud` | Audience ("SoroMint-API") |
-| `iat` | Issued at timestamp |
-| `exp` | Expiration timestamp |
+| `username`  | Optional username                     |
+| `type`      | Token type (always "access")          |
+| `iss`       | Issuer ("SoroMint")                   |
+| `aud`       | Audience ("SoroMint-API")             |
+| `iat`       | Issued at timestamp                   |
+| `exp`       | Expiration timestamp                  |
 
 ## Security Considerations
 
@@ -406,15 +424,15 @@ Implement refresh token rotation for enhanced security:
 Add rate limiting to prevent brute force attacks:
 
 ```javascript
-const rateLimit = require('express-rate-limit');
+const rateLimit = require("express-rate-limit");
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 attempts per window
-  message: 'Too many authentication attempts, please try again later'
+  message: "Too many authentication attempts, please try again later",
 });
 
-app.post('/api/auth/login', authLimiter, loginHandler);
+app.post("/api/auth/login", authLimiter, loginHandler);
 ```
 
 ## Testing
@@ -445,16 +463,16 @@ npm test -- --coverage
 
 ## Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `AUTH_REQUIRED` | 401 | No token provided |
-| `INVALID_TOKEN` | 401 | Token format is invalid |
-| `TOKEN_EXPIRED` | 401 | Token has expired |
-| `USER_NOT_FOUND` | 401 | User doesn't exist |
-| `ACCOUNT_INACTIVE` | 403 | Account suspended or deleted |
-| `INVALID_PUBLIC_KEY` | 400 | Invalid Stellar public key format |
-| `USER_EXISTS` | 409 | User already registered |
-| `VALIDATION_ERROR` | 400 | Request validation failed |
+| Code                 | HTTP Status | Description                       |
+| -------------------- | ----------- | --------------------------------- |
+| `AUTH_REQUIRED`      | 401         | No token provided                 |
+| `INVALID_TOKEN`      | 401         | Token format is invalid           |
+| `TOKEN_EXPIRED`      | 401         | Token has expired                 |
+| `USER_NOT_FOUND`     | 401         | User doesn't exist                |
+| `ACCOUNT_INACTIVE`   | 403         | Account suspended or deleted      |
+| `INVALID_PUBLIC_KEY` | 400         | Invalid Stellar public key format |
+| `USER_EXISTS`        | 409         | User already registered           |
+| `VALIDATION_ERROR`   | 400         | Request validation failed         |
 
 ## Example Usage (Client-Side)
 
@@ -463,38 +481,38 @@ npm test -- --coverage
 ```typescript
 // Register
 const register = async (publicKey: string, username?: string) => {
-  const response = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publicKey, username })
+  const response = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicKey, username }),
   });
   const data = await response.json();
-  localStorage.setItem('token', data.data.token);
+  localStorage.setItem("token", data.data.token);
   return data;
 };
 
 // Login
 const login = async (publicKey: string) => {
-  const response = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ publicKey })
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicKey }),
   });
   const data = await response.json();
-  localStorage.setItem('token', data.data.token);
+  localStorage.setItem("token", data.data.token);
   return data;
 };
 
 // Protected API call
 const createToken = async (tokenData: any) => {
-  const token = localStorage.getItem('token');
-  const response = await fetch('/api/tokens', {
-    method: 'POST',
+  const token = localStorage.getItem("token");
+  const response = await fetch("/api/tokens", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(tokenData)
+    body: JSON.stringify(tokenData),
   });
   return response.json();
 };
@@ -513,6 +531,7 @@ When adding new authenticated routes:
 ## Support
 
 For issues or questions:
+
 - Check existing documentation
 - Review error codes in this document
 - Open an issue on GitHub

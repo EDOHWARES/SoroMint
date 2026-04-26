@@ -1,0 +1,38 @@
+name: Backend Integration Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'test/**'
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            server/pnpm-lock.yaml
+            client/pnpm-lock.yaml
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Run Backend Tests
+        run: pnpm test -- --ci --coverage --forceExit
+        env:
+          NODE_ENV: test

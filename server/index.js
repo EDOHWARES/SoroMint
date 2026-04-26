@@ -1,147 +1,166 @@
+require('dotenv').config();
+
+/**
+ * @title SoroMint Server Entry Point
+ * @description Main application entry point with environment validation
+ * @notice Initializes the backend and registers all route modules
+ */
+
+const { initEnv, getEnv } = require('./config/env-config');
+initEnv();
+
+const { scheduleBackups } = require('./services/backup-service');
+const { getCacheService } = require('./services/cache-service');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
+const { securityHeaders } = require('./middleware/security-headers');
+const { createCorsOptionsDelegate } = require('./config/cors-config');
 
-const Token = require('./models/Token');
-const stellarService = require('./services/stellar-service');
-const { errorHandler, notFoundHandler, asyncHandler, AppError } = require('./middleware/error-handler');
+const { initSentry } = require('./config/sentry');
+const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
 const {
   logger,
   correlationIdMiddleware,
   httpLoggerMiddleware,
   logStartupInfo,
-  logDatabaseConnection
+  logDatabaseConnection,
 } = require('./utils/logger');
 const { setupSwagger } = require('./config/swagger');
-const { authenticate } = require('./middleware/auth');
+const { sampler } = require('./services/resource-sampler');
 const authRoutes = require('./routes/auth-routes');
 const statusRoutes = require('./routes/status-routes');
+const auditRoutes = require('./routes/audit-routes');
+const tokenRoutes = require('./routes/token-routes');
+const feeRoutes = require('./routes/fee-routes');
+const tokenSearchRoutes = require('./routes/token-search-routes');
+const webhookRoutes = require('./routes/webhook-routes');
+const analyticsRoutes = require('./routes/analytics-routes');
+const notificationRoutes = require('./routes/notification-routes');
+const votingRoutes = require('./routes/voting-routes');
+const securityRoutes = require('./routes/security-routes');
+const multiSigRoutes = require('./routes/multisig-routes');
+const vaultRoutes = require('./routes/vault-routes');
+const batchRoutes = require('./routes/batch-routes');
+const referralRoutes = require('./routes/referral-routes');
+const dividendRoutes = require('./routes/dividend-routes');
+const streamingRoutes = require('./routes/streaming-routes');
+const bridgeRoutes = require('./routes/bridge-routes');
+const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
+const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+const createApp = ({
+  authRouter = authRoutes,
+  tokenRouter = tokenRoutes,
+  votingRouter = votingRoutes,
+  securityRouter = securityRoutes,
+} = {}) => {
+  const app = express();
+  const corsMiddleware = cors(createCorsOptionsDelegate());
+  const fraudMiddleware = FraudDetectionMiddleware.getInstance();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+  initSentry(app);
+  app.use(securityHeaders);
+  app.use(correlationIdMiddleware);
+  app.use(httpLoggerMiddleware);
+  app.use(corsMiddleware);
+  app.options('*', corsMiddleware);
+  app.use(express.json());
 
-// Logging middleware (must be early in the chain)
-app.use(correlationIdMiddleware);
-app.use(httpLoggerMiddleware);
+  // Initialize fraud detection middleware
+  app.use(fraudMiddleware.monitorRateLimit({ windowMs: 60000, maxRequests: 50 }));
+  app.use(fraudMiddleware.auditOperations());
 
-// Set up API Documentation
-setupSwagger(app);
+  setupSwagger(app);
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/soromint')
-  .then(() => {
+  app.use('/api', statusRoutes);
+  app.use('/api', auditRoutes);
+  app.use('/api', tokenRouter);
+  app.use('/api', feeRoutes);
+  app.use('/api', tokenSearchRoutes);
+  app.use('/api', analyticsRoutes);
+  app.use('/api', notificationRoutes);
+  app.use('/api/auth', authRouter);
+  app.use('/api', webhookRoutes);
+  app.use('/api', votingRouter);
+  app.use('/api', securityRouter);
+  app.use('/api/multisig', multiSigRoutes);
+  app.use('/api/vault', vaultRoutes);
+  app.use('/api', batchRoutes);
+  app.use('/api/referrals', referralRoutes);
+  app.use('/api', dividendRoutes);
+  app.use('/api/streaming', streamingRoutes);
+  app.use('/api/bridge', bridgeRoutes);
+  app.use('/api/fraud-detection', fraudDetectionRoutes);
+
+  // Apply streaming fraud detection middleware
+  app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+};
+
+const connectDatabase = async () => {
+  const env = getEnv();
+
+  try {
+    await mongoose.connect(env.MONGO_URI);
     logDatabaseConnection(true);
-  })
-  .catch(err => {
-    logDatabaseConnection(false, err);
-  });
+  } catch (error) {
+    logDatabaseConnection(false, error);
+    throw error;
+  }
+};
 
-// Routes
-app.use('/api', statusRoutes);
-app.use('/api/auth', authRoutes);
+const startServer = async () => {
+  const env = getEnv();
 
-/**
- * @route GET /api/tokens/:owner
- * @group Tokens - Token management operations
- * @param {string} owner.path - Owner's Stellar public key
- * @returns {Array.<Token>} 200 - Array of tokens owned by the specified address
- * @returns {Error} 400 - Invalid owner public key format
- * @returns {Error} default - Unexpected error
- * @security [JWT]
- * @example
- * // Response example
- * [
- *   {
- *     "_id": "507f1f77bcf86cd799439011",
- *     "name": "SoroMint Token",
- *     "symbol": "SORO",
- *     "decimals": 7,
- *     "contractId": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
- *     "ownerPublicKey": "GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T",
- *     "createdAt": "2024-01-15T10:30:00.000Z"
- *   }
- * ]
- */
-app.get('/api/tokens/:owner', authenticate, asyncHandler(async (req, res) => {
-  logger.info('Fetching tokens for owner', {
-    correlationId: req.correlationId,
-    ownerPublicKey: req.params.owner
-  });
-  const tokens = await Token.find({ ownerPublicKey: req.params.owner });
-  res.json(tokens);
-}));
-
-/**
- * @route POST /api/tokens
- * @group Tokens - Token management operations
- * @param {TokenCreateInput.model} body.required - Token creation data
- * @returns {Token} 201 - Successfully created token
- * @returns {Error} 400 - Missing required fields or validation error
- * @returns {Error} 409 - Token with this contractId already exists
- * @returns {Error} default - Unexpected error
- * @security [JWT]
- * @example
- * // Request body
- * {
- *   "name": "SoroMint Token",
- *   "symbol": "SORO",
- *   "decimals": 7,
- *   "contractId": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
- *   "ownerPublicKey": "GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T"
- * }
- * @example
- * // Response example
- * {
- *   "_id": "507f1f77bcf86cd799439011",
- *   "name": "SoroMint Token",
- *   "symbol": "SORO",
- *   "decimals": 7,
- *   "contractId": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE",
- *   "ownerPublicKey": "GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T",
- *   "createdAt": "2024-01-15T10:30:00.000Z"
- * }
- */
-app.post('/api/tokens', authenticate, asyncHandler(async (req, res) => {
-  const { name, symbol, decimals, contractId, ownerPublicKey } = req.body;
-
-  logger.info('Creating new token', {
-    correlationId: req.correlationId,
-    name,
-    symbol,
-    ownerPublicKey
-  });
-
-  // Validate required fields
-  if (!name || !symbol || !ownerPublicKey) {
-    logger.warn('Token creation failed - missing required fields', {
-      correlationId: req.correlationId,
-      missingFields: { name: !name, symbol: !symbol, ownerPublicKey: !ownerPublicKey }
-    });
-    throw new AppError('Missing required fields: name, symbol, and ownerPublicKey are required', 400, 'VALIDATION_ERROR');
+  // Initialize cache service
+  const cacheService = getCacheService();
+  try {
+    await cacheService.initialize();
+    logger.info('Cache service initialized successfully');
+  } catch (error) {
+    logger.warn(
+      'Cache service initialization failed, continuing without cache',
+      {
+        error: error.message,
+      }
+    );
   }
 
-  const newToken = new Token({ name, symbol, decimals, contractId, ownerPublicKey });
-  await newToken.save();
-  logger.info('Token created successfully', {
-    correlationId: req.correlationId,
-    tokenId: newToken._id
+  await connectDatabase();
+  const app = createApp();
+
+  const { initSocket } = require('./utils/socket');
+
+  const server = app.listen(env.PORT, () => {
+    logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
+    sampler.start();
+    console.log(`Server running on http://localhost:${env.PORT}`);
+    console.log(
+      `API Documentation available at http://localhost:${env.PORT}/api-docs`
+    );
+    scheduleBackups();
   });
-  res.status(201).json(newToken);
-}));
 
-// 404 handler for undefined routes
-app.use(notFoundHandler);
+  initSocket(server);
+};
 
-// Centralized error handling middleware (must be last)
-app.use(errorHandler);
+if (require.main === module) {
+  startServer().catch((error) => {
+    logger.error('Server failed to start', { error: error.message });
+    setImmediate(() => {
+      throw error;
+    });
+  });
+}
 
-app.listen(PORT, () => {
-  logStartupInfo(PORT, process.env.NETWORK_PASSPHRASE || 'Unknown Network');
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
-});
+module.exports = {
+  createApp,
+  connectDatabase,
+  startServer,
+};

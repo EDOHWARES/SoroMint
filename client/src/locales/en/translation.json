@@ -1,0 +1,43 @@
+{
+  "app": {
+    "title": "SoroMint",
+    "tagline": "Stellar Token Minting Platform",
+    "connectWallet": "Connect Wallet",
+    "walletConnected": "Wallet connected successfully",
+    "footer": "SoroMint Platform. Built on Soroban."
+  },
+  "mint": {
+    "title": "Mint New Token",
+    "tokenName": "Token Name",
+    "tokenNamePlaceholder": "e.g. My Stellar Asset",
+    "symbol": "Symbol",
+    "symbolPlaceholder": "e.g. MSA",
+    "decimals": "Decimals",
+    "submit": "Mint Token",
+    "deploying": "Deploying...",
+    "success": "Token Minted Successfully!",
+    "failed": "Minting failed",
+    "connectFirst": "Connect wallet first"
+  },
+  "assets": {
+    "title": "My Assets",
+    "connectPrompt": "Connect your wallet to see your assets",
+    "empty": "No tokens minted yet",
+    "name": "Name",
+    "symbol": "Symbol",
+    "contractId": "Contract ID",
+    "decimals": "Decimals"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ar": "Arabic"
+  },
+  "error": {
+    "title": "Oops! Something went wrong",
+    "message": "We're sorry, but something unexpected happened. Please try refreshing the page.",
+    "refresh": "Refresh Page",
+    "tryAgain": "Try Again",
+    "help": "If this problem persists, please contact support."
+  }
+}

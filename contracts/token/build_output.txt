@@ -1,0 +1,14 @@
+   Compiling soromint-token v0.1.0 (/home/edohwares/Desktop/Room/drips/ceejay/SoroMint/contracts/token)
+error: unexpected closing delimiter: `}`
+   --> contracts/token/src/lib.rs:180:1
+    |
+ 44 | impl SoroMintToken {
+    |                    - this delimiter might not be properly closed...
+...
+104 |     }
+    |     - ...as it matches this but it has different indentation
+...
+180 | }
+    | ^ unexpected closing delimiter
+
+error: could not compile `soromint-token` (lib) due to 1 previous error
