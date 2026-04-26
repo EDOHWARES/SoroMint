@@ -25,7 +25,9 @@ router.get('/events/stream', authenticate, (req, res) => {
       res.write(`data: ${JSON.stringify(record)}\n\n`);
     },
     onError: (err) => {
-      res.write(`event: error\ndata: ${JSON.stringify({ message: err?.message || 'stream error' })}\n\n`);
+      res.write(
+        `event: error\ndata: ${JSON.stringify({ message: err?.message || 'stream error' })}\n\n`
+      );
     },
   });
 
@@ -38,7 +40,9 @@ router.get('/events/stream', authenticate, (req, res) => {
 
   req.on('close', () => {
     stream.stop();
-    logger.info('SSE client disconnected', { correlationId: req.correlationId });
+    logger.info('SSE client disconnected', {
+      correlationId: req.correlationId,
+    });
   });
 });
 

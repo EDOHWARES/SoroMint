@@ -13,18 +13,26 @@ const normalizeBudget = (value, fallback) => {
 
 const getEffectiveBudgetLimit = (user, env = getEnv()) => {
   const userLimit = normalizeBudget(user.sponsorshipBudgetLimitStroops, 0);
-  return userLimit > 0 ? userLimit : normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0);
+  return userLimit > 0
+    ? userLimit
+    : normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0);
 };
 
 const getRemainingBudget = (user, env = getEnv()) => {
   const budgetLimitStroops = getEffectiveBudgetLimit(user, env);
-  const budgetUsedStroops = normalizeBudget(user.sponsorshipBudgetUsedStroops, 0);
+  const budgetUsedStroops = normalizeBudget(
+    user.sponsorshipBudgetUsedStroops,
+    0
+  );
   return Math.max(0, budgetLimitStroops - budgetUsedStroops);
 };
 
 const getSponsorshipStatus = (user, env = getEnv()) => {
   const budgetLimitStroops = getEffectiveBudgetLimit(user, env);
-  const budgetUsedStroops = normalizeBudget(user.sponsorshipBudgetUsedStroops, 0);
+  const budgetUsedStroops = normalizeBudget(
+    user.sponsorshipBudgetUsedStroops,
+    0
+  );
   const remainingBudgetStroops = getRemainingBudget(user, env);
 
   return {
@@ -40,7 +48,11 @@ const getSponsorshipStatus = (user, env = getEnv()) => {
   };
 };
 
-const checkSponsorshipEligibility = (user, requestedFeeStroops = 0, env = getEnv()) => {
+const checkSponsorshipEligibility = (
+  user,
+  requestedFeeStroops = 0,
+  env = getEnv()
+) => {
   const normalizedFee = normalizeBudget(requestedFeeStroops, 0);
   const status = getSponsorshipStatus(user, env);
   const reasons = [];
@@ -85,26 +97,40 @@ const applyForSponsorship = async (user, options = {}) => {
   const env = getEnv();
 
   if (!env.SPONSORSHIP_ENABLED) {
-    throw new AppError('Sponsorship is not enabled on this server', 503, 'SPONSORSHIP_DISABLED');
+    throw new AppError(
+      'Sponsorship is not enabled on this server',
+      503,
+      'SPONSORSHIP_DISABLED'
+    );
   }
 
   if (!user.isActive || !user.isActive()) {
-    throw new AppError('Only active users can apply for sponsorship', 403, 'ACCOUNT_INACTIVE');
+    throw new AppError(
+      'Only active users can apply for sponsorship',
+      403,
+      'ACCOUNT_INACTIVE'
+    );
   }
 
   const requestedBudget = options.requestedBudgetStroops;
-  const normalizedRequestedBudget = requestedBudget === undefined || requestedBudget === null
-    ? normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0)
-    : normalizeBudget(requestedBudget, -1);
+  const normalizedRequestedBudget =
+    requestedBudget === undefined || requestedBudget === null
+      ? normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0)
+      : normalizeBudget(requestedBudget, -1);
 
   if (normalizedRequestedBudget < 0) {
-    throw new AppError('requestedBudgetStroops must be a non-negative integer', 400, 'INVALID_PARAMETER');
+    throw new AppError(
+      'requestedBudgetStroops must be a non-negative integer',
+      400,
+      'INVALID_PARAMETER'
+    );
   }
 
   user.sponsorshipEnabled = true;
   user.sponsorshipStatus = 'approved';
   user.sponsorshipBudgetLimitStroops = Math.min(
-    normalizedRequestedBudget || normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0),
+    normalizedRequestedBudget ||
+      normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0),
     normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0)
   );
   user.sponsorshipApprovedAt = new Date();
@@ -121,8 +147,9 @@ const applyForSponsorship = async (user, options = {}) => {
 };
 
 const recordSponsoredSpend = async (user, feeStroops) => {
-  user.sponsorshipBudgetUsedStroops = normalizeBudget(user.sponsorshipBudgetUsedStroops, 0)
-    + normalizeBudget(feeStroops, 0);
+  user.sponsorshipBudgetUsedStroops =
+    normalizeBudget(user.sponsorshipBudgetUsedStroops, 0) +
+    normalizeBudget(feeStroops, 0);
   user.sponsorshipLastSponsoredAt = new Date();
   await user.save();
 };
@@ -131,19 +158,32 @@ const executeSponsoredTransaction = async (user, options = {}) => {
   const env = getEnv();
   const { transactionXdr } = options;
 
-  if (!transactionXdr || typeof transactionXdr !== 'string' || !transactionXdr.trim()) {
+  if (
+    !transactionXdr ||
+    typeof transactionXdr !== 'string' ||
+    !transactionXdr.trim()
+  ) {
     throw new AppError('transactionXdr is required', 400, 'VALIDATION_ERROR');
   }
 
-  const requestedFeeStroops = options.feeStroops === undefined || options.feeStroops === null
-    ? normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0)
-    : normalizeBudget(options.feeStroops, -1);
+  const requestedFeeStroops =
+    options.feeStroops === undefined || options.feeStroops === null
+      ? normalizeBudget(env.MAX_SPONSORSHIP_FEE_STROOPS, 0)
+      : normalizeBudget(options.feeStroops, -1);
 
   if (requestedFeeStroops <= 0) {
-    throw new AppError('feeStroops must be a positive integer', 400, 'INVALID_PARAMETER');
+    throw new AppError(
+      'feeStroops must be a positive integer',
+      400,
+      'INVALID_PARAMETER'
+    );
   }
 
-  const eligibility = checkSponsorshipEligibility(user, requestedFeeStroops, env);
+  const eligibility = checkSponsorshipEligibility(
+    user,
+    requestedFeeStroops,
+    env
+  );
   if (!eligibility.eligible) {
     throw new AppError(
       `Transaction is not eligible for sponsorship: ${eligibility.reasons.join(', ')}`,
@@ -160,7 +200,11 @@ const executeSponsoredTransaction = async (user, options = {}) => {
   });
 
   if (!submission.success) {
-    throw new AppError('Sponsored transaction submission failed', 502, 'SPONSORSHIP_SUBMISSION_FAILED');
+    throw new AppError(
+      'Sponsored transaction submission failed',
+      502,
+      'SPONSORSHIP_SUBMISSION_FAILED'
+    );
   }
 
   await recordSponsoredSpend(user, requestedFeeStroops);

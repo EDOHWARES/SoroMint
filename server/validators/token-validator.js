@@ -1,60 +1,60 @@
-const { z } = require("zod");
-const { AppError } = require("../middleware/error-handler");
-const { logger } = require("../utils/logger");
-const DeploymentAudit = require("../models/DeploymentAudit");
+const { z } = require('zod');
+const { AppError } = require('../middleware/error-handler');
+const { logger } = require('../utils/logger');
+const DeploymentAudit = require('../models/DeploymentAudit');
 
 const tokenSchema = z.object({
   name: z
     .string()
-    .min(3, "Token name must be at least 3 characters long")
-    .max(50, "Token name must not exceed 50 characters"),
+    .min(3, 'Token name must be at least 3 characters long')
+    .max(50, 'Token name must not exceed 50 characters'),
   symbol: z
     .string()
-    .min(2, "Token symbol must be at least 2 characters long")
-    .max(12, "Token symbol must not exceed 12 characters")
-    .regex(/^[A-Z0-9]+$/, "Token symbol must be alphanumeric and uppercase"),
+    .min(2, 'Token symbol must be at least 2 characters long')
+    .max(12, 'Token symbol must not exceed 12 characters')
+    .regex(/^[A-Z0-9]+$/, 'Token symbol must be alphanumeric and uppercase'),
   decimals: z
     .number()
     .int()
-    .min(0, "Decimals must be at least 0")
-    .max(18, "Decimals must not exceed 18")
+    .min(0, 'Decimals must be at least 0')
+    .max(18, 'Decimals must not exceed 18')
     .optional()
     .default(7),
   contractId: z
     .string()
-    .length(56, "Contract ID must be exactly 56 characters")
-    .startsWith("C", "Contract ID must start with C"),
+    .length(56, 'Contract ID must be exactly 56 characters')
+    .startsWith('C', 'Contract ID must start with C'),
   ownerPublicKey: z
     .string()
-    .length(56, "Owner Public Key must be exactly 56 characters")
-    .startsWith("G", "Owner Public Key must start with G"),
+    .length(56, 'Owner Public Key must be exactly 56 characters')
+    .startsWith('G', 'Owner Public Key must start with G'),
   description: z
     .string()
-    .max(500, "Description must not exceed 500 characters")
+    .max(500, 'Description must not exceed 500 characters')
     .optional(),
   iconBase64: z
     .string()
-    .regex(/^data:([A-Za-z-+\/]+);base64,(.+)$/, "Invalid base64 image string")
+    .regex(/^data:([A-Za-z-+\/]+);base64,(.+)$/, 'Invalid base64 image string')
     .optional(),
 });
 
 const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1, "Page must be at least 1").default(1),
+  page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
   limit: z.coerce
     .number()
     .int()
-    .min(1, "Limit must be at least 1")
-    .max(100, "Limit must not exceed 100")
+    .min(1, 'Limit must be at least 1')
+    .max(100, 'Limit must not exceed 100')
     .default(20),
 });
 
 const searchSchema = z.object({
   search: z
     .string()
-    .min(1, "Search query must be at least 1 character")
-    .max(50, "Search query must not exceed 50 characters")
+    .min(1, 'Search query must be at least 1 character')
+    .max(50, 'Search query must not exceed 50 characters')
     .optional()
-    .or(z.literal("").transform(() => undefined)),
+    .or(z.literal('').transform(() => undefined)),
 });
 
 const validateToken = async (req, res, next) => {
@@ -64,10 +64,10 @@ const validateToken = async (req, res, next) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessage = error.errors
-        .map((entry) => `${entry.path.join(".")}: ${entry.message}`)
-        .join(", ");
+        .map((entry) => `${entry.path.join('.')}: ${entry.message}`)
+        .join(', ');
 
-      logger.warn("Token validation failed", {
+      logger.warn('Token validation failed', {
         correlationId: req.correlationId,
         errors: error.errors,
       });
@@ -75,13 +75,13 @@ const validateToken = async (req, res, next) => {
       if (req.user?._id) {
         await DeploymentAudit.create({
           userId: req.user._id,
-          tokenName: req.body.name || "Unknown",
-          status: "FAIL",
+          tokenName: req.body.name || 'Unknown',
+          status: 'FAIL',
           errorMessage: `Validation Error: ${errorMessage}`,
         });
       }
 
-      return next(new AppError(errorMessage, 400, "VALIDATION_ERROR"));
+      return next(new AppError(errorMessage, 400, 'VALIDATION_ERROR'));
     }
 
     return next(error);
@@ -95,10 +95,10 @@ const validatePagination = (req, res, next) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessage = error.errors
-        .map((entry) => `${entry.path.join(".")}: ${entry.message}`)
-        .join(", ");
+        .map((entry) => `${entry.path.join('.')}: ${entry.message}`)
+        .join(', ');
 
-      return next(new AppError(errorMessage, 400, "VALIDATION_ERROR"));
+      return next(new AppError(errorMessage, 400, 'VALIDATION_ERROR'));
     }
 
     return next(error);
@@ -107,27 +107,35 @@ const validatePagination = (req, res, next) => {
 
 const SUPPORTED_OPS = ['mint', 'burn', 'transfer'];
 
-const batchOperationSchema = z.object({
-  type: z.enum(SUPPORTED_OPS, {
-    errorMap: () => ({ message: `type must be one of: ${SUPPORTED_OPS.join(', ')}` }),
-  }),
-  contractId: z
-    .string()
-    .length(56, 'contractId must be exactly 56 characters')
-    .startsWith('C', 'contractId must start with C'),
-  amount: z
-    .number({ invalid_type_error: 'amount must be a number' })
-    .positive('amount must be positive'),
-  destination: z
-    .string()
-    .length(56, 'destination must be exactly 56 characters')
-    .startsWith('G', 'destination must start with G')
-    .optional(),
-}).superRefine((op, ctx) => {
-  if (op.type === 'transfer' && !op.destination) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['destination'], message: 'destination is required for transfer' });
-  }
-});
+const batchOperationSchema = z
+  .object({
+    type: z.enum(SUPPORTED_OPS, {
+      errorMap: () => ({
+        message: `type must be one of: ${SUPPORTED_OPS.join(', ')}`,
+      }),
+    }),
+    contractId: z
+      .string()
+      .length(56, 'contractId must be exactly 56 characters')
+      .startsWith('C', 'contractId must start with C'),
+    amount: z
+      .number({ invalid_type_error: 'amount must be a number' })
+      .positive('amount must be positive'),
+    destination: z
+      .string()
+      .length(56, 'destination must be exactly 56 characters')
+      .startsWith('G', 'destination must start with G')
+      .optional(),
+  })
+  .superRefine((op, ctx) => {
+    if (op.type === 'transfer' && !op.destination) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['destination'],
+        message: 'destination is required for transfer',
+      });
+    }
+  });
 
 const batchSchema = z.object({
   operations: z
@@ -147,11 +155,13 @@ const validateBatch = (req, res, next) => {
       path: e.path.join('.'),
       message: e.message,
     }));
-    return next(new AppError(
-      errors.map((e) => `${e.path}: ${e.message}`).join('; '),
-      400,
-      'VALIDATION_ERROR'
-    ));
+    return next(
+      new AppError(
+        errors.map((e) => `${e.path}: ${e.message}`).join('; '),
+        400,
+        'VALIDATION_ERROR'
+      )
+    );
   }
   req.body = result.data;
   next();
@@ -164,10 +174,10 @@ const validateSearch = (req, res, next) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessage = error.errors
-        .map((entry) => `${entry.path.join(".")}: ${entry.message}`)
-        .join(", ");
+        .map((entry) => `${entry.path.join('.')}: ${entry.message}`)
+        .join(', ');
 
-      return next(new AppError(errorMessage, 400, "VALIDATION_ERROR"));
+      return next(new AppError(errorMessage, 400, 'VALIDATION_ERROR'));
     }
 
     return next(error);

@@ -24,7 +24,9 @@ class StreamingService {
     stopLedger
   ) {
     const contract = new Contract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
+    const sourceAccount = await this.server.getAccount(
+      sourceKeypair.publicKey()
+    );
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -33,15 +35,21 @@ class StreamingService {
       .addOperation(
         contract.call(
           'create_stream',
-          xdr.ScVal.scvAddress(xdr.ScAddress.scAddressTypeAccount(
-            xdr.PublicKey.publicKeyTypeEd25519(Buffer.from(sender, 'hex'))
-          )),
-          xdr.ScVal.scvAddress(xdr.ScAddress.scAddressTypeAccount(
-            xdr.PublicKey.publicKeyTypeEd25519(Buffer.from(recipient, 'hex'))
-          )),
-          xdr.ScVal.scvAddress(xdr.ScAddress.scAddressTypeContract(
-            Buffer.from(tokenAddress, 'hex')
-          )),
+          xdr.ScVal.scvAddress(
+            xdr.ScAddress.scAddressTypeAccount(
+              xdr.PublicKey.publicKeyTypeEd25519(Buffer.from(sender, 'hex'))
+            )
+          ),
+          xdr.ScVal.scvAddress(
+            xdr.ScAddress.scAddressTypeAccount(
+              xdr.PublicKey.publicKeyTypeEd25519(Buffer.from(recipient, 'hex'))
+            )
+          ),
+          xdr.ScVal.scvAddress(
+            xdr.ScAddress.scAddressTypeContract(
+              Buffer.from(tokenAddress, 'hex')
+            )
+          ),
           xdr.ScVal.scvI128(this.toI128(totalAmount)),
           xdr.ScVal.scvU32(startLedger),
           xdr.ScVal.scvU32(stopLedger)
@@ -59,7 +67,9 @@ class StreamingService {
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {
     const contract = new Contract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
+    const sourceAccount = await this.server.getAccount(
+      sourceKeypair.publicKey()
+    );
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -84,7 +94,9 @@ class StreamingService {
 
   async cancelStream(contractId, sourceKeypair, streamId) {
     const contract = new Contract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
+    const sourceAccount = await this.server.getAccount(
+      sourceKeypair.publicKey()
+    );
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -126,7 +138,9 @@ class StreamingService {
 
   async getStream(contractId, streamId) {
     const contract = new Contract(contractId);
-    const sourceAccount = await this.server.getAccount(contract.address().toString());
+    const sourceAccount = await this.server.getAccount(
+      contract.address().toString()
+    );
 
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
@@ -164,7 +178,7 @@ class StreamingService {
   toI128(value) {
     const bigValue = BigInt(value);
     const hi = bigValue >> 64n;
-    const lo = bigValue & 0xFFFFFFFFFFFFFFFFn;
+    const lo = bigValue & 0xffffffffffffffffn;
     return new xdr.Int128Parts({ hi, lo });
   }
 
@@ -175,7 +189,7 @@ class StreamingService {
       if (txResult.status !== 'NOT_FOUND') {
         return txResult;
       }
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     throw new Error('Transaction polling timeout');
   }

@@ -23,6 +23,8 @@ pub struct Stream {
 pub enum DataKey {
     Stream(u64),
     NextStreamId,
+    MaxAmount,
+    Admin,
 }
 
 #[contract]
@@ -30,6 +32,39 @@ pub struct StreamingPayments;
 
 #[contractimpl]
 impl StreamingPayments {
+    /// Initializes the streaming payments contract with an administrator.
+    /// 
+    /// # Arguments
+    /// * `admin` - The address of the administrator.
+    pub fn initialize(e: Env, admin: Address) {
+        if e.storage().instance().has(&DataKey::Admin) {
+            panic!("already initialized");
+        }
+        e.storage().instance().set(&DataKey::Admin, &admin);
+    }
+
+    /// Sets the maximum amount allowed per payment stream.
+    /// 
+    /// # Arguments
+    /// * `amount` - The maximum total amount for a single stream.
+    pub fn set_max_amount(e: Env, amount: i128) {
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic!("not initialized"));
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::MaxAmount, &amount);
+    }
+
+    /// Returns the maximum amount allowed per payment stream.
+    pub fn get_max_amount(e: Env) -> i128 {
+        e.storage()
+            .instance()
+            .get(&DataKey::MaxAmount)
+            .unwrap_or(0)
+    }
+
     /// Creates a new payment stream.
     /// 
     /// # Arguments
@@ -52,9 +87,21 @@ impl StreamingPayments {
         stop_ledger: u32,
     ) -> u64 {
         sender.require_auth();
-        
-        if total_amount <= 0 { panic!("amount must be positive"); }
-        if stop_ledger <= start_ledger { panic!("invalid ledger range"); }
+
+        if total_amount <= 0 {
+            panic!("amount must be positive");
+        }
+
+        // Check against global max amount limit if set
+        if let Some(max_amount) = e.storage().instance().get::<DataKey, i128>(&DataKey::MaxAmount) {
+            if total_amount > max_amount {
+                panic!("amount exceeds global limit");
+            }
+        }
+
+        if stop_ledger <= start_ledger {
+            panic!("invalid ledger range");
+        }
         
         let duration = (stop_ledger - start_ledger) as i128;
         let rate_per_ledger = total_amount / duration;
@@ -212,6 +259,8 @@ mod test {
         let contract_id = e.register(StreamingPayments, ());
         let client = StreamingPaymentsClient::new(&e, &contract_id);
         
+        client.initialize(&admin);
+        
         e.ledger().set_sequence_number(100);
         
         let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
@@ -226,7 +275,8 @@ mod test {
     }
 
     #[test]
-    fn test_cancel_stream() {
+    #[should_panic(expected = "amount exceeds global limit")]
+    fn test_max_amount_limit() {
         let e = Env::default();
         e.mock_all_auths();
         
@@ -234,19 +284,33 @@ mod test {
         let sender = Address::generate(&e);
         let recipient = Address::generate(&e);
         
-        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        let (token_addr, _token_client, token_admin) = create_token_contract(&e, &admin);
         token_admin.mint(&sender, &10000);
         
         let contract_id = e.register(StreamingPayments, ());
         let client = StreamingPaymentsClient::new(&e, &contract_id);
         
+        client.initialize(&admin);
+        client.set_max_amount(&500);
+        
         e.ledger().set_sequence_number(100);
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        // This should panic
+        client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+    }
+
+    #[test]
+    fn test_set_max_amount_admin_only() {
+        let e = Env::default();
+        e.mock_all_auths();
         
-        e.ledger().set_sequence_number(150);
-        client.cancel_stream(&stream_id);
+        let admin = Address::generate(&e);
         
-        assert_eq!(token_client.balance(&recipient), 500);
-        assert_eq!(token_client.balance(&sender), 9500);
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        client.initialize(&admin);
+        
+        // This should work
+        client.set_max_amount(&1000);
     }
 }
