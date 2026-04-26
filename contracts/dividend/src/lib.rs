@@ -304,7 +304,12 @@ impl DividendDistributor {
             .get(&DataKey::HolderDebt(holder.clone()))
             .unwrap_or(0);
 
-        let dps_delta = global_dps.saturating_sub(holder_debt);
+        if global_dps < holder_debt {
+            return 0;
+        }
+        let dps_delta = global_dps
+            .checked_sub(holder_debt)
+            .expect("holder debt subtraction underflow");
         if dps_delta == 0 {
             return 0;
         }

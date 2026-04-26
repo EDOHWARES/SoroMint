@@ -5,7 +5,7 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
 
 #[contracttype]
 #[derive(Clone)]
@@ -214,10 +214,11 @@ impl PriceOracle {
             .expect("price not found");
 
         // USD value = (token_amount * price) / 10^decimals
+        let scale = Self::scale_factor(price_data.decimals);
         let usd_value = token_amount
             .checked_mul(price_data.price)
             .expect("overflow in USD calculation")
-            .checked_div(10i128.pow(price_data.decimals))
+            .checked_div(scale)
             .expect("division error");
 
         USDValue {
@@ -241,8 +242,9 @@ impl PriceOracle {
         }
 
         // token_amount = (usd_value * 10^decimals) / price
+        let scale = Self::scale_factor(price_data.decimals);
         usd_value
-            .checked_mul(10i128.pow(price_data.decimals))
+            .checked_mul(scale)
             .expect("overflow in token calculation")
             .checked_div(price_data.price)
             .expect("division error")
@@ -282,7 +284,10 @@ impl PriceOracle {
             .expect("price not found");
 
         let current_time = e.ledger().timestamp();
-        current_time - price_data.timestamp > max_age
+        current_time
+            .checked_sub(price_data.timestamp)
+            .expect("price timestamp underflow")
+            > max_age
     }
 
     pub fn has_price(e: Env, token: Address) -> bool {
@@ -299,5 +304,11 @@ impl PriceOracle {
 
     pub fn version(e: Env) -> String {
         String::from_str(&e, "2.0.0")
+    }
+
+    fn scale_factor(decimals: u32) -> i128 {
+        10i128
+            .checked_pow(decimals)
+            .expect("decimal scale overflow")
     }
 }

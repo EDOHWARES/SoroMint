@@ -2,7 +2,7 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger, LedgerInfo},
+    testutils::{Address as _, Ledger},
     Address, Env,
 };
 
@@ -15,12 +15,19 @@ fn test_initialize() {
     let client = PriceOracleClient::new(&e, &contract_id);
 
     client.initialize(&admin);
+}
 
-    // Should panic on second initialization
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        client.initialize(&admin);
-    }));
-    assert!(result.is_err());
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_twice_panics() {
+    let e = Env::default();
+    let admin = Address::generate(&e);
+
+    let contract_id = e.register(PriceOracle, ());
+    let client = PriceOracleClient::new(&e, &contract_id);
+
+    client.initialize(&admin);
+    client.initialize(&admin);
 }
 
 #[test]
@@ -217,15 +224,9 @@ fn test_is_price_stale() {
     client.initialize(&admin);
 
     // Set initial ledger time
-    e.ledger().set(LedgerInfo {
-        timestamp: 1000,
-        protocol_version: 20,
-        sequence_number: 100,
-        network_id: Default::default(),
-        base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
-        max_entry_ttl: 3110400,
+    e.ledger().with_mut(|li| {
+        li.timestamp = 1000;
+        li.sequence_number = 100;
     });
 
     client.report_price(&admin, &token, &10000000, &7);
@@ -234,15 +235,9 @@ fn test_is_price_stale() {
     assert!(!client.is_price_stale(&token, &100));
 
     // Advance time by 150 seconds
-    e.ledger().set(LedgerInfo {
-        timestamp: 1150,
-        protocol_version: 20,
-        sequence_number: 200,
-        network_id: Default::default(),
-        base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
-        max_entry_ttl: 3110400,
+    e.ledger().with_mut(|li| {
+        li.timestamp = 1150;
+        li.sequence_number = 200;
     });
 
     // Price should now be stale (max_age = 100 seconds)

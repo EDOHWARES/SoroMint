@@ -23,6 +23,52 @@ pub struct Stream {
 pub enum DataKey {
     Stream(u64),
     NextStreamId,
+}
+
+#[contract]
+pub struct StreamingPayments;
+
+#[contractimpl]
+impl StreamingPayments {
+    /// Create a new payment stream
+    pub fn create_stream(
+        e: Env,
+        sender: Address,
+        recipient: Address,
+        token: Address,
+        total_amount: i128,
+        start_ledger: u32,
+        stop_ledger: u32,
+    ) -> u64 {
+        sender.require_auth();
+        
+        if total_amount <= 0 { panic!("amount must be positive"); }
+        if stop_ledger <= start_ledger { panic!("invalid ledger range"); }
+//! # Streaming Payments Contract
+//!
+//! Enables continuous token payment streams that release funds per ledger.
+//! Supports real-time payroll and subscription-based payment models.
+
+#![no_std]
+
+use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env};
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Stream {
+    pub sender: Address,
+    pub recipient: Address,
+    pub token: Address,
+    pub rate_per_ledger: i128,
+    pub start_ledger: u32,
+    pub stop_ledger: u32,
+    pub withdrawn: i128,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Stream(u64),
+    NextStreamId,
     MaxAmount,
     Admin,
 }
@@ -87,7 +133,9 @@ impl StreamingPayments {
         }
         
         let duration = (stop_ledger - start_ledger) as i128;
-        let rate_per_ledger = total_amount / duration;
+        let rate_per_ledger = total_amount
+            .checked_div(duration)
+            .expect("stream rate division failed");
         
         if rate_per_ledger == 0 { panic!("amount too small for duration"); }
         
@@ -108,7 +156,10 @@ impl StreamingPayments {
         };
         
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
-        e.storage().instance().set(&DataKey::NextStreamId, &(stream_id + 1));
+        let next_stream_id = stream_id
+            .checked_add(1)
+            .expect("stream id overflow");
+        e.storage().instance().set(&DataKey::NextStreamId, &next_stream_id);
         
         e.events().publish(
             (soroban_sdk::symbol_short!("created"), stream_id),
@@ -120,6 +171,9 @@ impl StreamingPayments {
     
     /// Withdraw available funds from a stream
     pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
+        if amount <= 0 {
+            panic!("withdraw amount must be positive");
+        }
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
@@ -129,7 +183,10 @@ impl StreamingPayments {
         let available = Self::balance_of(e.clone(), stream_id);
         if amount > available { panic!("insufficient balance"); }
         
-        stream.withdrawn += amount;
+        stream.withdrawn = stream
+            .withdrawn
+            .checked_add(amount)
+            .expect("stream withdrawn addition overflow");
         e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
         
         let client = token::Client::new(&e, &stream.token);
@@ -159,9 +216,14 @@ impl StreamingPayments {
         
         // Calculate total deposited and refund unstreamed amount
         let duration = (stream.stop_ledger - stream.start_ledger) as i128;
-        let total_deposited = stream.rate_per_ledger * duration;
+        let total_deposited = stream
+            .rate_per_ledger
+            .checked_mul(duration)
+            .expect("total deposited multiplication overflow");
         let total_streamed = Self::calculate_streamed(&e, &stream);
-        let refund = total_deposited - total_streamed;
+        let refund = total_deposited
+            .checked_sub(total_streamed)
+            .expect("refund subtraction underflow");
         
         if refund > 0 {
             client.transfer(&e.current_contract_address(), &stream.sender, &refund);
@@ -182,6 +244,35 @@ impl StreamingPayments {
             .unwrap_or_else(|| panic!("stream not found"));
         
         let streamed = Self::calculate_streamed(&e, &stream);
+        streamed
+            .checked_sub(stream.withdrawn)
+            .expect("stream balance subtraction underflow")
+    }
+    
+    /// Get stream details
+    pub fn get_stream(e: Env, stream_id: u64) -> Stream {
+        e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"))
+    }
+    
+    fn calculate_streamed(e: &Env, stream: &Stream) -> i128 {
+        let current = e.ledger().sequence();
+        
+        if current <= stream.start_ledger {
+            return 0;
+        }
+        
+        let elapsed = if current >= stream.stop_ledger {
+            stream.stop_ledger - stream.start_ledger
+        } else {
+            current - stream.start_ledger
+        };
+        
+        stream
+            .rate_per_ledger
+            .checked_mul(elapsed as i128)
+            .expect("streamed amount multiplication overflow")
         streamed - stream.withdrawn
     }
     
@@ -292,5 +383,70 @@ mod test {
         // This should fail because mock_all_auths is on, but we want to verify the logic
         // In a real test without mock_all_auths, we would verify the requirement for admin auth.
         // However, we can check that it doesn't panic when admin is used.
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::{testutils::{Address as _, Ledger}, token, Address, Env};
+
+    fn create_token_contract<'a>(e: &Env, admin: &Address) -> (Address, token::Client<'a>, token::StellarAssetClient<'a>) {
+        let contract = e.register_stellar_asset_contract_v2(admin.clone());
+        let addr = contract.address();
+        (addr.clone(), token::Client::new(e, &addr), token::StellarAssetClient::new(e, &addr))
+    }
+
+    #[test]
+    fn test_create_and_withdraw() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        
+        let balance = client.balance_of(&stream_id);
+        assert_eq!(balance, 500);
+        
+        client.withdraw(&stream_id, &500);
+        assert_eq!(token_client.balance(&recipient), 500);
+    }
+
+    #[test]
+    fn test_cancel_stream() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        client.cancel_stream(&stream_id);
+        
+        assert_eq!(token_client.balance(&recipient), 500);
+        assert_eq!(token_client.balance(&sender), 9500);
     }
 }

@@ -26,11 +26,18 @@ impl SmtFlashLoanProvider {
         amount: i128,
         params: Bytes,
     ) {
+        if amount <= 0 {
+            panic!("flash loan amount must be positive");
+        }
         let token_id: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let fee_bps: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap();
         let token = TokenClient::new(&env, &token_id);
 
-        let fee = (amount * (fee_bps as i128)) / 10000;
+        let fee = amount
+            .checked_mul(fee_bps as i128)
+            .expect("flash loan fee multiplication overflow")
+            .checked_div(10000)
+            .expect("flash loan fee division failed");
         let balance_before = token.balance(&env.current_contract_address());
 
         // Optimistic transfer
@@ -52,7 +59,9 @@ impl SmtFlashLoanProvider {
 
         // Strict verification
         let balance_after = token.balance(&env.current_contract_address());
-        let required_balance = balance_before + fee;
+        let required_balance = balance_before
+            .checked_add(fee)
+            .expect("required repayment balance addition overflow");
 
         assert!(
             balance_after >= required_balance,

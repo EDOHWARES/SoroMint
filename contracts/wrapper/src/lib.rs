@@ -97,20 +97,29 @@ impl WrapperToken {
             if fee_config.enabled && fee_config.fee_bps > 0 {
                 let fee_amount = amount
                     .checked_mul(fee_config.fee_bps as i128)
-                    .unwrap()
+                    .expect("transfer fee multiplication overflow")
                     .checked_div(10000)
-                    .unwrap();
+                    .expect("transfer fee division failed");
                 if fee_amount > 0 {
                     let treasury_balance = Self::read_balance(e, &fee_config.treasury);
-                    Self::write_balance(e, &fee_config.treasury, treasury_balance + fee_amount);
-                    amount_to_receive -= fee_amount;
+                    let new_treasury_balance = treasury_balance
+                        .checked_add(fee_amount)
+                        .expect("treasury balance addition overflow");
+                    Self::write_balance(e, &fee_config.treasury, new_treasury_balance);
+                    amount_to_receive = amount_to_receive
+                        .checked_sub(fee_amount)
+                        .expect("transfer amount underflow after fee");
                     events::emit_fee_collected(e, from, &fee_config.treasury, fee_amount);
                 }
             }
         }
 
-        let new_from = from_balance - amount;
-        let new_to = Self::read_balance(e, to) + amount_to_receive;
+        let new_from = from_balance
+            .checked_sub(amount)
+            .expect("sender balance subtraction underflow");
+        let new_to = Self::read_balance(e, to)
+            .checked_add(amount_to_receive)
+            .expect("recipient balance addition overflow");
         Self::write_balance(e, from, new_from);
         Self::write_balance(e, to, new_to);
         (new_from, new_to)
@@ -190,11 +199,15 @@ impl WrapperToken {
 
         // Mint wrapped tokens to user
         let mut balance = Self::read_balance(&e, &from);
-        balance = balance.checked_add(amount).unwrap();
+        balance = balance
+            .checked_add(amount)
+            .expect("wrap balance addition overflow");
         Self::write_balance(&e, &from, balance);
 
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply.checked_add(amount).unwrap();
+        supply = supply
+            .checked_add(amount)
+            .expect("wrap supply addition overflow");
         e.storage().instance().set(&DataKey::Supply, &supply);
 
         events::emit_wrap(&e, &from, amount, balance, supply);
@@ -224,11 +237,15 @@ impl WrapperToken {
             panic!("insufficient balance");
         }
 
-        let new_balance = balance.checked_sub(amount).unwrap();
+        let new_balance = balance
+            .checked_sub(amount)
+            .expect("unwrap balance subtraction underflow");
         Self::write_balance(&e, &to, new_balance);
 
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply.checked_sub(amount).unwrap();
+        supply = supply
+            .checked_sub(amount)
+            .expect("unwrap supply subtraction underflow");
         e.storage().instance().set(&DataKey::Supply, &supply);
 
         // Return underlying tokens to user
@@ -386,8 +403,20 @@ impl TokenInterface for WrapperToken {
             panic!("insufficient allowance");
         }
         let (nf, nt) = Self::move_balance(&e, &from, &to, amount);
-        Self::write_allowance(&e, &from, &spender, al - amount);
-        events::emit_transfer_from(&e, &spender, &from, &to, amount, al - amount, nf, nt);
+        let remaining_allowance = al
+            .checked_sub(amount)
+            .expect("allowance subtraction underflow");
+        Self::write_allowance(&e, &from, &spender, remaining_allowance);
+        events::emit_transfer_from(
+            &e,
+            &spender,
+            &from,
+            &to,
+            amount,
+            remaining_allowance,
+            nf,
+            nt,
+        );
     }
 
     fn burn(e: Env, from: Address, amount: i128) {
@@ -400,12 +429,17 @@ impl TokenInterface for WrapperToken {
         if bal < amount {
             panic!("insufficient balance");
         }
-        Self::write_balance(&e, &from, bal - amount);
+        let new_balance = bal
+            .checked_sub(amount)
+            .expect("burn balance subtraction underflow");
+        Self::write_balance(&e, &from, new_balance);
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply -= amount;
+        supply = supply
+            .checked_sub(amount)
+            .expect("burn supply subtraction underflow");
         e.storage().instance().set(&DataKey::Supply, &supply);
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
+        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
     }
 
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
@@ -422,13 +456,21 @@ impl TokenInterface for WrapperToken {
         if bal < amount {
             panic!("insufficient balance");
         }
-        Self::write_allowance(&e, &from, &spender, al - amount);
-        Self::write_balance(&e, &from, bal - amount);
+        let remaining_allowance = al
+            .checked_sub(amount)
+            .expect("burn_from allowance subtraction underflow");
+        let new_balance = bal
+            .checked_sub(amount)
+            .expect("burn_from balance subtraction underflow");
+        Self::write_allowance(&e, &from, &spender, remaining_allowance);
+        Self::write_balance(&e, &from, new_balance);
         let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply -= amount;
+        supply = supply
+            .checked_sub(amount)
+            .expect("burn_from supply subtraction underflow");
         e.storage().instance().set(&DataKey::Supply, &supply);
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
+        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
     }
 
     fn decimals(e: Env) -> u32 {
