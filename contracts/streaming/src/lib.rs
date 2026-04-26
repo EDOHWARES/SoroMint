@@ -30,7 +30,18 @@ pub struct StreamingPayments;
 
 #[contractimpl]
 impl StreamingPayments {
-    /// Create a new payment stream
+    /// Creates a new payment stream.
+    /// 
+    /// # Arguments
+    /// * `sender` - The address of the account funding the stream.
+    /// * `recipient` - The address of the account receiving the funds.
+    /// * `token` - The address of the token being streamed.
+    /// * `total_amount` - The total amount of tokens to be streamed over the duration.
+    /// * `start_ledger` - The ledger sequence when the stream begins.
+    /// * `stop_ledger` - The ledger sequence when the stream ends.
+    /// 
+    /// # Returns
+    /// The unique ID of the created stream.
     pub fn create_stream(
         e: Env,
         sender: Address,
@@ -77,7 +88,11 @@ impl StreamingPayments {
         stream_id
     }
     
-    /// Withdraw available funds from a stream
+    /// Withdraws available funds from a payment stream.
+    /// 
+    /// # Arguments
+    /// * `stream_id` - The ID of the stream.
+    /// * `amount` - The amount of tokens to withdraw.
     pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
         let mut stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
@@ -100,7 +115,10 @@ impl StreamingPayments {
         );
     }
     
-    /// Cancel a stream and refund remaining balance
+    /// Cancels a payment stream and refunds the remaining balance to the sender.
+    /// 
+    /// # Arguments
+    /// * `stream_id` - The ID of the stream to cancel.
     pub fn cancel_stream(e: Env, stream_id: u64) {
         let stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
@@ -134,7 +152,7 @@ impl StreamingPayments {
         );
     }
     
-    /// Get available balance for withdrawal
+    /// Returns the currently available balance of a stream for withdrawal.
     pub fn balance_of(e: Env, stream_id: u64) -> i128 {
         let stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
@@ -144,7 +162,7 @@ impl StreamingPayments {
         streamed - stream.withdrawn
     }
     
-    /// Get stream details
+    /// Returns the full details of a payment stream.
     pub fn get_stream(e: Env, stream_id: u64) -> Stream {
         e.storage().persistent()
             .get(&DataKey::Stream(stream_id))

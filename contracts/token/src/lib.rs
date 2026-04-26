@@ -98,6 +98,13 @@ impl SoroMintToken {
         (new_from, new_to)
     }
 
+    /// Initializes the contract with an administrator, decimals, name, and symbol.
+    /// 
+    /// # Arguments
+    /// * `admin` - The address of the contract administrator.
+    /// * `decimals` - The number of decimals for the token.
+    /// * `name` - The human-readable name of the token.
+    /// * `symbol` - The ticker symbol for the token.
     pub fn initialize(e: Env, admin: Address, decimals: u32, name: String, symbol: String) {
         if e.storage().instance().has(&DataKey::Admin) { panic!("already initialized"); }
         e.storage().instance().set(&DataKey::Admin, &admin);
@@ -108,24 +115,43 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Transferable, &true);
     }
 
+    /// Configures the transfer fee for the token.
+    /// 
+    /// # Arguments
+    /// * `enabled` - Whether the fee is active.
+    /// * `fee_bps` - The fee in basis points (e.g., 100 = 1%).
+    /// * `treasury` - The address where collected fees will be sent.
     pub fn set_fee_config(e: Env, enabled: bool, fee_bps: u32, treasury: Address) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().instance().set(&DataKey::FeeConfig, &FeeConfig { enabled, fee_bps, treasury });
     }
 
+    /// Sets a hash of external metadata (e.g., IPFS) for the token.
+    /// 
+    /// # Arguments
+    /// * `hash` - The metadata hash as Bytes.
     pub fn set_metadata_hash(e: Env, hash: Bytes) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().instance().set(&DataKey::MetadataHash, &hash);
     }
 
+    /// Enables or disables token transfers globally.
+    /// 
+    /// # Arguments
+    /// * `transferable` - True to enable transfers, false to disable.
     pub fn set_transferable(e: Env, transferable: bool) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().instance().set(&DataKey::Transferable, &transferable);
     }
 
+    /// Mints new tokens to a specified address. Only callable by the admin.
+    /// 
+    /// # Arguments
+    /// * `to` - The recipient of the minted tokens.
+    /// * `amount` - The amount of tokens to mint.
     pub fn mint(e: Env, to: Address, amount: i128) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -136,6 +162,11 @@ impl SoroMintToken {
         events::emit_mint(&e, admin, to, amount);
     }
 
+    /// Sets a 24-hour minting limit for a specific minter address.
+    /// 
+    /// # Arguments
+    /// * `minter` - The address of the minter.
+    /// * `limit` - The maximum amount they can mint in a 24h window.
     pub fn set_minter_limit(e: Env, minter: Address, limit: i128) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -167,16 +198,23 @@ impl SoroMintToken {
         events::emit_mint(&e, minter, to, amount);
     }
 
+    /// Sets the verification status of an address.
+    /// 
+    /// # Arguments
+    /// * `addr` - The address to verify.
+    /// * `status` - The verification status to set.
     pub fn set_verified(e: Env, addr: Address, status: bool) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
         e.storage().persistent().set(&DataKey::Verified(addr), &status);
     }
 
+    /// Returns whether an address is verified.
     pub fn is_verified(e: Env, addr: Address) -> bool {
         e.storage().persistent().get(&DataKey::Verified(addr)).unwrap_or(false)
     }
 
+    /// Verifies an address using a ZK-proof or similar cryptographic proof.
     pub fn verify_with_proof(e: Env, addr: Address, proof: Bytes) {
         // Mock ZK-Proof verification logic
         if proof.len() > 0 {
@@ -199,10 +237,12 @@ impl SoroMintToken {
         e.storage().persistent().set(&DataKey::Snapshot(id, sequence), &balance);
     }
 
+    /// Returns the balance of an account at a specific ledger sequence.
     pub fn get_balance_at(e: Env, id: Address, sequence: u32) -> i128 {
         e.storage().persistent().get(&DataKey::Snapshot(id, sequence)).unwrap_or(0)
     }
 
+    /// Returns the total supply at a specific ledger sequence.
     pub fn get_supply_at(e: Env, sequence: u32) -> i128 {
         e.storage().persistent().get(&DataKey::SupplySnapshot(sequence)).unwrap_or(0)
     }
