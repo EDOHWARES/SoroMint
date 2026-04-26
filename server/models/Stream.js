@@ -120,6 +120,21 @@ const streamSchema = new mongoose.Schema(
     canceledTxHash: {
       type: String,
     },
+    // Full-text search fields (Task 3)
+    notes: {
+      type: String,
+      default: '',
+    },
+    metadata: [
+      {
+        key: { type: String },
+        value: { type: String },
+      },
+    ],
+    // Reconciliation fields (Task 4)
+    reconciliationNote: { type: String },
+    reconciliationError: { type: String },
+    reconciledAt: { type: Date },
   },
   {
     timestamps: true,
@@ -128,5 +143,7 @@ const streamSchema = new mongoose.Schema(
 
 streamSchema.index({ sender: 1, status: 1 });
 streamSchema.index({ recipient: 1, status: 1 });
+// Text index for regex-based search fallback (Task 3)
+streamSchema.index({ sender: 'text', recipient: 'text', tokenAddress: 'text', notes: 'text' });
 
 module.exports = mongoose.model('Stream', streamSchema);
