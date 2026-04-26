@@ -55,8 +55,138 @@ pub struct FeeConfig {
 #[contract]
 pub struct SoroMintToken;
 
+//! # SoroMint Token Contract
+//!
+//! A Soroban-based token contract implementing the standard TokenInterface
+//! with additional administrative controls and a configurable transfer tax.
+
+#![no_std]
+
+mod events;
+#[cfg(test)]
+mod test_transfer;
+#[cfg(test)]
+mod test_minting_limits;
+#[cfg(test)]
+mod test_snapshots;
+
+use soroban_sdk::token::TokenInterface;
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, Env, String};
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TokenInfo {
+    pub admin: Address,
+    pub supply: i128,
+    pub decimals: u32,
+    pub name: String,
+    pub symbol: String,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum DataKey {
+    TokenInfo,
+    Admin,
+    Allowance(Address, Address),
+    Balance(Address),
+    Name,
+    Symbol,
+    Decimals,
+    Supply,
+    MetadataHash,
+    FeeConfig,
+    Transferable,
+    Verified(Address),
+    MintLimit(Address),
+    MintWindow(Address),
+    Snapshot(Address, u32),  // (account, ledger_sequence) -> i128
+    SupplySnapshot(u32),     // ledger_sequence -> i128
+}
+
+// Rolling 24-hour window state for a minter
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MintWindowState {
+    pub minted: i128,
+    pub window_start: u64, // Unix timestamp (seconds)
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeConfig {
+    pub enabled: bool,
+    pub fee_bps: u32, // Basis points (100 = 1%, 1000 = 10%)
+    pub treasury: Address,
+}
+
+#[contract]
+pub struct SoroMintToken;
+
 #[contractimpl]
 impl SoroMintToken {
+    /// Initializes the SoroMint token contract.
+    pub fn initialize(e: Env, admin: Address, decimal: u32, name: String, symbol: String) {
+        if e.storage().instance().has(&DataKey::TokenInfo) {
+            panic!("already initialized");
+        }
+
+        let info = TokenInfo {
+            admin: admin.clone(),
+            supply: 0,
+            decimals: decimal,
+            name: name.clone(),
+            symbol: symbol.clone(),
+        };
+
+        e.storage().instance().set(&DataKey::TokenInfo, &info);
+
+        // Issue #493: Mandatory Event Logging
+        events::emit_initialized(&e, &admin, decimal, &name, &symbol);
+    }
+
+    /// Mints new tokens to a recipient address.
+    pub fn mint(e: Env, to: Address, amount: i128) {
+        if amount <= 0 {
+            panic!("mint amount must be positive");
+        }
+        
+        let mut info: TokenInfo = e.storage().instance().get(&DataKey::TokenInfo).expect("Not initialized");
+        info.admin.require_auth();
+
+        let mut balance = Self::balance(e.clone(), to.clone());
+        balance = balance.checked_add(amount).expect("balance overflow");
+        e.storage().persistent().set(&DataKey::Balance(to.clone()), &balance);
+
+        info.supply = info.supply.checked_add(amount).expect("supply overflow");
+        e.storage().instance().set(&DataKey::TokenInfo, &info);
+
+        // Issue #493: Mandatory Event Logging
+        events::emit_mint(&e, &info.admin, &to, amount, balance, info.supply);
+    }
+
+    /// Burns tokens from a holder's balance.
+    pub fn burn(e: Env, from: Address, amount: i128) {
+        let mut info: TokenInfo = e.storage().instance().get(&DataKey::TokenInfo).expect("Not initialized");
+        info.admin.require_auth();
+
+        let mut balance = Self::balance(e.clone(), from.clone());
+        if balance < amount {
+            panic!("insufficient balance to burn");
+        }
+        
+        balance -= amount;
+        e.storage().persistent().set(&DataKey::Balance(from.clone()), &balance);
+
+        info.supply -= amount;
+        e.storage().instance().set(&DataKey::TokenInfo, &info);
+
+        // Issue #493: Mandatory Event Logging
+        events::emit_burn(&e, &info.admin, &from, amount, balance, info.supply);
+    }
+
+    /// Returns the token balance for a given address.
+    pub fn balance(e: Env, id: Address) -> i128 {
     fn read_balance(e: &Env, id: &Address) -> i128 {
         e.storage()
             .persistent()
@@ -294,6 +424,38 @@ impl SoroMintToken {
         ledger
     }
 
+        e.storage()
+            .persistent()
+            .set(&DataKey::Snapshot(account.clone(), ledger), &balance);
+        events::emit_snapshot_taken(&e, &account, ledger, balance);
+        ledger
+    }
+
+
+    /// Returns the total token supply.
+    pub fn supply(e: Env) -> i128 {
+        let info: TokenInfo = e.storage().instance().get(&DataKey::TokenInfo).expect("Not initialized");
+        info.supply
+    }
+
+    /// Transfers the admin (owner) role to a new address.
+    pub fn transfer_ownership(e: Env, new_admin: Address) {
+        let mut info: TokenInfo = e.storage().instance().get(&DataKey::TokenInfo).expect("Not initialized");
+        info.admin.require_auth();
+
+        let prev_admin = info.admin.clone();
+        info.admin = new_admin.clone();
+        e.storage().instance().set(&DataKey::TokenInfo, &info);
+
+        // Issue #493: Mandatory Event Logging
+        events::emit_ownership_transfer(&e, &prev_admin, &new_admin);
+    }
+}
+
+
+#[cfg(test)]
+mod test;
+    /// Return the balance recorded for `account` at `ledger`, or None if no snapshot exists.
     pub fn snapshot_balance(e: Env, account: Address, ledger: u32) -> Option<i128> {
         e.storage()
             .persistent()
@@ -433,6 +595,25 @@ impl TokenInterface for SoroMintToken {
         e.storage().instance().set(&DataKey::Supply, &new_supply);
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         events::emit_burn(&e, &admin, &from, amount, new_balance, new_supply);
+    }
+
+    fn decimals(e: Env) -> u32 {
+        e.storage().instance().get(&DataKey::Decimals).unwrap()
+    }
+
+    fn name(e: Env) -> String {
+        e.storage().instance().get(&DataKey::Name).unwrap()
+    }
+
+    fn symbol(e: Env) -> String {
+        e.storage().instance().get(&DataKey::Symbol).unwrap()
+    }
+        if balance < amount { panic!("insufficient balance"); }
+        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
+        Self::write_allowance(&e, &from, &spender, allowance - amount);
+        Self::write_balance(&e, &from, balance - amount);
+        e.storage().instance().set(&DataKey::Supply, &(supply - amount));
+        events::emit_burn(&e, from, amount);
     }
 
     fn decimals(e: Env) -> u32 {

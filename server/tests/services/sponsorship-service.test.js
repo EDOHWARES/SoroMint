@@ -53,7 +53,9 @@ describe('sponsorship-service', () => {
   });
 
   it('applies sponsorship and stores the approved budget', async () => {
-    const result = await applyForSponsorship(user, { requestedBudgetStroops: 2400 });
+    const result = await applyForSponsorship(user, {
+      requestedBudgetStroops: 2400,
+    });
 
     expect(user.sponsorshipEnabled).toBe(true);
     expect(user.sponsorshipStatus).toBe('approved');
@@ -67,7 +69,9 @@ describe('sponsorship-service', () => {
 
     expect(eligibility.eligible).toBe(false);
     expect(eligibility.reasons).toContain('User has not enabled sponsorship');
-    expect(eligibility.reasons).toContain('User sponsorship status is inactive');
+    expect(eligibility.reasons).toContain(
+      'User sponsorship status is inactive'
+    );
   });
 
   it('returns remaining budget from the effective budget limit', () => {

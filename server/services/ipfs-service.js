@@ -93,7 +93,7 @@ class IpfsService {
       const payload = {
         pinataContent: jsonData,
         pinataMetadata: { name },
-        pinataOptions: { cidVersion: 1 }
+        pinataOptions: { cidVersion: 1 },
       };
 
       const response = await fetch(`${this.baseUrl}/pinning/pinJSONToIPFS`, {

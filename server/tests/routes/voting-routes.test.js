@@ -46,7 +46,8 @@ const CONTRACT_C = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 /** Owned by Bob */
 const CONTRACT_D = 'CDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
 /** Owned by nobody — for zero-power scoped tests */
-const CONTRACT_NONE = 'CEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE';
+const CONTRACT_NONE =
+  'CEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE';
 
 const INVALID_PK = 'XBADKEY';
 const INVALID_CONTRACT = 'GBADCONTRACT';
@@ -69,10 +70,11 @@ const dt = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
 /** A valid proposal body for POST /api/proposals (times in the future). */
 const validBody = (overrides = {}) => ({
   title: 'Should we raise the max symbol length?',
-  description: 'A full discussion of raising the token symbol cap from 12 to 20 characters.',
+  description:
+    'A full discussion of raising the token symbol cap from 12 to 20 characters.',
   choices: ['Yes', 'No', 'Abstain'],
-  startTime: dt(120_000),       // 2 min from now
-  endTime:   dt(3_720_000),     // ~1 h 2 min from now
+  startTime: dt(120_000), // 2 min from now
+  endTime: dt(3_720_000), // ~1 h 2 min from now
   ...overrides,
 });
 
@@ -87,7 +89,7 @@ const seedActive = async (overrides = {}) => {
     creator: PK1,
     choices: ['For', 'Against', 'Abstain'],
     startTime: new Date(Date.now() - 60_000),
-    endTime:   new Date(Date.now() + 3_600_000),
+    endTime: new Date(Date.now() + 3_600_000),
     contractId: null,
     ...overrides,
   });
@@ -104,7 +106,7 @@ const seedPending = async (overrides = {}) => {
     creator: PK1,
     choices: ['Yes', 'No'],
     startTime: new Date(Date.now() + 3_600_000),
-    endTime:   new Date(Date.now() + 7_200_000),
+    endTime: new Date(Date.now() + 7_200_000),
     ...overrides,
   });
   doc.syncStatus();
@@ -120,7 +122,7 @@ const seedClosed = async (overrides = {}) => {
     creator: PK1,
     choices: ['Approve', 'Reject'],
     startTime: new Date(Date.now() - 7_200_000),
-    endTime:   new Date(Date.now() - 3_600_000),
+    endTime: new Date(Date.now() - 3_600_000),
     status: 'closed',
     ...overrides,
   });
@@ -155,13 +157,16 @@ beforeAll(async () => {
   mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri());
 
-  process.env.JWT_SECRET     = 'test-voting-secret-key-xyz';
+  process.env.JWT_SECRET = 'test-voting-secret-key-xyz';
   process.env.JWT_EXPIRES_IN = '1h';
 
   // Build the Express app
   app = express();
   app.use(express.json());
-  app.use((_req, _res, next) => { _req.correlationId = 'test-cid'; next(); });
+  app.use((_req, _res, next) => {
+    _req.correlationId = 'test-cid';
+    next();
+  });
   app.use('/api', createVotingRouter());
   app.use(errorHandler);
 
@@ -175,11 +180,31 @@ beforeAll(async () => {
   // Seed tokens — determines voting power
   await Token.create([
     // Alice: 3 contracts (CONTRACT_A, B, C)
-    { name: 'AliceToken1', symbol: 'AT1', contractId: CONTRACT_A, ownerPublicKey: PK1 },
-    { name: 'AliceToken2', symbol: 'AT2', contractId: CONTRACT_B, ownerPublicKey: PK1 },
-    { name: 'AliceToken3', symbol: 'AT3', contractId: CONTRACT_C, ownerPublicKey: PK1 },
+    {
+      name: 'AliceToken1',
+      symbol: 'AT1',
+      contractId: CONTRACT_A,
+      ownerPublicKey: PK1,
+    },
+    {
+      name: 'AliceToken2',
+      symbol: 'AT2',
+      contractId: CONTRACT_B,
+      ownerPublicKey: PK1,
+    },
+    {
+      name: 'AliceToken3',
+      symbol: 'AT3',
+      contractId: CONTRACT_C,
+      ownerPublicKey: PK1,
+    },
     // Bob: 1 contract (CONTRACT_D)
-    { name: 'BobToken1',   symbol: 'BT1', contractId: CONTRACT_D,    ownerPublicKey: PK2 },
+    {
+      name: 'BobToken1',
+      symbol: 'BT1',
+      contractId: CONTRACT_D,
+      ownerPublicKey: PK2,
+    },
     // Charlie: no tokens → voting power = 0
   ]);
 
@@ -264,7 +289,12 @@ describe('GET /api/proposals', () => {
   });
 
   it('status=all returns every proposal regardless of status', async () => {
-    await Promise.all([seedActive(), seedPending(), seedClosed(), seedCancelled()]);
+    await Promise.all([
+      seedActive(),
+      seedPending(),
+      seedClosed(),
+      seedCancelled(),
+    ]);
 
     const res = await request(app).get('/api/proposals?status=all');
 
@@ -287,7 +317,9 @@ describe('GET /api/proposals', () => {
     await seedActive({ contractId: CONTRACT_A });
     await seedActive({ contractId: null });
 
-    const res = await request(app).get(`/api/proposals?contractId=${CONTRACT_A}`);
+    const res = await request(app).get(
+      `/api/proposals?contractId=${CONTRACT_A}`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBe(1);
@@ -295,7 +327,11 @@ describe('GET /api/proposals', () => {
   });
 
   it('paginates correctly', async () => {
-    await Promise.all(Array.from({ length: 5 }, (_, i) => seedActive({ title: `Proposal ${i}` })));
+    await Promise.all(
+      Array.from({ length: 5 }, (_, i) =>
+        seedActive({ title: `Proposal ${i}` })
+      )
+    );
 
     const page1 = await request(app).get('/api/proposals?page=1&limit=3');
     const page2 = await request(app).get('/api/proposals?page=2&limit=3');
@@ -451,7 +487,11 @@ describe('POST /api/proposals', () => {
     const res = await request(app)
       .post('/api/proposals')
       .set('Authorization', `Bearer ${jwt1}`)
-      .send(validBody({ choices: Array.from({ length: 11 }, (_, i) => `Option ${i}`) }));
+      .send(
+        validBody({
+          choices: Array.from({ length: 11 }, (_, i) => `Option ${i}`),
+        })
+      );
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -494,7 +534,7 @@ describe('POST /api/proposals', () => {
       .send(
         validBody({
           startTime: dt(60_000),
-          endTime:   dt(1_800_000), // only 29 min window
+          endTime: dt(1_800_000), // only 29 min window
         })
       );
 
@@ -566,7 +606,10 @@ describe('PATCH /api/proposals/:id', () => {
     const res = await request(app)
       .patch(`/api/proposals/${proposal._id}`)
       .set('Authorization', `Bearer ${jwt1}`)
-      .send({ title: 'Updated title here', description: 'Updated description, long enough to pass validation.' });
+      .send({
+        title: 'Updated title here',
+        description: 'Updated description, long enough to pass validation.',
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.data.title).toBe('Updated title here');
@@ -578,7 +621,10 @@ describe('PATCH /api/proposals/:id', () => {
     const res = await request(app)
       .patch(`/api/proposals/${proposal._id}`)
       .set('Authorization', `Bearer ${jwt1}`)
-      .send({ tags: ['important', 'fees'], discussionUrl: 'https://example.com/discuss' });
+      .send({
+        tags: ['important', 'fees'],
+        discussionUrl: 'https://example.com/discuss',
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.data.tags).toContain('important');
@@ -685,8 +731,9 @@ describe('POST /api/proposals/:id/cancel', () => {
   it('returns 401 if not authenticated', async () => {
     const proposal = await seedPending({ creator: PK1 });
 
-    const res = await request(app)
-      .post(`/api/proposals/${proposal._id}/cancel`);
+    const res = await request(app).post(
+      `/api/proposals/${proposal._id}/cancel`
+    );
 
     expect(res.status).toBe(401);
   });
@@ -971,8 +1018,9 @@ describe('GET /api/proposals/:id/votes', () => {
     await apiVote(proposal._id, 0, jwt1);
     await apiVote(proposal._id, 1, jwt2);
 
-    const page1 = await request(app)
-      .get(`/api/proposals/${proposal._id}/votes?page=1&limit=1`);
+    const page1 = await request(app).get(
+      `/api/proposals/${proposal._id}/votes?page=1&limit=1`
+    );
 
     expect(page1.status).toBe(200);
     expect(page1.body.data.length).toBe(1);
@@ -1003,8 +1051,9 @@ describe('GET /api/proposals/:id/votes', () => {
   it('returns 400 for invalid pagination params', async () => {
     const proposal = await seedActive();
 
-    const res = await request(app)
-      .get(`/api/proposals/${proposal._id}/votes?limit=999`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/votes?limit=999`
+    );
 
     expect(res.status).toBe(400);
   });
@@ -1018,7 +1067,9 @@ describe('GET /api/proposals/:id/results', () => {
   it('returns zero tallies before any votes are cast', async () => {
     const proposal = await seedActive();
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data.totalVoteCount).toBe(0);
@@ -1032,14 +1083,18 @@ describe('GET /api/proposals/:id/results', () => {
     await apiVote(proposal._id, 0, jwt1); // alice: power=3, choice=For
     await apiVote(proposal._id, 1, jwt2); // bob:   power=1, choice=Against
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data.totalVoteCount).toBe(2);
     expect(res.body.data.totalVotingPower).toBe(4);
 
     const forResult = res.body.data.results.find((r) => r.label === 'For');
-    const againstResult = res.body.data.results.find((r) => r.label === 'Against');
+    const againstResult = res.body.data.results.find(
+      (r) => r.label === 'Against'
+    );
 
     expect(forResult.totalPower).toBe(3);
     expect(forResult.voteCount).toBe(1);
@@ -1052,11 +1107,17 @@ describe('GET /api/proposals/:id/results', () => {
     await apiVote(proposal._id, 0, jwt1); // 3/4 = 75%
     await apiVote(proposal._id, 1, jwt2); // 1/4 = 25%
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
-    const forResult     = res.body.data.results.find((r) => r.label === 'For');
-    const againstResult = res.body.data.results.find((r) => r.label === 'Against');
-    const abstainResult = res.body.data.results.find((r) => r.label === 'Abstain');
+    const forResult = res.body.data.results.find((r) => r.label === 'For');
+    const againstResult = res.body.data.results.find(
+      (r) => r.label === 'Against'
+    );
+    const abstainResult = res.body.data.results.find(
+      (r) => r.label === 'Abstain'
+    );
 
     expect(forResult.percentage).toBe(75);
     expect(againstResult.percentage).toBe(25);
@@ -1068,7 +1129,9 @@ describe('GET /api/proposals/:id/results', () => {
     await apiVote(proposal._id, 0, jwt1); // alice: power=3
     await apiVote(proposal._id, 1, jwt2); // bob:   power=1
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.body.data.winningChoice).not.toBeNull();
     expect(res.body.data.winningChoice.label).toBe('For');
@@ -1083,16 +1146,28 @@ describe('GET /api/proposals/:id/results', () => {
     // Both alice (power=3) and bob (power=1) vote — no tie here.
     // To test a tie we need equal power voters.
     // Seed two extra users with 1 token each and make them vote opposite choices.
-    const PK_EVEN_A = 'GCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-    const PK_EVEN_B = 'GCBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+    const PK_EVEN_A =
+      'GCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const PK_EVEN_B =
+      'GCBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
 
     await User.create([
       { publicKey: PK_EVEN_A, username: 'even_a' },
       { publicKey: PK_EVEN_B, username: 'even_b' },
     ]);
     await Token.create([
-      { name: 'E1', symbol: 'E1', contractId: 'CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF', ownerPublicKey: PK_EVEN_A },
-      { name: 'E2', symbol: 'E2', contractId: 'CGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG', ownerPublicKey: PK_EVEN_B },
+      {
+        name: 'E1',
+        symbol: 'E1',
+        contractId: 'CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+        ownerPublicKey: PK_EVEN_A,
+      },
+      {
+        name: 'E2',
+        symbol: 'E2',
+        contractId: 'CGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG',
+        ownerPublicKey: PK_EVEN_B,
+      },
     ]);
 
     const jwtA = generateToken(PK_EVEN_A, 'even_a');
@@ -1101,7 +1176,9 @@ describe('GET /api/proposals/:id/results', () => {
     await apiVote(proposal._id, 0, jwtA); // power=1, choice=For
     await apiVote(proposal._id, 1, jwtB); // power=1, choice=Against
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.body.data.winningChoice).toBeNull(); // tie
   });
@@ -1109,7 +1186,9 @@ describe('GET /api/proposals/:id/results', () => {
   it('includes the proposal document in the response', async () => {
     const proposal = await seedActive();
 
-    const res = await request(app).get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.body.data.proposal).toBeDefined();
     expect(res.body.data.proposal._id).toBe(String(proposal._id));
@@ -1207,7 +1286,7 @@ describe('GET /api/voting-power', () => {
 // =============================================================================
 
 describe('GET /api/voting-power/:publicKey', () => {
-  it('returns alice\'s voting power publicly', async () => {
+  it("returns alice's voting power publicly", async () => {
     const res = await request(app).get(`/api/voting-power/${PK1}`);
 
     expect(res.status).toBe(200);
@@ -1215,7 +1294,7 @@ describe('GET /api/voting-power/:publicKey', () => {
     expect(res.body.data.votingPower).toBe(3);
   });
 
-  it('returns bob\'s voting power publicly', async () => {
+  it("returns bob's voting power publicly", async () => {
     const res = await request(app).get(`/api/voting-power/${PK2}`);
 
     expect(res.status).toBe(200);
@@ -1230,8 +1309,9 @@ describe('GET /api/voting-power/:publicKey', () => {
   });
 
   it('returns contract-scoped power publicly', async () => {
-    const res = await request(app)
-      .get(`/api/voting-power/${PK1}?contractId=${CONTRACT_A}`);
+    const res = await request(app).get(
+      `/api/voting-power/${PK1}?contractId=${CONTRACT_A}`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data.votingPower).toBe(1);
@@ -1252,8 +1332,9 @@ describe('GET /api/voting-power/:publicKey', () => {
   });
 
   it('returns 400 for an invalid contractId', async () => {
-    const res = await request(app)
-      .get(`/api/voting-power/${PK1}?contractId=${INVALID_CONTRACT}`);
+    const res = await request(app).get(
+      `/api/voting-power/${PK1}?contractId=${INVALID_CONTRACT}`
+    );
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('INVALID_CONTRACT_ID');
@@ -1286,8 +1367,9 @@ describe('Integration Tests', () => {
     expect(vote2.status).toBe(201);
 
     // 4. Fetch results — For should win (alice power=3 vs bob power=1)
-    const resultsRes = await request(app)
-      .get(`/api/proposals/${activeProposal._id}/results`);
+    const resultsRes = await request(app).get(
+      `/api/proposals/${activeProposal._id}/results`
+    );
 
     expect(resultsRes.status).toBe(200);
     expect(resultsRes.body.data.winningChoice.label).toBe('For');
@@ -1314,11 +1396,12 @@ describe('Integration Tests', () => {
     await apiVote(proposal._id, 0, jwt1);
     await apiVote(proposal._id, 1, jwt2);
 
-    const res = await request(app)
-      .get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     const alpha = res.body.data.results.find((r) => r.label === 'Alpha');
-    const beta  = res.body.data.results.find((r) => r.label === 'Beta');
+    const beta = res.body.data.results.find((r) => r.label === 'Beta');
 
     expect(alpha.totalPower).toBe(3);
     expect(alpha.percentage).toBe(75);
@@ -1333,8 +1416,9 @@ describe('Integration Tests', () => {
     await apiVote(proposal._id, 0, jwt1); // first vote — succeeds
     await apiVote(proposal._id, 1, jwt1); // second vote — must fail
 
-    const res = await request(app)
-      .get(`/api/proposals/${proposal._id}/results`);
+    const res = await request(app).get(
+      `/api/proposals/${proposal._id}/results`
+    );
 
     expect(res.body.data.totalVoteCount).toBe(1);
     expect(res.body.data.totalVotingPower).toBe(3); // only alice's first vote counts
@@ -1388,7 +1472,7 @@ describe('Integration Tests', () => {
     const proposal = await seedActive({ contractId: CONTRACT_A, creator: PK1 });
 
     const aliceVote = await apiVote(proposal._id, 0, jwt1);
-    const bobVote   = await apiVote(proposal._id, 0, jwt2); // bob doesn't own CONTRACT_A
+    const bobVote = await apiVote(proposal._id, 0, jwt2); // bob doesn't own CONTRACT_A
 
     expect(aliceVote.status).toBe(201);
     expect(aliceVote.body.data.votingPower).toBe(1); // scoped → 1

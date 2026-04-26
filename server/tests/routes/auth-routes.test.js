@@ -303,12 +303,10 @@ describe('POST /api/auth/register', () => {
   });
 
   it('returns 400 for a key with the wrong prefix', async () => {
-    const res = await request(app)
-      .post('/api/auth/register')
-      .send({
-        publicKey: INVALID_PUBLIC_KEY_WRONG_PREFIX,
-        username: 'badprefix',
-      });
+    const res = await request(app).post('/api/auth/register').send({
+      publicKey: INVALID_PUBLIC_KEY_WRONG_PREFIX,
+      username: 'badprefix',
+    });
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('INVALID_PUBLIC_KEY');
@@ -469,13 +467,11 @@ describe('POST /api/auth/login', () => {
     tx.sign(wrongKp);
     const wrongSignedXDR = tx.toEnvelope().toXDR('base64');
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({
-        publicKey: TEST_PUBLIC_KEY,
-        challengeToken,
-        signedXDR: wrongSignedXDR,
-      });
+    const res = await request(app).post('/api/auth/login').send({
+      publicKey: TEST_PUBLIC_KEY,
+      challengeToken,
+      signedXDR: wrongSignedXDR,
+    });
 
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('CHALLENGE_VERIFICATION_FAILED');
@@ -514,13 +510,11 @@ describe('POST /api/auth/login', () => {
     tx.sign(unregisteredKp);
     const signedXDR = tx.toEnvelope().toXDR('base64');
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({
-        publicKey: unregisteredKp.publicKey(),
-        challengeToken,
-        signedXDR,
-      });
+    const res = await request(app).post('/api/auth/login').send({
+      publicKey: unregisteredKp.publicKey(),
+      challengeToken,
+      signedXDR,
+    });
 
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('USER_NOT_FOUND');
@@ -842,21 +836,17 @@ describe('Integration Tests', () => {
     const alice = await getSignedChallenge(CLIENT_KP2);
     const bob = await getSignedChallenge(CLIENT_KP3);
 
-    const login1 = await request(app)
-      .post('/api/auth/login')
-      .send({
-        publicKey: TEST_PUBLIC_KEY_2,
-        challengeToken: alice.challengeToken,
-        signedXDR: alice.signedXDR,
-      });
+    const login1 = await request(app).post('/api/auth/login').send({
+      publicKey: TEST_PUBLIC_KEY_2,
+      challengeToken: alice.challengeToken,
+      signedXDR: alice.signedXDR,
+    });
 
-    const login2 = await request(app)
-      .post('/api/auth/login')
-      .send({
-        publicKey: TEST_PUBLIC_KEY_3,
-        challengeToken: bob.challengeToken,
-        signedXDR: bob.signedXDR,
-      });
+    const login2 = await request(app).post('/api/auth/login').send({
+      publicKey: TEST_PUBLIC_KEY_3,
+      challengeToken: bob.challengeToken,
+      signedXDR: bob.signedXDR,
+    });
 
     expect(login1.status).toBe(200);
     expect(login2.status).toBe(200);

@@ -15,17 +15,20 @@ router.get(
   authenticate,
   asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    
-    logger.info('Fetching referral stats', { userId, publicKey: req.user.publicKey });
-    
+
+    logger.info('Fetching referral stats', {
+      userId,
+      publicKey: req.user.publicKey,
+    });
+
     const stats = await referralService.getReferralStats(userId);
-    
+
     res.json({
       success: true,
       data: {
         ...stats,
-        referralCode: req.user.referralCode
-      }
+        referralCode: req.user.referralCode,
+      },
     });
   })
 );
@@ -39,14 +42,17 @@ router.get(
   authenticate,
   asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    
-    logger.info('Fetching referral history', { userId, publicKey: req.user.publicKey });
-    
+
+    logger.info('Fetching referral history', {
+      userId,
+      publicKey: req.user.publicKey,
+    });
+
     const history = await referralService.getReferralHistory(userId);
-    
+
     res.json({
       success: true,
-      data: history
+      data: history,
     });
   })
 );

@@ -11,7 +11,7 @@ const {
   errorHandler,
   notFoundHandler,
   asyncHandler,
-  AppError
+  AppError,
 } = require('../../middleware/error-handler');
 
 describe('Error Handler Middleware', () => {
@@ -25,7 +25,7 @@ describe('Error Handler Middleware', () => {
   describe('AppError Class', () => {
     it('should create an AppError with default values', () => {
       const error = new AppError('Test error');
-      
+
       expect(error.message).toBe('Test error');
       expect(error.statusCode).toBe(500);
       expect(error.code).toBe('INTERNAL_ERROR');
@@ -34,7 +34,7 @@ describe('Error Handler Middleware', () => {
 
     it('should create an AppError with custom values', () => {
       const error = new AppError('Custom error', 404, 'CUSTOM_CODE');
-      
+
       expect(error.message).toBe('Custom error');
       expect(error.statusCode).toBe(404);
       expect(error.code).toBe('CUSTOM_CODE');
@@ -43,14 +43,14 @@ describe('Error Handler Middleware', () => {
 
     it('should capture stack trace', () => {
       const error = new AppError('Stack trace error');
-      
+
       expect(error.stack).toBeDefined();
       expect(error.stack).toContain('Stack trace error');
     });
 
     it('should have Error in prototype chain', () => {
       const error = new AppError('Test');
-      
+
       expect(error).toBeInstanceOf(Error);
       expect(error).toBeInstanceOf(AppError);
     });
@@ -59,7 +59,7 @@ describe('Error Handler Middleware', () => {
   describe('errorHandler Middleware', () => {
     it('should handle AppError with custom status code', async () => {
       process.env.NODE_ENV = 'production';
-      
+
       app.get('/test', (req, res, next) => {
         const error = new AppError('Resource not found', 404, 'NOT_FOUND');
         next(error);
@@ -67,14 +67,14 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(404);
       expect(response.body).toEqual({
         error: 'Resource not found',
         code: 'NOT_FOUND',
-        status: 404
+        status: 404,
       });
-      
+
       delete process.env.NODE_ENV;
     });
 
@@ -86,7 +86,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(500);
       expect(response.body.error).toBe('An unexpected error occurred');
       expect(response.body.code).toBe('INTERNAL_ERROR');
@@ -94,7 +94,7 @@ describe('Error Handler Middleware', () => {
 
     it('should include stack trace in development mode', async () => {
       process.env.NODE_ENV = 'development';
-      
+
       app.get('/test', (req, res, next) => {
         const error = new AppError('Dev error', 400, 'DEV_ERROR');
         next(error);
@@ -102,17 +102,17 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.stack).toBeDefined();
       expect(response.body.stack).toContain('Dev error');
-      
+
       // Reset to default
       delete process.env.NODE_ENV;
     });
 
     it('should NOT include stack trace in production mode', async () => {
       process.env.NODE_ENV = 'production';
-      
+
       app.get('/test', (req, res, next) => {
         const error = new AppError('Prod error', 400, 'PROD_ERROR');
         next(error);
@@ -120,29 +120,29 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.stack).toBeUndefined();
-      
+
       // Reset to default
       delete process.env.NODE_ENV;
     });
 
     it('should handle Mongoose ValidationError', async () => {
       const mongoose = require('mongoose');
-      
+
       app.get('/test', (req, res, next) => {
         const validationError = new mongoose.Error.ValidationError();
         validationError.name = 'ValidationError';
         validationError.errors = {
           name: { message: 'Name is required' },
-          email: { message: 'Invalid email format' }
+          email: { message: 'Invalid email format' },
         };
         next(validationError);
       });
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(400);
       expect(response.body.code).toBe('VALIDATION_ERROR');
       expect(response.body.error).toContain('Name is required');
@@ -159,7 +159,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(400);
       expect(response.body.code).toBe('INVALID_ID');
       expect(response.body.error).toContain('Invalid _id');
@@ -175,7 +175,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(409);
       expect(response.body.code).toBe('DUPLICATE_KEY');
       expect(response.body.error).toBe('email already exists');
@@ -190,7 +190,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(404);
       expect(response.body.code).toBe('NOT_FOUND');
     });
@@ -204,7 +204,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(401);
       expect(response.body.code).toBe('INVALID_TOKEN');
     });
@@ -218,7 +218,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(401);
       expect(response.body.code).toBe('TOKEN_EXPIRED');
     });
@@ -231,7 +231,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(400);
       expect(response.body.code).toBe('SYNTAX_ERROR');
     });
@@ -245,7 +245,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(500);
       expect(response.body.code).toBe('INTERNAL_ERROR');
       expect(response.body.error).toBe('An unexpected error occurred');
@@ -273,7 +273,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/nonexistent-route');
-      
+
       expect(response.status).toBe(404);
       expect(response.body.code).toBe('ROUTE_NOT_FOUND');
       expect(response.body.error).toContain('/nonexistent-route');
@@ -284,7 +284,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/api/v1/users/123/posts');
-      
+
       expect(response.body.error).toContain('/api/v1/users/123/posts');
     });
 
@@ -293,7 +293,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).post('/nonexistent-post');
-      
+
       expect(response.status).toBe(404);
       expect(response.body.code).toBe('ROUTE_NOT_FOUND');
     });
@@ -301,49 +301,63 @@ describe('Error Handler Middleware', () => {
 
   describe('asyncHandler Wrapper', () => {
     it('should catch and forward async errors', async () => {
-      app.get('/test', asyncHandler(async (req, res) => {
-        throw new AppError('Async error', 400, 'ASYNC_ERROR');
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (req, res) => {
+          throw new AppError('Async error', 400, 'ASYNC_ERROR');
+        })
+      );
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(400);
       expect(response.body.code).toBe('ASYNC_ERROR');
     });
 
     it('should handle successful async operations', async () => {
-      app.get('/test', asyncHandler(async (req, res) => {
-        res.json({ success: true, data: 'test data' });
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (req, res) => {
+          res.json({ success: true, data: 'test data' });
+        })
+      );
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ success: true, data: 'test data' });
     });
 
     it('should handle Promise rejections', async () => {
-      app.get('/test', asyncHandler(async (req, res) => {
-        await Promise.reject(new AppError('Promise rejection', 503, 'SERVICE_UNAVAILABLE'));
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (req, res) => {
+          await Promise.reject(
+            new AppError('Promise rejection', 503, 'SERVICE_UNAVAILABLE')
+          );
+        })
+      );
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(503);
       expect(response.body.code).toBe('SERVICE_UNAVAILABLE');
     });
 
     it('should work with middleware that uses next()', async () => {
-      app.get('/test', asyncHandler(async (req, res, next) => {
-        req.testValue = 'injected';
-        await Promise.resolve();
-        res.json({ value: req.testValue });
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (req, res, next) => {
+          req.testValue = 'injected';
+          await Promise.resolve();
+          res.json({ value: req.testValue });
+        })
+      );
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(200);
       expect(response.body.value).toBe('injected');
     });
@@ -353,7 +367,7 @@ describe('Error Handler Middleware', () => {
     it('should format error with all fields', () => {
       // This tests the internal logic through the middleware
       const error = new AppError('Format test', 403, 'FORMAT_TEST');
-      
+
       // We verify through the middleware output
       const testApp = express();
       testApp.get('/test', (req, res, next) => {
@@ -361,11 +375,13 @@ describe('Error Handler Middleware', () => {
       });
       testApp.use(errorHandler);
 
-      return request(testApp).get('/test').then(response => {
-        expect(response.body).toHaveProperty('error');
-        expect(response.body).toHaveProperty('code');
-        expect(response.body).toHaveProperty('status');
-      });
+      return request(testApp)
+        .get('/test')
+        .then((response) => {
+          expect(response.body).toHaveProperty('error');
+          expect(response.body).toHaveProperty('code');
+          expect(response.body).toHaveProperty('status');
+        });
     });
   });
 
@@ -376,33 +392,37 @@ describe('Error Handler Middleware', () => {
         next();
       });
 
-      app.get('/test', asyncHandler(async (req, res) => {
-        throw new AppError('Integration test error', 422, 'INTEGRATION_TEST');
-      }));
+      app.get(
+        '/test',
+        asyncHandler(async (req, res) => {
+          throw new AppError('Integration test error', 422, 'INTEGRATION_TEST');
+        })
+      );
 
       app.use(notFoundHandler);
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.status).toBe(422);
       expect(response.body.code).toBe('INTEGRATION_TEST');
     });
 
     it('should handle errors after JSON parsing', async () => {
-      app.post('/test', asyncHandler(async (req, res) => {
-        // req.body is already parsed by express.json()
-        if (!req.body.name) {
-          throw new AppError('Name is required', 400, 'VALIDATION_ERROR');
-        }
-        res.json({ name: req.body.name });
-      }));
+      app.post(
+        '/test',
+        asyncHandler(async (req, res) => {
+          // req.body is already parsed by express.json()
+          if (!req.body.name) {
+            throw new AppError('Name is required', 400, 'VALIDATION_ERROR');
+          }
+          res.json({ name: req.body.name });
+        })
+      );
       app.use(errorHandler);
 
-      const response = await request(app)
-        .post('/test')
-        .send({ name: 'Test' });
-      
+      const response = await request(app).post('/test').send({ name: 'Test' });
+
       expect(response.status).toBe(200);
       expect(response.body.name).toBe('Test');
     });
@@ -440,7 +460,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.error).toBe('An unexpected error occurred');
     });
 
@@ -452,7 +472,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.error).toBe('An unexpected error occurred');
     });
 
@@ -464,13 +484,13 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.error).toBe('An unexpected error occurred');
     });
 
     it('should handle very long error messages', async () => {
       const longMessage = 'A'.repeat(1000);
-      
+
       app.get('/test', (req, res, next) => {
         const error = new AppError(longMessage, 400, 'LONG_ERROR');
         next(error);
@@ -478,14 +498,14 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.error).toBe(longMessage);
       expect(response.status).toBe(400);
     });
 
     it('should handle error with special characters in message', async () => {
       const specialMessage = 'Error with special chars: <>&"\' and emoji 🚀';
-      
+
       app.get('/test', (req, res, next) => {
         const error = new AppError(specialMessage, 400, 'SPECIAL_ERROR');
         next(error);
@@ -493,7 +513,7 @@ describe('Error Handler Middleware', () => {
       app.use(errorHandler);
 
       const response = await request(app).get('/test');
-      
+
       expect(response.body.error).toBe(specialMessage);
     });
   });

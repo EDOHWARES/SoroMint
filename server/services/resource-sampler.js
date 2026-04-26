@@ -13,7 +13,8 @@ const { logger } = require('../utils/logger');
 /** @returns {number} CPU usage 0-100 averaged across all cores */
 const cpuPercent = () => {
   const cpus = os.cpus();
-  let idle = 0, total = 0;
+  let idle = 0,
+    total = 0;
   for (const cpu of cpus) {
     for (const val of Object.values(cpu.times)) total += val;
     idle += cpu.times.idle;
@@ -46,12 +47,22 @@ const diskStats = () => {
     // /proc/self/mountinfo to find root, then compute from statfs binding.
     // Simplest reliable cross-platform approach: parse `df` output.
     const { execSync } = require('child_process');
-    const raw = execSync('df -k / --output=size,used,avail 2>/dev/null || df -k /', {
-      timeout: 2000,
-    }).toString().trim().split('\n');
+    const raw = execSync(
+      'df -k / --output=size,used,avail 2>/dev/null || df -k /',
+      {
+        timeout: 2000,
+      }
+    )
+      .toString()
+      .trim()
+      .split('\n');
     // Last line is the data row
-    const [size, used, avail] = raw[raw.length - 1].trim().split(/\s+/).map(Number);
-    const totalKb = size, usedKb = used;
+    const [size, used, avail] = raw[raw.length - 1]
+      .trim()
+      .split(/\s+/)
+      .map(Number);
+    const totalKb = size,
+      usedKb = used;
     return {
       totalGb: parseFloat((totalKb / 1e6).toFixed(2)),
       usedGb: parseFloat((usedKb / 1e6).toFixed(2)),
@@ -81,7 +92,9 @@ class ResourceSampler {
     this._timer = setInterval(() => this._collect(), env.METRICS_INTERVAL_MS);
     // Don't block process exit
     if (this._timer.unref) this._timer.unref();
-    logger.info('ResourceSampler started', { intervalMs: env.METRICS_INTERVAL_MS });
+    logger.info('ResourceSampler started', {
+      intervalMs: env.METRICS_INTERVAL_MS,
+    });
   }
 
   stop() {
@@ -107,9 +120,17 @@ class ResourceSampler {
     if (cpu >= thresholds.cpu)
       alerts.push({ resource: 'cpu', value: cpu, threshold: thresholds.cpu });
     if (memory.usedPercent >= thresholds.memory)
-      alerts.push({ resource: 'memory', value: memory.usedPercent, threshold: thresholds.memory });
+      alerts.push({
+        resource: 'memory',
+        value: memory.usedPercent,
+        threshold: thresholds.memory,
+      });
     if (disk && disk.usedPercent >= thresholds.disk)
-      alerts.push({ resource: 'disk', value: disk.usedPercent, threshold: thresholds.disk });
+      alerts.push({
+        resource: 'disk',
+        value: disk.usedPercent,
+        threshold: thresholds.disk,
+      });
 
     if (alerts.length) {
       logger.warn('Resource threshold exceeded', { alerts });
@@ -117,7 +138,10 @@ class ResourceSampler {
 
     this._latest = {
       sampledAt: new Date().toISOString(),
-      cpu: { usedPercent: cpu, loadAvg: os.loadavg().map(v => parseFloat(v.toFixed(2))) },
+      cpu: {
+        usedPercent: cpu,
+        loadAvg: os.loadavg().map((v) => parseFloat(v.toFixed(2))),
+      },
       memory,
       disk,
       alerts,
