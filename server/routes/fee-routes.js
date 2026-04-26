@@ -1,7 +1,13 @@
 const express = require('express');
 const { asyncHandler } = require('../middleware/error-handler');
 const { AppError } = require('../middleware/error-handler');
-const { getRecommendedFee, getFeeSuggestions } = require('../services/fee-service');
+const {
+  getRecommendedFee,
+  getFeeSuggestions,
+} = require('../services/fee-service');
+const {
+  simulateTransactionEstimate,
+} = require('../services/transaction-simulation-service');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
@@ -18,32 +24,45 @@ const router = express.Router();
  * @returns {Object} 400 - Invalid ops parameter
  * @returns {Object} 502 - Failed to fetch fee stats from Horizon
  */
-router.get('/fees/recommended', asyncHandler(async (req, res) => {
-  const rawOps = req.query.ops;
-  const operationCount = rawOps !== undefined ? parseInt(rawOps, 10) : 1;
+router.get(
+  '/fees/recommended',
+  asyncHandler(async (req, res) => {
+    const rawOps = req.query.ops;
+    const operationCount = rawOps !== undefined ? parseInt(rawOps, 10) : 1;
 
-  if (isNaN(operationCount) || operationCount < 1 || operationCount > 100) {
-    throw new AppError('ops must be an integer between 1 and 100', 400, 'INVALID_PARAMETER');
-  }
+    if (isNaN(operationCount) || operationCount < 1 || operationCount > 100) {
+      throw new AppError(
+        'ops must be an integer between 1 and 100',
+        400,
+        'INVALID_PARAMETER'
+      );
+    }
 
-  logger.info('Fee recommendation requested', {
-    correlationId: req.correlationId,
-    operationCount,
-  });
+    logger.info('Fee recommendation requested', {
+      correlationId: req.correlationId,
+      operationCount,
+    });
 
-  let recommendation;
-  try {
-    recommendation = await getRecommendedFee(operationCount);
-  } catch (err) {
-    logger.error('Failed to fetch fee stats from Horizon', { error: err.message });
-    throw new AppError('Unable to fetch fee statistics from Horizon', 502, 'HORIZON_UNAVAILABLE');
-  }
+    let recommendation;
+    try {
+      recommendation = await getRecommendedFee(operationCount);
+    } catch (err) {
+      logger.error('Failed to fetch fee stats from Horizon', {
+        error: err.message,
+      });
+      throw new AppError(
+        'Unable to fetch fee statistics from Horizon',
+        502,
+        'HORIZON_UNAVAILABLE'
+      );
+    }
 
-  res.json({
-    success: true,
-    data: recommendation,
-  });
-}));
+    res.json({
+      success: true,
+      data: recommendation,
+    });
+  })
+);
 
 /**
  * @route GET /api/fees/suggestions
@@ -59,31 +78,86 @@ router.get('/fees/recommended', asyncHandler(async (req, res) => {
  * @returns {Object} 400 - Invalid ops parameter
  * @returns {Object} 502 - Failed to fetch fee stats from Horizon
  */
-router.get('/fees/suggestions', asyncHandler(async (req, res) => {
-  const rawOps = req.query.ops;
-  const operationCount = rawOps !== undefined ? parseInt(rawOps, 10) : 1;
+router.get(
+  '/fees/suggestions',
+  asyncHandler(async (req, res) => {
+    const rawOps = req.query.ops;
+    const operationCount = rawOps !== undefined ? parseInt(rawOps, 10) : 1;
 
-  if (isNaN(operationCount) || operationCount < 1 || operationCount > 100) {
-    throw new AppError('ops must be an integer between 1 and 100', 400, 'INVALID_PARAMETER');
-  }
+    if (isNaN(operationCount) || operationCount < 1 || operationCount > 100) {
+      throw new AppError(
+        'ops must be an integer between 1 and 100',
+        400,
+        'INVALID_PARAMETER'
+      );
+    }
 
-  logger.info('Fee suggestions requested', {
-    correlationId: req.correlationId,
-    operationCount,
-  });
+    logger.info('Fee suggestions requested', {
+      correlationId: req.correlationId,
+      operationCount,
+    });
 
-  let suggestions;
-  try {
-    suggestions = await getFeeSuggestions(operationCount);
-  } catch (err) {
-    logger.error('Failed to fetch fee stats from Horizon', { error: err.message });
-    throw new AppError('Unable to fetch fee statistics from Horizon', 502, 'HORIZON_UNAVAILABLE');
-  }
+    let suggestions;
+    try {
+      suggestions = await getFeeSuggestions(operationCount);
+    } catch (err) {
+      logger.error('Failed to fetch fee stats from Horizon', {
+        error: err.message,
+      });
+      throw new AppError(
+        'Unable to fetch fee statistics from Horizon',
+        502,
+        'HORIZON_UNAVAILABLE'
+      );
+    }
 
-  res.json({
-    success: true,
-    data: suggestions,
-  });
-}));
+    res.json({
+      success: true,
+      data: suggestions,
+    });
+  })
+);
+
+/**
+ * @route POST /api/fees/simulate
+ * @description Simulate a Soroban transaction and return the estimated
+ *              resource usage, fee breakdown, and execution result.
+ * @access Public
+ *
+ * @body {string} transactionXdr - Base64-encoded transaction envelope XDR
+ *
+ * @returns {Object} 200 - Simulation result with fees in XLM
+ * @returns {Object} 400 - Missing or invalid transaction XDR
+ * @returns {Object} 422 - Soroban simulation failed
+ */
+router.post(
+  '/fees/simulate',
+  asyncHandler(async (req, res) => {
+    const transactionXdr =
+      req.body.transactionXdr ||
+      req.body.transactionXDR ||
+      req.body.transaction;
+
+    if (typeof transactionXdr !== 'string' || transactionXdr.trim() === '') {
+      throw new AppError(
+        'transactionXdr is required',
+        400,
+        'INVALID_PARAMETER'
+      );
+    }
+
+    logger.info('Fee simulation requested', {
+      correlationId: req.correlationId,
+      transactionLength: transactionXdr.length,
+    });
+
+    const simulation = await simulateTransactionEstimate(transactionXdr);
+
+    res.json({
+      success: true,
+      data: simulation,
+    });
+  })
+);
 
 module.exports = router;

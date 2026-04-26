@@ -5,10 +5,16 @@ jest.mock('../../services/fee-service', () => ({
   getRecommendedFee: jest.fn(),
   getFeeSuggestions: jest.fn(),
 }));
+jest.mock('../../services/transaction-simulation-service', () => ({
+  simulateTransactionEstimate: jest.fn(),
+}));
 
 const feeRoutes = require('../../routes/fee-routes');
 const { errorHandler } = require('../../middleware/error-handler');
 const { getFeeSuggestions } = require('../../services/fee-service');
+const {
+  simulateTransactionEstimate,
+} = require('../../services/transaction-simulation-service');
 
 let app;
 
@@ -51,5 +57,55 @@ describe('Fee Routes', () => {
       expect(response.body.code).toBe('INVALID_PARAMETER');
     });
   });
-});
 
+  describe('POST /api/fees/simulate', () => {
+    it('should simulate a transaction and return fee estimates in XLM', async () => {
+      simulateTransactionEstimate.mockResolvedValueOnce({
+        latestLedger: 12345,
+        resourceUsage: {
+          cpuInsns: '1200000',
+          memBytes: '4096',
+        },
+        execution: {
+          result: { ok: true },
+          auth: [],
+          events: [],
+          stateChanges: [],
+        },
+        fees: {
+          inclusionFeeStroops: '100',
+          inclusionFeeXlm: '0.00001',
+          resourceFeeStroops: '2500',
+          resourceFeeXlm: '0.00025',
+          totalFeeStroops: '2600',
+          totalFeeXlm: '0.00026',
+        },
+        transactionData: null,
+        restorePreamble: null,
+        raw: {
+          minResourceFee: '2500',
+          cost: {
+            cpuInsns: '1200000',
+            memBytes: '4096',
+          },
+        },
+      });
+
+      const response = await request(app)
+        .post('/api/fees/simulate')
+        .send({ transactionXdr: 'AAAAAg==' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.fees.totalFeeXlm).toBe('0.00026');
+      expect(simulateTransactionEstimate).toHaveBeenCalledWith('AAAAAg==');
+    });
+
+    it('should validate transactionXdr parameter', async () => {
+      const response = await request(app).post('/api/fees/simulate').send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.code).toBe('INVALID_PARAMETER');
+    });
+  });
+});
