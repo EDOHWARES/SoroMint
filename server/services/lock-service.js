@@ -30,10 +30,10 @@ class LockService {
 
   /**
    * Helper function to pause execution
-   * @param {number} ms 
+   * @param {number} ms
    */
   async sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -47,30 +47,37 @@ class LockService {
   async acquireLock(resource, ttl = 30000, retries = 5, retryDelay = 2000) {
     const lockKey = `lock:${resource}`;
     const lockValue = crypto.randomBytes(16).toString('hex');
-    
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         // NX: Set only if it does not exist
         // PX: Expire in TTL milliseconds
         const result = await this.client.set(lockKey, lockValue, {
           NX: true,
-          PX: ttl
+          PX: ttl,
         });
 
         if (result === 'OK') {
           logger.debug('Lock acquired', { resource, attempt });
           return lockValue;
         }
-        
+
         if (attempt < retries) {
           // Add some jitter to the retry delay to prevent thundering herd
           const jitter = Math.floor(Math.random() * 500);
           const currentDelay = retryDelay + jitter;
-          logger.debug('Lock busy, waiting to retry', { resource, attempt, currentDelay });
+          logger.debug('Lock busy, waiting to retry', {
+            resource,
+            attempt,
+            currentDelay,
+          });
           await this.sleep(currentDelay);
         }
       } catch (error) {
-        logger.warn('Error during lock acquisition attempt', { resource, error: error.message });
+        logger.warn('Error during lock acquisition attempt', {
+          resource,
+          error: error.message,
+        });
         if (attempt === retries) throw error;
         await this.sleep(retryDelay);
       }
@@ -88,28 +95,30 @@ class LockService {
    */
   async releaseLock(resource, lockValue) {
     if (!lockValue) return false;
-    
+
     const lockKey = `lock:${resource}`;
-    
+
     try {
       // Execute the Lua script to safely release
-      const result = await this.client.eval(
-        this.releaseScript,
-        {
-          keys: [lockKey],
-          arguments: [lockValue]
-        }
-      );
-      
+      const result = await this.client.eval(this.releaseScript, {
+        keys: [lockKey],
+        arguments: [lockValue],
+      });
+
       const success = result === 1;
       if (success) {
         logger.debug('Lock released safely', { resource });
       } else {
-        logger.debug('Lock release ignored, value mismatch or expired', { resource });
+        logger.debug('Lock release ignored, value mismatch or expired', {
+          resource,
+        });
       }
       return success;
     } catch (error) {
-      logger.error('Failed to execute lock release script', { resource, error: error.message });
+      logger.error('Failed to execute lock release script', {
+        resource,
+        error: error.message,
+      });
       return false;
     }
   }

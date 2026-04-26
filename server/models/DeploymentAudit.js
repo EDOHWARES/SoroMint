@@ -7,57 +7,60 @@ const mongoose = require('mongoose');
  * @dev Captures user actions for history and troubleshooting
  */
 
-const DeploymentAuditSchema = new mongoose.Schema({
-  /**
-   * Reference to the user who initiated the deployment
-   */
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'User ID is required'],
+const DeploymentAuditSchema = new mongoose.Schema(
+  {
+    /**
+     * Reference to the user who initiated the deployment
+     */
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'User ID is required'],
+    },
+    /**
+     * Name of the token being deployed
+     */
+    tokenName: {
+      type: String,
+      required: [true, 'Token name is required'],
+      trim: true,
+    },
+    /**
+     * Stellar contract address (C... format)
+     * Populated on SUCCESS
+     */
+    contractId: {
+      type: String,
+      trim: true,
+    },
+    /**
+     * Deployment status
+     */
+    status: {
+      type: String,
+      enum: ['SUCCESS', 'FAIL'],
+      required: [true, 'Status is required'],
+    },
+    /**
+     * Detailed error message for troubleshooting
+     * Populated on FAIL
+     */
+    errorMessage: {
+      type: String,
+      trim: true,
+    },
+    /**
+     * Timestamp of the deployment action
+     */
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  /**
-   * Name of the token being deployed
-   */
-  tokenName: {
-    type: String,
-    required: [true, 'Token name is required'],
-    trim: true,
-  },
-  /**
-   * Stellar contract address (C... format)
-   * Populated on SUCCESS
-   */
-  contractId: {
-    type: String,
-    trim: true,
-  },
-  /**
-   * Deployment status
-   */
-  status: {
-    type: String,
-    enum: ['SUCCESS', 'FAIL'],
-    required: [true, 'Status is required'],
-  },
-  /**
-   * Detailed error message for troubleshooting
-   * Populated on FAIL
-   */
-  errorMessage: {
-    type: String,
-    trim: true,
-  },
-  /**
-   * Timestamp of the deployment action
-   */
-  createdAt: {
-    type: Date,
-    default: Date.now,
+  {
+    timestamps: true,
   }
-}, {
-  timestamps: true
-});
+);
 
 /**
  * @notice Index for efficient lookup by user

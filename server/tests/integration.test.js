@@ -178,7 +178,9 @@ describe('Flow 1: Complete Token Lifecycle', () => {
   });
 
   it('Step 5 — Verify DeploymentAudit logs were auto-created', async () => {
-    const audits = await DeploymentAudit.find({ userId }).sort({ createdAt: 1 });
+    const audits = await DeploymentAudit.find({ userId }).sort({
+      createdAt: 1,
+    });
 
     expect(audits).toHaveLength(2);
     expect(audits[0].tokenName).toBe('SoroMint Gold');
@@ -350,7 +352,7 @@ describe('Flow 3: Multi-User Isolation', () => {
     expect(resB.status).toBe(201);
   });
 
-  it('Step 3 — Listing tokens returns only the authenticated user\'s tokens', async () => {
+  it("Step 3 — Listing tokens returns only the authenticated user's tokens", async () => {
     // User A lists their tokens
     const resA = await request(app)
       .get(`/api/tokens/${USER_A_KEY}`)
@@ -370,7 +372,7 @@ describe('Flow 3: Multi-User Isolation', () => {
     expect(resB.body.data[0].symbol).toBe('BETA');
   });
 
-  it('Step 4 — Audit logs return only the authenticated user\'s entries', async () => {
+  it("Step 4 — Audit logs return only the authenticated user's entries", async () => {
     // User A's audit logs
     const logsA = await request(app)
       .get('/api/logs')
@@ -386,7 +388,9 @@ describe('Flow 3: Multi-User Isolation', () => {
       .set('Authorization', `Bearer ${tokenB}`);
 
     expect(logsB.status).toBe(200);
-    expect(logsB.body.every((log) => log.tokenName !== 'Alpha Coin')).toBe(true);
+    expect(logsB.body.every((log) => log.tokenName !== 'Alpha Coin')).toBe(
+      true
+    );
     expect(logsB.body.some((log) => log.tokenName === 'Beta Coin')).toBe(true);
   });
 });
@@ -415,15 +419,13 @@ describe('Flow 4: Error Propagation Across Stack', () => {
   });
 
   it('should return 401 when creating a token without authentication', async () => {
-    const res = await request(app)
-      .post('/api/tokens')
-      .send({
-        name: 'No Auth Token',
-        symbol: 'NOAUTH',
-        decimals: 7,
-        contractId: CONTRACT_A1,
-        ownerPublicKey: USER_A_KEY,
-      });
+    const res = await request(app).post('/api/tokens').send({
+      name: 'No Auth Token',
+      symbol: 'NOAUTH',
+      decimals: 7,
+      contractId: CONTRACT_A1,
+      ownerPublicKey: USER_A_KEY,
+    });
 
     expect(res.status).toBe(401);
     expect(res.body.code).toBe('AUTH_REQUIRED');
@@ -434,11 +436,11 @@ describe('Flow 4: Error Propagation Across Stack', () => {
       .post('/api/tokens')
       .set('Authorization', `Bearer ${validJwt}`)
       .send({
-        name: 'X',                    // Too short (min 3)
-        symbol: 'lowercase',          // Must be uppercase
-        decimals: 25,                 // Max 18
-        contractId: 'INVALID',        // Must be 56 chars starting with C
-        ownerPublicKey: 'INVALID',    // Must be 56 chars starting with G
+        name: 'X', // Too short (min 3)
+        symbol: 'lowercase', // Must be uppercase
+        decimals: 25, // Max 18
+        contractId: 'INVALID', // Must be 56 chars starting with C
+        ownerPublicKey: 'INVALID', // Must be 56 chars starting with G
       });
 
     expect(res.status).toBe(400);

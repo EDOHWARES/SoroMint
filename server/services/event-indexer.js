@@ -25,7 +25,7 @@ class SorobanEventIndexer {
 
     logger.info('SorobanEventIndexer initialized', {
       rpcUrl,
-      startCursor: this.lastCursor || 'genesis'
+      startCursor: this.lastCursor || 'genesis',
     });
   }
 
@@ -75,7 +75,7 @@ class SorobanEventIndexer {
 
       const { emitEvent } = require('../utils/socket');
 
-      const events = response.events.map(e => ({
+      const events = response.events.map((e) => ({
         contractId: e.contractId,
         eventType: e.topic?.[0] || 'unknown',
         ledger: e.ledger,
@@ -91,7 +91,7 @@ class SorobanEventIndexer {
         emitEvent('ledger_event', event);
       }
 
-      await SorobanEvent.insertMany(events, { ordered: false }).catch(err => {
+      await SorobanEvent.insertMany(events, { ordered: false }).catch((err) => {
         if (err.code !== 11000) throw err;
       });
 
@@ -99,7 +99,7 @@ class SorobanEventIndexer {
 
       logger.info('Indexed events batch', {
         count: events.length,
-        lastLedger: events[events.length - 1].ledger
+        lastLedger: events[events.length - 1].ledger,
       });
     } finally {
       this.processingBatch = false;
@@ -107,7 +107,7 @@ class SorobanEventIndexer {
   }
 
   _sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
