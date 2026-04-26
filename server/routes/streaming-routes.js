@@ -1,5 +1,7 @@
 const express = require('express');
 const StreamingService = require('../services/streaming-service');
+const { dispatch } = require('../services/webhook-service');
+const { logger } = require('../utils/logger');
 const { body, param, validationResult } = require('express-validator');
 
 const router = express.Router();
@@ -10,6 +12,15 @@ const validate = (req, res, next) => {
     return res.status(400).json({ errors: errors.array() });
   }
   next();
+};
+
+const notifyStreamWebhooks = (event, data) => {
+  void dispatch(event, data).catch((error) => {
+    logger.warn('Stream webhook dispatch failed', {
+      event,
+      error: error.message,
+    });
+  });
 };
 
 router.post(
@@ -25,8 +36,15 @@ router.post(
   ],
   async (req, res, next) => {
     try {
-      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger } = req.body;
-      
+      const {
+        sender,
+        recipient,
+        tokenAddress,
+        totalAmount,
+        startLedger,
+        stopLedger,
+      } = req.body;
+
       const service = new StreamingService(
         process.env.SOROBAN_RPC_URL,
         process.env.NETWORK_PASSPHRASE
@@ -43,7 +61,22 @@ router.post(
         stopLedger
       );
 
-      res.status(201).json({ success: true, streamId: result.streamId, txHash: result.hash });
+      notifyStreamWebhooks('stream.created', {
+        streamId: result.streamId ?? null,
+        txHash: result.hash,
+        sender,
+        recipient,
+        tokenAddress,
+        totalAmount,
+        startLedger,
+        stopLedger,
+      });
+
+      res.status(201).json({
+        success: true,
+        streamId: result.streamId,
+        txHash: result.hash,
+      });
     } catch (error) {
       next(error);
     }
@@ -74,6 +107,12 @@ router.post(
         amount
       );
 
+      notifyStreamWebhooks('stream.withdrawn', {
+        streamId: Number(streamId),
+        amount,
+        txHash: result.hash,
+      });
+
       res.json({ success: true, txHash: result.hash });
     } catch (error) {
       next(error);
@@ -99,6 +138,11 @@ router.delete(
         streamId
       );
 
+      notifyStreamWebhooks('stream.canceled', {
+        streamId: Number(streamId),
+        txHash: result.hash,
+      });
+
       res.json({ success: true, txHash: result.hash });
     } catch (error) {
       next(error);
@@ -118,7 +162,10 @@ router.get(
         process.env.NETWORK_PASSPHRASE
       );
 
-      const stream = await service.getStream(process.env.STREAMING_CONTRACT_ID, streamId);
+      const stream = await service.getStream(
+        process.env.STREAMING_CONTRACT_ID,
+        streamId
+      );
 
       if (!stream) {
         return res.status(404).json({ error: 'Stream not found' });
@@ -143,7 +190,10 @@ router.get(
         process.env.NETWORK_PASSPHRASE
       );
 
-      const balance = await service.getStreamBalance(process.env.STREAMING_CONTRACT_ID, streamId);
+      const balance = await service.getStreamBalance(
+        process.env.STREAMING_CONTRACT_ID,
+        streamId
+      );
 
       res.json({ success: true, balance });
     } catch (error) {
