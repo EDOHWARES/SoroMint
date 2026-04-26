@@ -43,7 +43,9 @@ describe("Server Index", () => {
     jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
     jest.doMock("../routes/webhook-routes", () => (req, res, next) => next());
     jest.doMock("../routes/notification-routes", () => (req, res, next) => next());
+    jest.doMock("../routes/backup-routes", () => (req, res, next) => next());
     jest.doMock("../routes/multisig-routes", () => (req, res, next) => next());
+    jest.doMock("../services/recovery-test-service", () => ({ scheduleRecoveryTests: jest.fn() }));
     jest.doMock("../routes/vault-routes", () => (req, res, next) => next());
     jest.doMock("../routes/sponsorship-routes", () => (req, res, next) => next());
     jest.doMock("../routes/analytics-routes", () => (req, res, next) => next());
@@ -109,8 +111,10 @@ describe("Server Index", () => {
     jest.doMock("../routes/notification-routes", () => "notification-routes");
     jest.doMock("../routes/multisig-routes", () => "multisig-routes");
     jest.doMock("../routes/vault-routes", () => "vault-routes");
+    jest.doMock("../routes/backup-routes", () => "backup-routes");
     jest.doMock("../routes/sponsorship-routes", () => "sponsorship-routes");
     jest.doMock("../routes/analytics-routes", () => "analytics-routes");
+    jest.doMock("../services/recovery-test-service", () => ({ scheduleRecoveryTests: jest.fn() }));
     jest.doMock("../middleware/security-headers", () => ({ securityHeaders: jest.fn((req, res, next) => next()) }));
     jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));
     jest.doMock("../config/sentry", () => ({ initSentry: jest.fn() }));
@@ -119,12 +123,14 @@ describe("Server Index", () => {
       notFoundHandler: "not-found-handler",
     }));
 
+    const recovery = require("../services/recovery-test-service");
     const { startServer } = require("../index");
     await startServer();
 
     expect(initEnv).toHaveBeenCalled();
     expect(connect).toHaveBeenCalled();
     expect(setupSwagger).toHaveBeenCalledWith(expressApp);
+    expect(recovery.scheduleRecoveryTests).toHaveBeenCalled();
     expect(use).toHaveBeenCalled();
     expect(options).toHaveBeenCalledWith("*", "cors-middleware");
     expect(listen).toHaveBeenCalledWith(5050, expect.any(Function));

@@ -10,6 +10,7 @@ const { initEnv, getEnv } = require('./config/env-config');
 initEnv();
 
 const { scheduleBackups } = require('./services/backup-service');
+const { scheduleRecoveryTests } = require('./services/recovery-test-service');
 const { getCacheService } = require('./services/cache-service');
 
 const express = require('express');
@@ -48,6 +49,7 @@ const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
+const backupRoutes = require('./routes/backup-routes');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -93,6 +95,7 @@ const createApp = ({
   app.use('/api/streaming', streamingRoutes);
   app.use('/api/bridge', bridgeRoutes);
   app.use('/api/fraud-detection', fraudDetectionRoutes);
+  app.use('/api/backups', backupRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
@@ -145,6 +148,7 @@ const startServer = async () => {
       `API Documentation available at http://localhost:${env.PORT}/api-docs`
     );
     scheduleBackups();
+    scheduleRecoveryTests();
   });
 
   initSocket(server);
