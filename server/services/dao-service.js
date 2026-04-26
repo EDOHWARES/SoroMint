@@ -4,10 +4,22 @@ const Token = require('../models/Token');
 const { AppError } = require('../middleware/error-handler');
 const { logger } = require('../utils/logger');
 const { getRpcServer } = require('./stellar-service');
-const { Contract, Address, nativeToScVal, TransactionBuilder } = require('@stellar/stellar-sdk');
+const {
+  Contract,
+  Address,
+  nativeToScVal,
+  TransactionBuilder,
+} = require('@stellar/stellar-sdk');
 const { getEnv } = require('../config/env-config');
 
-const createProposal = async ({ tokenId, contractId, proposer, changes, quorum = 51, durationDays = 7 }) => {
+const createProposal = async ({
+  tokenId,
+  contractId,
+  proposer,
+  changes,
+  quorum = 51,
+  durationDays = 7,
+}) => {
   const token = await Token.findById(tokenId);
   if (!token) {
     throw new AppError('Token not found', 404, 'TOKEN_NOT_FOUND');
@@ -25,7 +37,11 @@ const createProposal = async ({ tokenId, contractId, proposer, changes, quorum =
     expiresAt,
   });
 
-  logger.info('Proposal created', { proposalId: proposal._id, tokenId, proposer });
+  logger.info('Proposal created', {
+    proposalId: proposal._id,
+    tokenId,
+    proposer,
+  });
   return proposal;
 };
 
@@ -92,7 +108,9 @@ const executeProposal = async (proposal) => {
     const env = getEnv();
     const contract = new Contract(proposal.contractId);
 
-    const account = await server.execute((s) => s.getAccount(proposal.proposer));
+    const account = await server.execute((s) =>
+      s.getAccount(proposal.proposer)
+    );
     const txBuilder = new TransactionBuilder(account, {
       fee: '100000',
       networkPassphrase: env.NETWORK_PASSPHRASE,
@@ -132,7 +150,10 @@ const executeProposal = async (proposal) => {
 
     logger.info('Proposal executed', { proposalId: proposal._id });
   } catch (error) {
-    logger.error('Proposal execution failed', { proposalId: proposal._id, error: error.message });
+    logger.error('Proposal execution failed', {
+      proposalId: proposal._id,
+      error: error.message,
+    });
     proposal.status = 'REJECTED';
     await proposal.save();
     throw error;

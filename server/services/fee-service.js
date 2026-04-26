@@ -52,7 +52,9 @@ const fetchFeeStats = async () => {
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Horizon fee_stats request failed: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Horizon fee_stats request failed: ${response.status} ${response.statusText}`
+    );
   }
 
   return response.json();
@@ -105,14 +107,12 @@ const computeRecommendedFee = (feeStats, operationCount = 1) => {
 
   // Under surge: use p90 * multiplier for high confidence inclusion
   // Normal: use p50 (median) — sufficient for most transactions
-  const perOpFee = surging
-    ? Math.ceil(p90 * SURGE_MULTIPLIER)
-    : p50;
+  const perOpFee = surging ? Math.ceil(p90 * SURGE_MULTIPLIER) : p50;
 
   const recommended = perOpFee * operationCount;
 
   return {
-    recommended,        // total fee in stroops for the transaction
+    recommended, // total fee in stroops for the transaction
     perOperationFee: perOpFee,
     baseFee,
     percentiles: { p50, p90, p99 },

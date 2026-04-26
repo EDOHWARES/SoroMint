@@ -76,8 +76,9 @@ router.get('/status', asyncHandler(async (req, res) => {
       cache: {
         status: cacheStatus
       },
-      stellarRpc: {
-        status: rpcStatus
+      stellar: {
+        rpcStatus: rpcStatus,
+        network: process.env.NETWORK_PASSPHRASE || 'not configured'
       }
     }
   };
@@ -92,13 +93,22 @@ router.get('/status', asyncHandler(async (req, res) => {
  *              Includes active alerts for any metrics exceeding configured thresholds.
  * @access Private (JWT)
  */
-router.get('/metrics', authenticate, asyncHandler(async (req, res) => {
-  const sample = sampler.latest;
-  if (!sample) {
-    return res.status(503).json({ error: 'Metrics not yet available', code: 'METRICS_UNAVAILABLE' });
-  }
-  res.json(sample);
-}));
+router.get(
+  '/metrics',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const sample = sampler.latest;
+    if (!sample) {
+      return res
+        .status(503)
+        .json({
+          error: 'Metrics not yet available',
+          code: 'METRICS_UNAVAILABLE',
+        });
+    }
+    res.json(sample);
+  })
+);
 
 module.exports = router;
 

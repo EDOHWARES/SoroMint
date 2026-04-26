@@ -67,12 +67,10 @@ describe('sponsorship-routes', () => {
   });
 
   it('executes a sponsored transaction', async () => {
-    const response = await request(app)
-      .post('/api/sponsorship/execute')
-      .send({
-        transactionXdr: 'AAAAINNERXDR',
-        feeStroops: 900,
-      });
+    const response = await request(app).post('/api/sponsorship/execute').send({
+      transactionXdr: 'AAAAINNERXDR',
+      feeStroops: 900,
+    });
 
     expect(response.status).toBe(202);
     expect(response.body.success).toBe(true);

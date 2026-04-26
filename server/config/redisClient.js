@@ -5,21 +5,21 @@ const { REDIS_URL } = require('./env-config'); // Assuming env-config validates 
 let client;
 
 try {
-    client = new Redis(REDIS_URL, {
-        // Options to auto-reconnect
-        maxRetriesPerRequest: 20,
-        enableReadyCheck: true,
-    });
+  client = new Redis(REDIS_URL, {
+    // Options to auto-reconnect
+    maxRetriesPerRequest: 20,
+    enableReadyCheck: true,
+  });
 
-    client.on('connect', () => {
-        logger.info('Successfully connected to Redis.');
-    });
+  client.on('connect', () => {
+    logger.info('Successfully connected to Redis.');
+  });
 
-    client.on('error', (err) => {
-        logger.error('Redis connection error:', err);
-    });
+  client.on('error', (err) => {
+    logger.error('Redis connection error:', err);
+  });
 } catch (error) {
-    logger.error('Could not create Redis client:', error);
+  logger.error('Could not create Redis client:', error);
 }
 
 module.exports = client;
