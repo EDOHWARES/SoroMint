@@ -1,26 +1,24 @@
-const { AppError } = require("../middleware/error-handler");
-const { getEnv } = require("./env-config");
-const { normalizeOrigin } = require("./cors-origins");
+const { AppError } = require('../middleware/error-handler');
+const { getEnv } = require('./env-config');
+const { normalizeOrigin } = require('./cors-origins');
 
 const CORS_ALLOWED_METHODS = Object.freeze([
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "PATCH",
-  "DELETE",
-  "OPTIONS",
+  'GET',
+  'HEAD',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
 ]);
 
 const CORS_ALLOWED_HEADERS = Object.freeze([
-  "Authorization",
-  "Content-Type",
-  "X-Correlation-ID",
+  'Authorization',
+  'Content-Type',
+  'X-Correlation-ID',
 ]);
 
-const CORS_EXPOSED_HEADERS = Object.freeze([
-  "X-Correlation-ID",
-]);
+const CORS_EXPOSED_HEADERS = Object.freeze(['X-Correlation-ID']);
 
 function getBaseCorsOptions() {
   return {
@@ -48,14 +46,22 @@ function buildOriginValidator(allowedOrigins) {
     try {
       normalizedOrigin = normalizeOrigin(origin);
     } catch (error) {
-      return callback(new AppError("Invalid Origin header", 400, "INVALID_ORIGIN_HEADER"));
+      return callback(
+        new AppError('Invalid Origin header', 400, 'INVALID_ORIGIN_HEADER')
+      );
     }
 
     if (allowedOriginSet.has(normalizedOrigin)) {
       return callback(null, true);
     }
 
-    return callback(new AppError("Origin not allowed by CORS policy", 403, "CORS_ORIGIN_DENIED"));
+    return callback(
+      new AppError(
+        'Origin not allowed by CORS policy',
+        403,
+        'CORS_ORIGIN_DENIED'
+      )
+    );
   };
 }
 
@@ -66,20 +72,25 @@ function isSameOriginRequest(req) {
     return false;
   }
 
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const forwardedHost = req.headers["x-forwarded-host"];
-  const requestProtocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto)
-    || req.protocol
-    || "http";
-  const requestHost = (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost)
-    || req.headers.host;
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const requestProtocol =
+    (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto) ||
+    req.protocol ||
+    'http';
+  const requestHost =
+    (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost) ||
+    req.headers.host;
 
   if (!requestHost) {
     return false;
   }
 
   try {
-    return normalizeOrigin(requestOrigin) === normalizeOrigin(`${requestProtocol}://${requestHost}`);
+    return (
+      normalizeOrigin(requestOrigin) ===
+      normalizeOrigin(`${requestProtocol}://${requestHost}`)
+    );
   } catch (error) {
     return false;
   }

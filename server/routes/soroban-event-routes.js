@@ -7,13 +7,13 @@ const router = express.Router();
 
 router.get('/events', authenticate, async (req, res) => {
   try {
-    const { 
-      contractId, 
-      eventType, 
-      startLedger, 
+    const {
+      contractId,
+      eventType,
+      startLedger,
       endLedger,
-      page = 1, 
-      limit = 50 
+      page = 1,
+      limit = 50,
     } = req.query;
 
     const query = {};

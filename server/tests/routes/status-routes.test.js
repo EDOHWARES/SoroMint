@@ -48,30 +48,32 @@ describe('Status Routes', () => {
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.services.database.status).toBe('up');
       expect(response.body.services.database.connection).toBe('connected');
-      expect(response.body.services.stellar.network).toBe('Test SDF Network ; September 2015');
+      expect(response.body.services.stellar.network).toBe(
+        'Test SDF Network ; September 2015'
+      );
     });
 
     it('should include correct version from package.json', async () => {
       const { version } = require('../../package.json');
       const response = await request(app).get('/api/health');
-      
+
       expect(response.body.version).toBe(version);
     });
 
     it('should handle missing NETWORK_PASSPHRASE environment variable', async () => {
       const originalPassphrase = process.env.NETWORK_PASSPHRASE;
       delete process.env.NETWORK_PASSPHRASE;
-      
+
       const response = await request(app).get('/api/health');
       expect(response.body.services.stellar.network).toBe('not configured');
-      
+
       process.env.NETWORK_PASSPHRASE = originalPassphrase;
     });
 
     it('should return 503 and unhealthy status when database is disconnected', async () => {
       // Force disconnect for this test
       await mongoose.disconnect();
-      
+
       const response = await request(app).get('/api/health');
 
       expect(response.status).toBe(503);

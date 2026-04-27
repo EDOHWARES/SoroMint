@@ -19,11 +19,15 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype !== 'application/zip' && file.mimetype !== 'application/x-zip-compressed' && !file.originalname.endsWith('.zip')) {
+    if (
+      file.mimetype !== 'application/zip' &&
+      file.mimetype !== 'application/x-zip-compressed' &&
+      !file.originalname.endsWith('.zip')
+    ) {
       return cb(new AppError('Only ZIP files are allowed', 400));
     }
     cb(null, true);
-  }
+  },
 });
 
 /**
@@ -49,7 +53,10 @@ router.post(
       throw new AppError('A ZIP file is required', 400);
     }
     if (!name || !symbol || !contractId || !sourcePublicKey) {
-      throw new AppError('name, symbol, contractId, and sourcePublicKey are required', 400);
+      throw new AppError(
+        'name, symbol, contractId, and sourcePublicKey are required',
+        400
+      );
     }
 
     logger.info('NFT Batch Mint requested', { userId, contractId });
@@ -65,7 +72,10 @@ router.post(
       });
       await collection.save();
     } else if (collection.ownerPublicKey !== sourcePublicKey) {
-      throw new AppError('Contract ID is already registered by a different owner', 403);
+      throw new AppError(
+        'Contract ID is already registered by a different owner',
+        403
+      );
     }
 
     // Process the ZIP file
@@ -79,7 +89,11 @@ router.post(
     // Submit batch operations
     let batchResult;
     try {
-      batchResult = await submitNftBatchOperations(nftsToMint, contractId, sourcePublicKey);
+      batchResult = await submitNftBatchOperations(
+        nftsToMint,
+        contractId,
+        sourcePublicKey
+      );
     } catch (err) {
       await DeploymentAudit.create({
         userId,
@@ -91,7 +105,7 @@ router.post(
     }
 
     if (!batchResult.success) {
-       await DeploymentAudit.create({
+      await DeploymentAudit.create({
         userId,
         tokenName: `nft-batch(${nftsToMint.length})`,
         status: 'FAIL',
@@ -101,7 +115,7 @@ router.post(
     }
 
     // Save successful NFTs to database
-    const nftDocs = nftsToMint.map(nft => ({
+    const nftDocs = nftsToMint.map((nft) => ({
       tokenId: nft.tokenId,
       uri: nft.uri,
       collectionId: collection._id,
@@ -115,7 +129,9 @@ router.post(
     } catch (err) {
       // Ignore E11000 duplicate key error in case of retry
       if (err.code !== 11000) {
-        logger.warn('Error saving some NFT items to DB', { error: err.message });
+        logger.warn('Error saving some NFT items to DB', {
+          error: err.message,
+        });
       }
     }
 

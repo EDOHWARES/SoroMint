@@ -5,24 +5,34 @@
  *   a 30-day retention policy.
  */
 
-const { execSync } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectsCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
-const cron = require("node-cron");
-const { logger } = require("../utils/logger");
-const { encryptFile, decryptFile, generatePassword } = require("../utils/backup-encryption");
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+} = require('@aws-sdk/client-s3');
+const cron = require('node-cron');
+const { logger } = require('../utils/logger');
+const {
+  encryptFile,
+  decryptFile,
+  generatePassword,
+} = require('../utils/backup-encryption');
 
-const BACKUP_DIR = path.join(__dirname, "../.backups");
+const BACKUP_DIR = path.join(__dirname, '../.backups');
 const RETENTION_DAYS = 30;
-const ENCRYPTION_METADATA_KEY = "backups/metadata/";
+const ENCRYPTION_METADATA_KEY = 'backups/metadata/';
 
 /**
  * Build an S3 client from environment variables.
  */
 function buildS3Client() {
   return new S3Client({
-    region: process.env.AWS_REGION || "us-east-1",
+    region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -35,15 +45,16 @@ function buildS3Client() {
  */
 function getEncryptionPassword() {
   let password = process.env.BACKUP_ENCRYPTION_PASSWORD;
-  
+
   if (!password) {
-    logger.warn("BACKUP_ENCRYPTION_PASSWORD not set, generating a random one");
+    logger.warn('BACKUP_ENCRYPTION_PASSWORD not set, generating a random one');
     password = generatePassword(32);
-    logger.info("Generated random encryption password - SAVE THIS PASSWORD!", {
-      warning: "Store this password securely - backups cannot be restored without it"
+    logger.info('Generated random encryption password - SAVE THIS PASSWORD!', {
+      warning:
+        'Store this password securely - backups cannot be restored without it',
     });
   }
-  
+
   return password;
 }
 
@@ -57,14 +68,14 @@ function runMongoDump(mongoUri) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
   }
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const archivePath = path.join(BACKUP_DIR, `backup-${timestamp}.gz`);
 
   execSync(`mongodump --uri="${mongoUri}" --archive="${archivePath}" --gzip`, {
-    stdio: "pipe",
+    stdio: 'pipe',
   });
 
-  logger.info("mongodump completed", { archivePath });
+  logger.info('mongodump completed', { archivePath });
   return archivePath;
 }
 
@@ -75,10 +86,10 @@ function runMongoDump(mongoUri) {
  * @returns {Object} Object containing encrypted file path and metadata
  */
 async function encryptBackup(filePath, password) {
-  const encryptedPath = filePath + ".enc";
-  
+  const encryptedPath = filePath + '.enc';
+
   const { iv, salt } = await encryptFile(filePath, encryptedPath, password);
-  
+
   return {
     encryptedPath,
     iv,
@@ -95,7 +106,7 @@ async function encryptBackup(filePath, password) {
  * @returns {Promise<string>} S3 key of the uploaded object
  */
 async function uploadToS3(s3, bucket, filePath, metadata = {}) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const key = `backups/encrypted-${timestamp}.enc`;
   const fileStream = fs.createReadStream(filePath);
 
@@ -104,18 +115,18 @@ async function uploadToS3(s3, bucket, filePath, metadata = {}) {
       Bucket: bucket,
       Key: key,
       Body: fileStream,
-      ContentType: "application/octet-stream",
-      ServerSideEncryption: "AES256",
+      ContentType: 'application/octet-stream',
+      ServerSideEncryption: 'AES256',
       Metadata: {
-        "encryption-iv": metadata.iv || "",
-        "encryption-salt": metadata.salt || "",
-        "backup-timestamp": metadata.timestamp || new Date().toISOString(),
-        "encrypted": "true",
+        'encryption-iv': metadata.iv || '',
+        'encryption-salt': metadata.salt || '',
+        'backup-timestamp': metadata.timestamp || new Date().toISOString(),
+        encrypted: 'true',
       },
     })
   );
 
-  logger.info("Encrypted backup uploaded to S3", { bucket, key });
+  logger.info('Encrypted backup uploaded to S3', { bucket, key });
   return key;
 }
 
@@ -128,7 +139,7 @@ async function uploadToS3(s3, bucket, filePath, metadata = {}) {
  */
 async function uploadMetadata(s3, bucket, backupKey, metadata) {
   const metadataKey = `backups/metadata/${path.basename(backupKey)}.json`;
-  
+
   await s3.send(
     new PutObjectCommand({
       Bucket: bucket,
@@ -139,14 +150,14 @@ async function uploadMetadata(s3, bucket, backupKey, metadata) {
         encryption: {
           iv: metadata.iv,
           salt: metadata.salt,
-          algorithm: "AES-256-GCM",
+          algorithm: 'AES-256-GCM',
         },
       }),
-      ContentType: "application/json",
+      ContentType: 'application/json',
     })
   );
 
-  logger.info("Backup metadata uploaded", { metadataKey });
+  logger.info('Backup metadata uploaded', { metadataKey });
 }
 
 /**
@@ -159,7 +170,7 @@ async function enforceRetentionPolicy(s3, bucket) {
   cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
 
   const listed = await s3.send(
-    new ListObjectsV2Command({ Bucket: bucket, Prefix: "backups/encrypted-" })
+    new ListObjectsV2Command({ Bucket: bucket, Prefix: 'backups/encrypted-' })
   );
 
   if (!listed.Contents || listed.Contents.length === 0) return;
@@ -169,7 +180,7 @@ async function enforceRetentionPolicy(s3, bucket) {
   ).map((obj) => ({ Key: obj.Key }));
 
   if (toDelete.length === 0) {
-    logger.info("Retention policy: no expired backups found");
+    logger.info('Retention policy: no expired backups found');
     return;
   }
 
@@ -180,7 +191,10 @@ async function enforceRetentionPolicy(s3, bucket) {
     })
   );
 
-  logger.info("Retention policy enforced", { deletedCount: toDelete.length, cutoff });
+  logger.info('Retention policy enforced', {
+    deletedCount: toDelete.length,
+    cutoff,
+  });
 }
 
 /**
@@ -191,44 +205,54 @@ async function runBackup() {
   const bucket = process.env.AWS_S3_BACKUP_BUCKET;
 
   if (!mongoUri || !bucket) {
-    logger.error("Backup skipped: MONGO_URI or AWS_S3_BACKUP_BUCKET not set");
-    return { success: false, error: "Missing MONGO_URI or AWS_S3_BACKUP_BUCKET" };
+    logger.error('Backup skipped: MONGO_URI or AWS_S3_BACKUP_BUCKET not set');
+    return {
+      success: false,
+      error: 'Missing MONGO_URI or AWS_S3_BACKUP_BUCKET',
+    };
   }
 
   let archivePath;
   let encryptedPath;
   const password = getEncryptionPassword();
-  
+
   try {
-    logger.info("Starting scheduled database backup with encryption");
+    logger.info('Starting scheduled database backup with encryption');
     const s3 = buildS3Client();
 
     // Step 1: Create MongoDB dump
     archivePath = runMongoDump(mongoUri);
-    
+
     // Step 2: Encrypt the backup
-    const { encryptedPath: encPath, iv, salt } = await encryptBackup(archivePath, password);
+    const {
+      encryptedPath: encPath,
+      iv,
+      salt,
+    } = await encryptBackup(archivePath, password);
     encryptedPath = encPath;
-    
+
     // Step 3: Upload encrypted backup to S3
     const backupKey = await uploadToS3(s3, bucket, encryptedPath, { iv, salt });
-    
+
     // Step 4: Upload metadata for recovery
     await uploadMetadata(s3, bucket, backupKey, { iv, salt });
-    
+
     // Step 5: Enforce retention policy
     await enforceRetentionPolicy(s3, bucket);
 
-    logger.info("Encrypted database backup completed successfully");
-    return { 
-      success: true, 
+    logger.info('Encrypted database backup completed successfully');
+    return {
+      success: true,
       timestamp: new Date().toISOString(),
       bucket,
       key: backupKey,
       encrypted: true,
     };
   } catch (err) {
-    logger.error("Database backup failed", { error: err.message, stack: err.stack });
+    logger.error('Database backup failed', {
+      error: err.message,
+      stack: err.stack,
+    });
     return { success: false, error: err.message };
   } finally {
     // Always clean up local files
@@ -247,16 +271,16 @@ async function runBackup() {
  */
 async function listBackups() {
   const bucket = process.env.AWS_S3_BACKUP_BUCKET;
-  
+
   if (!bucket) {
-    return { success: false, error: "AWS_S3_BACKUP_BUCKET not configured" };
+    return { success: false, error: 'AWS_S3_BACKUP_BUCKET not configured' };
   }
 
   try {
     const s3 = buildS3Client();
-    
+
     const listed = await s3.send(
-      new ListObjectsV2Command({ Bucket: bucket, Prefix: "backups/encrypted-" })
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: 'backups/encrypted-' })
     );
 
     if (!listed.Contents || listed.Contents.length === 0) {
@@ -272,7 +296,7 @@ async function listBackups() {
 
     return { success: true, backups };
   } catch (err) {
-    logger.error("Failed to list backups", { error: err.message });
+    logger.error('Failed to list backups', { error: err.message });
     return { success: false, error: err.message };
   }
 }
@@ -283,24 +307,26 @@ async function listBackups() {
  * Override via BACKUP_CRON_SCHEDULE env var (standard cron syntax).
  */
 function scheduleBackups() {
-  const schedule = process.env.BACKUP_CRON_SCHEDULE || "0 2 * * *";
+  const schedule = process.env.BACKUP_CRON_SCHEDULE || '0 2 * * *';
 
   if (!cron.validate(schedule)) {
-    logger.error("Invalid BACKUP_CRON_SCHEDULE — backups not scheduled", { schedule });
+    logger.error('Invalid BACKUP_CRON_SCHEDULE — backups not scheduled', {
+      schedule,
+    });
     return;
   }
 
   cron.schedule(schedule, () => {
     runBackup().catch((err) =>
-      logger.error("Unhandled error in backup job", { error: err.message })
+      logger.error('Unhandled error in backup job', { error: err.message })
     );
   });
 
-  logger.info("Database backup job scheduled", { schedule });
+  logger.info('Database backup job scheduled', { schedule });
 }
 
-module.exports = { 
-  scheduleBackups, 
+module.exports = {
+  scheduleBackups,
   runBackup,
   listBackups,
   getEncryptionPassword,

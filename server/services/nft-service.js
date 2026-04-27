@@ -10,9 +10,11 @@ const { getEnv } = require('../config/env-config');
 const processNftZip = async (zipBuffer, collectionData) => {
   const zip = new AdmZip(zipBuffer);
   const zipEntries = zip.getEntries();
-  
+
   // Find collection.json (assuming it's in the root or somewhere in the zip)
-  const metadataEntry = zipEntries.find(entry => entry.entryName.endsWith('collection.json'));
+  const metadataEntry = zipEntries.find((entry) =>
+    entry.entryName.endsWith('collection.json')
+  );
   if (!metadataEntry) {
     throw new Error('collection.json not found in ZIP');
   }
@@ -23,9 +25,11 @@ const processNftZip = async (zipBuffer, collectionData) => {
   } catch (err) {
     throw new Error('collection.json is not valid JSON');
   }
-  
+
   if (!Array.isArray(metadataJson)) {
-    throw new Error('collection.json must contain an array of NFT metadata objects');
+    throw new Error(
+      'collection.json must contain an array of NFT metadata objects'
+    );
   }
 
   const publicNftsDir = path.join(__dirname, '../public/nfts');
@@ -48,12 +52,16 @@ const processNftZip = async (zipBuffer, collectionData) => {
     }
 
     // find image entry (could be nested inside folders)
-    const imageEntry = zipEntries.find(entry => 
-      entry.entryName.endsWith(item.image) || entry.entryName.endsWith('/' + item.image)
+    const imageEntry = zipEntries.find(
+      (entry) =>
+        entry.entryName.endsWith(item.image) ||
+        entry.entryName.endsWith('/' + item.image)
     );
-    
+
     if (!imageEntry) {
-      throw new Error(`Image ${item.image} not found in ZIP for NFT ${item.id}`);
+      throw new Error(
+        `Image ${item.image} not found in ZIP for NFT ${item.id}`
+      );
     }
 
     // extract image

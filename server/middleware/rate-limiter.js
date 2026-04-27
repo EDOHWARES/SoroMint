@@ -89,9 +89,24 @@ const createScanRateLimiter = () =>
     max: parsePositiveInteger(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS, 20),
   });
 
+/**
+ * @notice Creates the limiter for data export requests (CSV/JSON).
+ * @dev    Exporting can be resource-intensive; defaults to 10 exports per hour per IP.
+ * @returns {Function} Express middleware for export endpoints
+ */
+const createExportRateLimiter = () =>
+  createRateLimiter({
+    windowMs: parsePositiveInteger(
+      process.env.EXPORT_RATE_LIMIT_WINDOW_MS,
+      60 * 60 * 1000
+    ),
+    max: parsePositiveInteger(process.env.EXPORT_RATE_LIMIT_MAX_REQUESTS, 10),
+  });
+
 const loginRateLimiter = createLoginRateLimiter();
 const tokenDeploymentRateLimiter = createTokenDeploymentRateLimiter();
 const scanRateLimiter = createScanRateLimiter();
+const exportRateLimiter = createExportRateLimiter();
 
 module.exports = {
   DEFAULT_LIMIT_MESSAGE,
@@ -102,7 +117,9 @@ module.exports = {
   createLoginRateLimiter,
   createTokenDeploymentRateLimiter,
   createScanRateLimiter,
+  createExportRateLimiter,
   loginRateLimiter,
   tokenDeploymentRateLimiter,
   scanRateLimiter,
+  exportRateLimiter,
 };

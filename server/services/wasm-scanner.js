@@ -68,10 +68,10 @@ const SUSPICIOUS_IMPORT_MODULES = new Set([
  */
 const SEVERITY = Object.freeze({
   CRITICAL: 'critical',
-  HIGH:     'high',
-  MEDIUM:   'medium',
-  LOW:      'low',
-  INFO:     'info',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+  INFO: 'info',
 });
 
 /**
@@ -79,11 +79,11 @@ const SEVERITY = Object.freeze({
  * Top-level outcome label for a completed scan.
  */
 const SCAN_STATUS = Object.freeze({
-  CLEAN:   'clean',    // zero findings
-  PASSED:  'passed',   // no critical/high findings
-  WARNING: 'warning',  // medium/low findings only
-  FAILED:  'failed',   // critical or high findings present
-  ERROR:   'error',    // WASM could not be parsed at all
+  CLEAN: 'clean', // zero findings
+  PASSED: 'passed', // no critical/high findings
+  WARNING: 'warning', // medium/low findings only
+  FAILED: 'failed', // critical or high findings present
+  ERROR: 'error', // WASM could not be parsed at all
 });
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ const RULES = Object.freeze({
       'service attacks against other contracts or the host node.',
     recommendation:
       'Declare an explicit memory maximum in the WASM memory section, or ' +
-      'ensure the Soroban runtime\'s memory limits are enforced.  For most ' +
+      "ensure the Soroban runtime's memory limits are enforced.  For most " +
       'token contracts a maximum of 16–32 pages is sufficient.',
   },
 
@@ -244,7 +244,7 @@ const RULES = Object.freeze({
       'contract requires and may indicate bloat, embedded payloads, or an ' +
       'attempt to fingerprint the deployment environment.',
     recommendation:
-      'Review the contract\'s memory requirements.  Standard token contracts ' +
+      "Review the contract's memory requirements.  Standard token contracts " +
       'rarely need more than 16–32 pages.  Identify the source of the large ' +
       'allocation (embedded data, runtime, allocator configuration).',
   },
@@ -425,21 +425,29 @@ class BufferReader {
   // ── Accessors ─────────────────────────────────────────────────────────────
 
   /** Current read position (byte offset). */
-  get pos() { return this._pos; }
+  get pos() {
+    return this._pos;
+  }
 
   /** Overwrite the read position.  Used to hard-jump to section boundaries. */
   set pos(n) {
     if (n < 0 || n > this._buf.length) {
-      throw new RangeError(`BufferReader: attempted to set pos to ${n} (buf length ${this._buf.length})`);
+      throw new RangeError(
+        `BufferReader: attempted to set pos to ${n} (buf length ${this._buf.length})`
+      );
     }
     this._pos = n;
   }
 
   /** True when all bytes have been consumed. */
-  get done() { return this._pos >= this._buf.length; }
+  get done() {
+    return this._pos >= this._buf.length;
+  }
 
   /** Number of bytes remaining. */
-  get remaining() { return this._buf.length - this._pos; }
+  get remaining() {
+    return this._buf.length - this._pos;
+  }
 
   // ── Primitive reads ───────────────────────────────────────────────────────
 
@@ -449,7 +457,9 @@ class BufferReader {
    */
   readByte() {
     if (this._pos >= this._buf.length) {
-      throw new RangeError(`BufferReader.readByte: unexpected end of buffer at pos ${this._pos}`);
+      throw new RangeError(
+        `BufferReader.readByte: unexpected end of buffer at pos ${this._pos}`
+      );
     }
     return this._buf[this._pos++];
   }
@@ -460,7 +470,9 @@ class BufferReader {
    */
   readUint32LE() {
     if (this._pos + 4 > this._buf.length) {
-      throw new RangeError(`BufferReader.readUint32LE: need 4 bytes at pos ${this._pos}, only ${this.remaining} remain`);
+      throw new RangeError(
+        `BufferReader.readUint32LE: need 4 bytes at pos ${this._pos}, only ${this.remaining} remain`
+      );
     }
     const val = this._buf.readUInt32LE(this._pos);
     this._pos += 4;
@@ -474,18 +486,22 @@ class BufferReader {
    */
   readLEB128U() {
     let result = 0;
-    let shift  = 0;
+    let shift = 0;
 
-    for (let i = 0; i < 5; i++) {          // u32 fits in at most 5 LEB128 bytes
+    for (let i = 0; i < 5; i++) {
+      // u32 fits in at most 5 LEB128 bytes
       const byte = this.readByte();
-      result |= (byte & 0x7f) << shift;    // accumulate 7 bits
-      if ((byte & 0x80) === 0) {           // high bit clear → last byte
-        return result >>> 0;               // convert signed int to unsigned u32
+      result |= (byte & 0x7f) << shift; // accumulate 7 bits
+      if ((byte & 0x80) === 0) {
+        // high bit clear → last byte
+        return result >>> 0; // convert signed int to unsigned u32
       }
       shift += 7;
     }
 
-    throw new RangeError('BufferReader.readLEB128U: LEB128 integer exceeds 5 bytes (u32 overflow)');
+    throw new RangeError(
+      'BufferReader.readLEB128U: LEB128 integer exceeds 5 bytes (u32 overflow)'
+    );
   }
 
   /**
@@ -553,25 +569,26 @@ class BufferReader {
     while (!this.done && safety++ < 64) {
       const op = this.readByte();
       switch (op) {
-        case 0x0b:                          // end
+        case 0x0b: // end
           return;
-        case 0x41:                          // i32.const
-        case 0x42:                          // i64.const
-        case 0x23:                          // global.get
-        case 0xd2:                          // ref.func
+        case 0x41: // i32.const
+        case 0x42: // i64.const
+        case 0x23: // global.get
+        case 0xd2: // ref.func
           this.readLEB128U();
           break;
-        case 0x43:                          // f32.const
+        case 0x43: // f32.const
           this.skip(4);
           break;
-        case 0x44:                          // f64.const
+        case 0x44: // f64.const
           this.skip(8);
           break;
-        case 0xd0:                          // ref.null
-          this.readByte();                  // reftype byte
+        case 0xd0: // ref.null
+          this.readByte(); // reftype byte
           break;
-        case 0xfc: {                        // extended opcodes
-          this.readLEB128U();               // secondary opcode
+        case 0xfc: {
+          // extended opcodes
+          this.readLEB128U(); // secondary opcode
           break;
         }
         default:
@@ -638,17 +655,17 @@ function shannonEntropy(buf) {
 function parseWasmSections(buf) {
   /** @type {ParsedSections} */
   const sections = {
-    imports:           [],
-    exports:           [],
-    memories:          [],
-    globals:           [],
-    dataSegments:      [],
-    hasStartSection:   false,
+    imports: [],
+    exports: [],
+    memories: [],
+    globals: [],
+    dataSegments: [],
+    hasStartSection: false,
     startFunctionIndex: null,
-    functionCount:     0,
-    codeSection:       null,
-    customSections:    [],
-    parseErrors:       [],
+    functionCount: 0,
+    codeSection: null,
+    customSections: [],
+    parseErrors: [],
   };
 
   const reader = new BufferReader(buf);
@@ -659,21 +676,23 @@ function parseWasmSections(buf) {
 
     // ── Read section header ──────────────────────────────────────────────────
     try {
-      sectionId   = reader.readByte();
+      sectionId = reader.readByte();
       sectionSize = reader.readLEB128U();
     } catch (err) {
-      sections.parseErrors.push(`Truncated section header at offset ${reader.pos}: ${err.message}`);
+      sections.parseErrors.push(
+        `Truncated section header at offset ${reader.pos}: ${err.message}`
+      );
       break;
     }
 
     const sectionStart = reader.pos;
-    const sectionEnd   = sectionStart + sectionSize;
+    const sectionEnd = sectionStart + sectionSize;
 
     // Guard against malformed size field that would push us past the buffer
     if (sectionEnd > buf.length) {
       sections.parseErrors.push(
         `Section ${sectionId} at offset ${sectionStart} claims size ${sectionSize} ` +
-        `but only ${buf.length - sectionStart} bytes remain`
+          `but only ${buf.length - sectionStart} bytes remain`
       );
       break; // cannot safely continue
     }
@@ -681,27 +700,27 @@ function parseWasmSections(buf) {
     // ── Parse section body ───────────────────────────────────────────────────
     try {
       switch (sectionId) {
-        case 0:  // Custom
+        case 0: // Custom
           parseCustomSection(reader, sections, sectionEnd);
           break;
-        case 2:  // Import
+        case 2: // Import
           parseImportSection(reader, sections, sectionEnd);
           break;
-        case 3:  // Function (type-index list — just count)
+        case 3: // Function (type-index list — just count)
           sections.functionCount = reader.readLEB128U();
           // remaining type indices skipped below
           break;
-        case 5:  // Memory
+        case 5: // Memory
           parseMemorySection(reader, sections);
           break;
-        case 6:  // Global
+        case 6: // Global
           parseGlobalSection(reader, sections, sectionEnd);
           break;
-        case 7:  // Export
+        case 7: // Export
           parseExportSection(reader, sections, sectionEnd);
           break;
-        case 8:  // Start
-          sections.hasStartSection   = true;
+        case 8: // Start
+          sections.hasStartSection = true;
           sections.startFunctionIndex = reader.readLEB128U();
           break;
         case 10: // Code
@@ -742,8 +761,8 @@ function parseImportSection(reader, sections, sectionEnd) {
 
   for (let i = 0; i < count && reader.pos < sectionEnd; i++) {
     const module = reader.readString();
-    const name   = reader.readString();
-    const kind   = reader.readByte();
+    const name = reader.readString();
+    const kind = reader.readByte();
 
     // Skip the type descriptor for each import kind
     switch (kind) {
@@ -751,7 +770,7 @@ function parseImportSection(reader, sections, sectionEnd) {
         reader.readLEB128U();
         break;
       case 1: // table — reftype byte + limits (flags byte + min LEB128 + optional max LEB128)
-        reader.readByte();                          // ref type
+        reader.readByte(); // ref type
         skipMemLimits(reader);
         break;
       case 2: // memory — limits
@@ -763,7 +782,9 @@ function parseImportSection(reader, sections, sectionEnd) {
         break;
       default:
         // Unknown import kind — cannot safely skip, abort section
-        sections.parseErrors.push(`Unknown import kind ${kind} for ${module}.${name}`);
+        sections.parseErrors.push(
+          `Unknown import kind ${kind} for ${module}.${name}`
+        );
         return;
     }
 
@@ -781,8 +802,8 @@ function parseExportSection(reader, sections, sectionEnd) {
   const count = reader.readLEB128U();
 
   for (let i = 0; i < count && reader.pos < sectionEnd; i++) {
-    const name  = reader.readString();
-    const kind  = reader.readByte();
+    const name = reader.readString();
+    const kind = reader.readByte();
     const index = reader.readLEB128U();
 
     sections.exports.push({ name, kind, index });
@@ -798,10 +819,10 @@ function parseMemorySection(reader, sections) {
   const count = reader.readLEB128U();
 
   for (let i = 0; i < count; i++) {
-    const flags  = reader.readByte();
+    const flags = reader.readByte();
     const hasMax = (flags & 0x01) !== 0;
-    const min    = reader.readLEB128U();
-    const max    = hasMax ? reader.readLEB128U() : null;
+    const min = reader.readLEB128U();
+    const max = hasMax ? reader.readLEB128U() : null;
 
     sections.memories.push({ hasMax, min, max });
   }
@@ -817,8 +838,8 @@ function parseGlobalSection(reader, sections, sectionEnd) {
   const count = reader.readLEB128U();
 
   for (let i = 0; i < count && reader.pos < sectionEnd; i++) {
-    const valueType = reader.readByte();  // e.g. 0x7f=i32, 0x7e=i64
-    const mutByte   = reader.readByte();  // 0x00=const, 0x01=var
+    const valueType = reader.readByte(); // e.g. 0x7f=i32, 0x7e=i64
+    const mutByte = reader.readByte(); // 0x00=const, 0x01=var
     reader.skipInitExpr();
 
     sections.globals.push({ valueType, mutable: mutByte === 0x01 });
@@ -847,8 +868,8 @@ function parseDataSection(reader, sections, sectionEnd) {
     }
     // flags === 1 → passive segment, no init_expr
 
-    const data      = reader.readByteVec();
-    const entropy   = shannonEntropy(data);
+    const data = reader.readByteVec();
+    const entropy = shannonEntropy(data);
     const rawSample = data.slice(0, 64); // first 64 bytes for pattern analysis
 
     sections.dataSegments.push({ size: data.length, entropy, rawSample });
@@ -872,8 +893,8 @@ function parseCustomSection(reader, sections, sectionEnd) {
  * @param {BufferReader} reader
  */
 function skipMemLimits(reader) {
-  const flags  = reader.readByte();
-  reader.readLEB128U();                    // min
+  const flags = reader.readByte();
+  reader.readLEB128U(); // min
   if (flags & 0x01) reader.readLEB128U(); // max (if present)
 }
 
@@ -915,10 +936,11 @@ function runRules(wasmBuf, sections, maxWasmSize) {
     if (!rule) return;
 
     findings.push({
-      ruleId:         rule.id,
-      severity:       rule.severity,
-      title:          rule.title,
-      description:    rule.description + (descriptionSuffix ? '  ' + descriptionSuffix : ''),
+      ruleId: rule.id,
+      severity: rule.severity,
+      title: rule.title,
+      description:
+        rule.description + (descriptionSuffix ? '  ' + descriptionSuffix : ''),
       recommendation: rule.recommendation,
       location,
     });
@@ -927,9 +949,11 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-018 / SM-019  WASM size checks (run before parse) ──────────────────
 
   if (wasmBuf.length > maxWasmSize) {
-    fire('SM-018', null,
+    fire(
+      'SM-018',
+      null,
       `Uploaded size: ${(wasmBuf.length / 1024 / 1024).toFixed(2)} MB, ` +
-      `limit: ${(maxWasmSize / 1024 / 1024).toFixed(2)} MB.`
+        `limit: ${(maxWasmSize / 1024 / 1024).toFixed(2)} MB.`
     );
     // When the file is too large we still run all other rules; however
     // if the scanner aborted due to parse errors the section data may be
@@ -945,7 +969,9 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-020  Large-file advisory (between 500 KB and maxWasmSize) ──────────
 
   if (wasmBuf.length > 500_000 && wasmBuf.length <= maxWasmSize) {
-    fire('SM-020', null,
+    fire(
+      'SM-020',
+      null,
       `File size: ${(wasmBuf.length / 1024).toFixed(1)} KB.`
     );
   }
@@ -953,7 +979,8 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-003  Malformed sections ─────────────────────────────────────────────
 
   if (sections.parseErrors.length > 0) {
-    fire('SM-003',
+    fire(
+      'SM-003',
       { section: 'multiple', detail: sections.parseErrors.join('; ') },
       `Parser errors: ${sections.parseErrors.join('; ')}`
     );
@@ -961,16 +988,21 @@ function runRules(wasmBuf, sections, maxWasmSize) {
 
   // ── SM-004 / SM-005 / SM-006  Import analysis ──────────────────────────────
 
-  const sorobanImports   = sections.imports.filter(i => i.module === SOROBAN_HOST_MODULE);
-  const suspiciousImports = sections.imports.filter(
-    i => SUSPICIOUS_IMPORT_MODULES.has(i.module.toLowerCase())
+  const sorobanImports = sections.imports.filter(
+    (i) => i.module === SOROBAN_HOST_MODULE
+  );
+  const suspiciousImports = sections.imports.filter((i) =>
+    SUSPICIOUS_IMPORT_MODULES.has(i.module.toLowerCase())
   );
   const unknownImports = sections.imports.filter(
-    i => !ALLOWED_IMPORT_MODULES.has(i.module) && !SUSPICIOUS_IMPORT_MODULES.has(i.module.toLowerCase())
+    (i) =>
+      !ALLOWED_IMPORT_MODULES.has(i.module) &&
+      !SUSPICIOUS_IMPORT_MODULES.has(i.module.toLowerCase())
   );
 
   if (sorobanImports.length === 0 && sections.imports.length > 0) {
-    fire('SM-004',
+    fire(
+      'SM-004',
       { section: 'import' },
       `Total imports: ${sections.imports.length}, none from module "_".`
     );
@@ -979,17 +1011,15 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   }
 
   if (suspiciousImports.length > 0) {
-    const names = [...new Set(suspiciousImports.map(i => `"${i.module}"`))]
+    const names = [...new Set(suspiciousImports.map((i) => `"${i.module}"`))]
       .slice(0, 5)
       .join(', ');
-    fire('SM-005',
-      { section: 'import' },
-      `Suspicious modules: ${names}.`
-    );
+    fire('SM-005', { section: 'import' }, `Suspicious modules: ${names}.`);
   }
 
   if (sorobanImports.length > 0 && sorobanImports.length < 3) {
-    fire('SM-006',
+    fire(
+      'SM-006',
       { section: 'import' },
       `Only ${sorobanImports.length} Soroban host function(s) imported.`
     );
@@ -997,22 +1027,23 @@ function runRules(wasmBuf, sections, maxWasmSize) {
 
   // ── SM-007 / SM-008  Export analysis ──────────────────────────────────────
 
-  const funcExports = sections.exports.filter(e => e.kind === 0);
+  const funcExports = sections.exports.filter((e) => e.kind === 0);
 
   if (funcExports.length === 0) {
-    fire('SM-007', { section: 'export' }, 'No function exports found in the export section.');
+    fire(
+      'SM-007',
+      { section: 'export' },
+      'No function exports found in the export section.'
+    );
   }
 
-  const exportNames = sections.exports.map(e => e.name);
-  const duplicates  = exportNames.filter(
+  const exportNames = sections.exports.map((e) => e.name);
+  const duplicates = exportNames.filter(
     (name, idx) => exportNames.indexOf(name) !== idx
   );
   if (duplicates.length > 0) {
     const shown = [...new Set(duplicates)].slice(0, 5).join(', ');
-    fire('SM-008',
-      { section: 'export' },
-      `Duplicate export names: ${shown}.`
-    );
+    fire('SM-008', { section: 'export' }, `Duplicate export names: ${shown}.`);
   }
 
   // ── SM-009 / SM-010  Memory analysis ──────────────────────────────────────
@@ -1021,16 +1052,18 @@ function runRules(wasmBuf, sections, maxWasmSize) {
     const mem = sections.memories[idx];
 
     if (!mem.hasMax && mem.min >= 2) {
-      fire('SM-009',
+      fire(
+        'SM-009',
         { section: 'memory', detail: `memory[${idx}]` },
         `Memory[${idx}]: min=${mem.min} pages (${mem.min * 64} KB), no maximum declared.`
       );
     }
 
     if (mem.min > 512) {
-      fire('SM-010',
+      fire(
+        'SM-010',
         { section: 'memory', detail: `memory[${idx}]` },
-        `Memory[${idx}]: min=${mem.min} pages (${(mem.min * 64 / 1024).toFixed(0)} MB initial).`
+        `Memory[${idx}]: min=${mem.min} pages (${((mem.min * 64) / 1024).toFixed(0)} MB initial).`
       );
     }
   }
@@ -1038,16 +1071,18 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-011  Start function (auto-execution) ────────────────────────────────
 
   if (sections.hasStartSection) {
-    fire('SM-011',
-      { section: 'start', detail: `function index ${sections.startFunctionIndex}` }
-    );
+    fire('SM-011', {
+      section: 'start',
+      detail: `function index ${sections.startFunctionIndex}`,
+    });
   }
 
   // ── SM-012  Mutable globals ────────────────────────────────────────────────
 
-  const mutableGlobals = sections.globals.filter(g => g.mutable);
+  const mutableGlobals = sections.globals.filter((g) => g.mutable);
   if (mutableGlobals.length > 20) {
-    fire('SM-012',
+    fire(
+      'SM-012',
       { section: 'global' },
       `${mutableGlobals.length} mutable globals declared (threshold: 20).`
     );
@@ -1067,7 +1102,8 @@ function runRules(wasmBuf, sections, maxWasmSize) {
 
     // SM-013  High entropy
     if (seg.entropy > 7.2 && seg.size > 256) {
-      fire('SM-013',
+      fire(
+        'SM-013',
         { section: 'data', detail: `segment[${idx}]` },
         `Segment[${idx}]: size=${seg.size}B, entropy=${seg.entropy.toFixed(3)} bits/byte.`
       );
@@ -1075,11 +1111,12 @@ function runRules(wasmBuf, sections, maxWasmSize) {
 
     // SM-014  Suspicious byte patterns
     if (seg.rawSample.length > 0) {
-      const nullCount = [...seg.rawSample].filter(b => b === 0x00).length;
+      const nullCount = [...seg.rawSample].filter((b) => b === 0x00).length;
       const nullRatio = nullCount / seg.rawSample.length;
 
       if (nullRatio > 0.5) {
-        fire('SM-014',
+        fire(
+          'SM-014',
           { section: 'data', detail: `segment[${idx}] null-byte flood` },
           `Segment[${idx}]: ${(nullRatio * 100).toFixed(0)}% null bytes in the first 64 bytes.`
         );
@@ -1087,8 +1124,12 @@ function runRules(wasmBuf, sections, maxWasmSize) {
         // Check for ASCII Stellar G-address patterns
         const sample = seg.rawSample.toString('ascii');
         if (stellarAddrBytes.test(sample)) {
-          fire('SM-014',
-            { section: 'data', detail: `segment[${idx}] embedded Stellar address` },
+          fire(
+            'SM-014',
+            {
+              section: 'data',
+              detail: `segment[${idx}] embedded Stellar address`,
+            },
             `Segment[${idx}]: possible hardcoded Stellar G-address detected in data.`
           );
         }
@@ -1098,7 +1139,8 @@ function runRules(wasmBuf, sections, maxWasmSize) {
 
   // SM-015  Total data section size
   if (totalDataSize > 512 * 1024) {
-    fire('SM-015',
+    fire(
+      'SM-015',
       { section: 'data' },
       `Total data segment size: ${(totalDataSize / 1024).toFixed(1)} KB (threshold: 512 KB).`
     );
@@ -1107,7 +1149,8 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-016  Excessive functions ────────────────────────────────────────────
 
   if (sections.functionCount > 2000) {
-    fire('SM-016',
+    fire(
+      'SM-016',
       { section: 'function' },
       `Function count: ${sections.functionCount} (threshold: 2000).`
     );
@@ -1116,7 +1159,8 @@ function runRules(wasmBuf, sections, maxWasmSize) {
   // ── SM-017  Oversized code section ────────────────────────────────────────
 
   if (sections.codeSection && sections.codeSection.size > 1_000_000) {
-    fire('SM-017',
+    fire(
+      'SM-017',
       { section: 'code', offset: sections.codeSection.offset },
       `Code section size: ${(sections.codeSection.size / 1024).toFixed(1)} KB (threshold: 1000 KB).`
     );
@@ -1158,7 +1202,7 @@ function runRules(wasmBuf, sections, maxWasmSize) {
  *   console.log(report.status, report.summary);
  */
 function scanWasm(wasmBuffer, opts = {}) {
-  const startTime   = Date.now();
+  const startTime = Date.now();
   const maxWasmSize = opts.maxWasmSize || DEFAULT_MAX_WASM_SIZE;
 
   // ── Compute the WASM hash (always, even on malformed input) ───────────────
@@ -1171,7 +1215,8 @@ function scanWasm(wasmBuffer, opts = {}) {
   let structuralFindings = [];
 
   const tooShort = wasmBuffer.length < 8;
-  const badMagic = tooShort ||
+  const badMagic =
+    tooShort ||
     wasmBuffer[0] !== WASM_MAGIC[0] ||
     wasmBuffer[1] !== WASM_MAGIC[1] ||
     wasmBuffer[2] !== WASM_MAGIC[2] ||
@@ -1179,38 +1224,50 @@ function scanWasm(wasmBuffer, opts = {}) {
 
   if (badMagic) {
     structuralFindings.push({
-      ruleId:         RULES['SM-001'].id,
-      severity:       RULES['SM-001'].severity,
-      title:          RULES['SM-001'].title,
-      description:    RULES['SM-001'].description +
+      ruleId: RULES['SM-001'].id,
+      severity: RULES['SM-001'].severity,
+      title: RULES['SM-001'].title,
+      description:
+        RULES['SM-001'].description +
         (tooShort
           ? `  Buffer is only ${wasmBuffer.length} byte(s) long.`
           : `  Got bytes: 0x${wasmBuffer.slice(0, 4).toString('hex')}.`),
       recommendation: RULES['SM-001'].recommendation,
-      location:       { section: 'header', offset: 0 },
+      location: { section: 'header', offset: 0 },
     });
 
     // Cannot parse sections — return immediately with an error status
     return buildReport(
-      wasmHash, wasmSize, structuralFindings, TOTAL_RULES,
-      {}, Date.now() - startTime, true /* forceError */
+      wasmHash,
+      wasmSize,
+      structuralFindings,
+      TOTAL_RULES,
+      {},
+      Date.now() - startTime,
+      true /* forceError */
     );
   }
 
   const version = wasmBuffer.readUInt32LE(4);
   if (version !== WASM_VERSION) {
     structuralFindings.push({
-      ruleId:         RULES['SM-002'].id,
-      severity:       RULES['SM-002'].severity,
-      title:          RULES['SM-002'].title,
-      description:    RULES['SM-002'].description + `  Declared version: ${version}.`,
+      ruleId: RULES['SM-002'].id,
+      severity: RULES['SM-002'].severity,
+      title: RULES['SM-002'].title,
+      description:
+        RULES['SM-002'].description + `  Declared version: ${version}.`,
       recommendation: RULES['SM-002'].recommendation,
-      location:       { section: 'header', offset: 4 },
+      location: { section: 'header', offset: 4 },
     });
 
     return buildReport(
-      wasmHash, wasmSize, structuralFindings, TOTAL_RULES,
-      {}, Date.now() - startTime, true /* forceError */
+      wasmHash,
+      wasmSize,
+      structuralFindings,
+      TOTAL_RULES,
+      {},
+      Date.now() - startTime,
+      true /* forceError */
     );
   }
 
@@ -1220,18 +1277,26 @@ function scanWasm(wasmBuffer, opts = {}) {
     sections = parseWasmSections(wasmBuffer);
   } catch (err) {
     // Catastrophic parse failure — treat as malformed
-    const findings = [{
-      ruleId:         RULES['SM-003'].id,
-      severity:       RULES['SM-003'].severity,
-      title:          RULES['SM-003'].title,
-      description:    RULES['SM-003'].description + `  Parser threw: ${err.message}`,
-      recommendation: RULES['SM-003'].recommendation,
-      location:       null,
-    }];
+    const findings = [
+      {
+        ruleId: RULES['SM-003'].id,
+        severity: RULES['SM-003'].severity,
+        title: RULES['SM-003'].title,
+        description:
+          RULES['SM-003'].description + `  Parser threw: ${err.message}`,
+        recommendation: RULES['SM-003'].recommendation,
+        location: null,
+      },
+    ];
 
     return buildReport(
-      wasmHash, wasmSize, findings, TOTAL_RULES,
-      {}, Date.now() - startTime, true /* forceError */
+      wasmHash,
+      wasmSize,
+      findings,
+      TOTAL_RULES,
+      {},
+      Date.now() - startTime,
+      true /* forceError */
     );
   }
 
@@ -1239,8 +1304,13 @@ function scanWasm(wasmBuffer, opts = {}) {
   const findings = runRules(wasmBuffer, sections, maxWasmSize);
 
   return buildReport(
-    wasmHash, wasmSize, findings, TOTAL_RULES,
-    sections, Date.now() - startTime, false
+    wasmHash,
+    wasmSize,
+    findings,
+    TOTAL_RULES,
+    sections,
+    Date.now() - startTime,
+    false
   );
 }
 
@@ -1259,18 +1329,29 @@ function scanWasm(wasmBuffer, opts = {}) {
  * @param {boolean}        forceError  — true when the WASM could not be parsed
  * @returns {ScanReport}
  */
-function buildReport(wasmHash, wasmSize, findings, totalChecks, parsedSections, duration, forceError) {
+function buildReport(
+  wasmHash,
+  wasmSize,
+  findings,
+  totalChecks,
+  parsedSections,
+  duration,
+  forceError
+) {
   // Sort by severity: critical → high → medium → low → info
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-  findings.sort((a, b) => (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5));
+  findings.sort(
+    (a, b) =>
+      (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5)
+  );
 
   // Build summary
   const summary = {
     critical: 0,
-    high:     0,
-    medium:   0,
-    low:      0,
-    info:     0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
     passedChecks: 0,
     totalChecks,
   };
@@ -1293,7 +1374,8 @@ function buildReport(wasmHash, wasmSize, findings, totalChecks, parsedSections, 
     status = SCAN_STATUS.CLEAN;
   }
 
-  const deploymentBlocked = status === SCAN_STATUS.FAILED || status === SCAN_STATUS.ERROR;
+  const deploymentBlocked =
+    status === SCAN_STATUS.FAILED || status === SCAN_STATUS.ERROR;
 
   return {
     wasmHash,
@@ -1302,7 +1384,7 @@ function buildReport(wasmHash, wasmSize, findings, totalChecks, parsedSections, 
     findings,
     summary,
     deploymentBlocked,
-    scannerVersion:  SCANNER_VERSION,
+    scannerVersion: SCANNER_VERSION,
     parsedSections,
     duration,
   };

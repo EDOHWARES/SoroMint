@@ -30,14 +30,17 @@ const {
   _internals,
 } = require('../../services/wasm-scanner');
 
-const { BufferReader, parseWasmSections, shannonEntropy, runRules } = _internals;
+const { BufferReader, parseWasmSections, shannonEntropy, runRules } =
+  _internals;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binary construction helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** WASM magic + version 1 header (8 bytes). */
-const WASM_HEADER = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+const WASM_HEADER = Buffer.from([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+]);
 
 /**
  * Encode an unsigned integer as LEB128 bytes.
@@ -160,7 +163,14 @@ function startSection() {
 function dataSection(data) {
   const dataBytes = Buffer.isBuffer(data) ? [...data] : data;
   // Active segment in memory 0: flags=0, offset=i32.const 0 + end, then bytes
-  const segment = [0x00, 0x41, 0x00, 0x0b, ...leb128U(dataBytes.length), ...dataBytes];
+  const segment = [
+    0x00,
+    0x41,
+    0x00,
+    0x0b,
+    ...leb128U(dataBytes.length),
+    ...dataBytes,
+  ];
   return section(11, [...leb128U(1), ...segment]);
 }
 
@@ -170,7 +180,9 @@ function dataSection(data) {
  * @returns {number[]}
  */
 function functionSection(count) {
-  const typeIndices = Array(count).fill(0).flatMap(() => leb128U(0));
+  const typeIndices = Array(count)
+    .fill(0)
+    .flatMap(() => leb128U(0));
   return section(3, [...leb128U(count), ...typeIndices]);
 }
 
@@ -196,7 +208,7 @@ function buildCleanSorobanWasm(overrides = {}) {
     importSection(...sorobanImports),
     functionSection(1),
     memorySection(memMin, memMax),
-    exportSection(exportName),
+    exportSection(exportName)
   );
 }
 
@@ -207,8 +219,8 @@ function buildCleanSorobanWasm(overrides = {}) {
 describe('BufferReader', () => {
   describe('readByte()', () => {
     it('reads a single byte and advances position', () => {
-      const r = new BufferReader(Buffer.from([0xAB]));
-      expect(r.readByte()).toBe(0xAB);
+      const r = new BufferReader(Buffer.from([0xab]));
+      expect(r.readByte()).toBe(0xab);
       expect(r.pos).toBe(1);
       expect(r.done).toBe(true);
     });
@@ -222,9 +234,9 @@ describe('BufferReader', () => {
   describe('readUint32LE()', () => {
     it('reads 4 bytes little-endian', () => {
       const buf = Buffer.alloc(4);
-      buf.writeUInt32LE(0xDEADBEEF, 0);
+      buf.writeUInt32LE(0xdeadbeef, 0);
       const r = new BufferReader(buf);
-      expect(r.readUint32LE()).toBe(0xDEADBEEF);
+      expect(r.readUint32LE()).toBe(0xdeadbeef);
       expect(r.pos).toBe(4);
     });
 
@@ -243,7 +255,7 @@ describe('BufferReader', () => {
     });
 
     it('decodes multi-byte values', () => {
-      const cases = [128, 256, 16383, 16384, 65535, 1_000_000, 0xFFFFFFFF];
+      const cases = [128, 256, 16383, 16384, 65535, 1_000_000, 0xffffffff];
       for (const val of cases) {
         const r = new BufferReader(Buffer.from(leb128U(val)));
         expect(r.readLEB128U()).toBe(val >>> 0);
@@ -283,7 +295,7 @@ describe('BufferReader', () => {
 
   describe('readByteVec()', () => {
     it('reads a length-prefixed byte vector', () => {
-      const data = [0xDE, 0xAD, 0xBE, 0xEF];
+      const data = [0xde, 0xad, 0xbe, 0xef];
       const buf = Buffer.from([...leb128U(data.length), ...data]);
       const r = new BufferReader(buf);
       const result = r.readByteVec();
@@ -319,12 +331,16 @@ describe('BufferReader', () => {
 
     it('throws when position is negative', () => {
       const r = new BufferReader(Buffer.alloc(10));
-      expect(() => { r.pos = -1; }).toThrow(/attempted to set pos/i);
+      expect(() => {
+        r.pos = -1;
+      }).toThrow(/attempted to set pos/i);
     });
 
     it('throws when position exceeds buffer length', () => {
       const r = new BufferReader(Buffer.alloc(10));
-      expect(() => { r.pos = 11; }).toThrow(/attempted to set pos/i);
+      expect(() => {
+        r.pos = 11;
+      }).toThrow(/attempted to set pos/i);
     });
   });
 
@@ -350,20 +366,22 @@ describe('BufferReader', () => {
   describe('skipInitExpr()', () => {
     it('skips i32.const + end', () => {
       // i32.const 42 = 0x41 0x2a, end = 0x0b
-      const r = new BufferReader(Buffer.from([0x41, 0x2a, 0x0b, 0xFF]));
+      const r = new BufferReader(Buffer.from([0x41, 0x2a, 0x0b, 0xff]));
       r.skipInitExpr();
       expect(r.pos).toBe(3); // consumed i32.const (2 bytes) + end (1 byte)
     });
 
     it('skips f32.const + end', () => {
       // f32.const = 0x43, 4 bytes float, end = 0x0b
-      const r = new BufferReader(Buffer.from([0x43, 0x00, 0x00, 0x00, 0x3f, 0x0b]));
+      const r = new BufferReader(
+        Buffer.from([0x43, 0x00, 0x00, 0x00, 0x3f, 0x0b])
+      );
       r.skipInitExpr();
       expect(r.pos).toBe(6);
     });
 
     it('terminates immediately on end opcode', () => {
-      const r = new BufferReader(Buffer.from([0x0b, 0xFF, 0xFF]));
+      const r = new BufferReader(Buffer.from([0x0b, 0xff, 0xff]));
       r.skipInitExpr();
       expect(r.pos).toBe(1);
     });
@@ -382,7 +400,9 @@ describe('shannonEntropy()', () => {
 
   it('returns exactly 1.0 for a 2-symbol equally-probable distribution', () => {
     // Alternating 0x00 and 0xFF → p(0)=0.5, p(1)=0.5 → H=1
-    const buf = Buffer.from(Array.from({ length: 256 }, (_, i) => i % 2 === 0 ? 0x00 : 0xFF));
+    const buf = Buffer.from(
+      Array.from({ length: 256 }, (_, i) => (i % 2 === 0 ? 0x00 : 0xff))
+    );
     expect(shannonEntropy(buf)).toBeCloseTo(1.0, 5);
   });
 
@@ -431,7 +451,7 @@ describe('parseWasmSections()', () => {
       importSection(
         importEntry('_', 'fn0', 0, [0x00]),
         importEntry('_', 'fn1', 0, [0x01]),
-        importEntry('__', 'alloc', 0, [0x00]),
+        importEntry('__', 'alloc', 0, [0x00])
       )
     );
     const result = parseWasmSections(wasm);
@@ -458,7 +478,7 @@ describe('parseWasmSections()', () => {
     const wasm = buildWasm(
       importSection(importEntry('_', 'fn0', 0, [0x00])),
       functionSection(1),
-      exportSection('__invoke', 0, 0),
+      exportSection('__invoke', 0, 0)
     );
     const result = parseWasmSections(wasm);
     expect(result.exports.length).toBe(1);
@@ -469,7 +489,7 @@ describe('parseWasmSections()', () => {
     const wasm = buildWasm(
       importSection(importEntry('_', 'fn0', 0, [0x00])),
       functionSection(1),
-      startSection(),
+      startSection()
     );
     const result = parseWasmSections(wasm);
     expect(result.hasStartSection).toBe(true);
@@ -501,7 +521,7 @@ describe('parseWasmSections()', () => {
 
   it('parses data segment entropy and raw sample', () => {
     // Build a data segment with known content: all 0xAA
-    const data = Buffer.alloc(128, 0xAA);
+    const data = Buffer.alloc(128, 0xaa);
     const wasm = buildWasm(dataSection(data));
     const result = parseWasmSections(wasm);
     expect(result.dataSegments.length).toBe(1);
@@ -515,9 +535,12 @@ describe('parseWasmSections()', () => {
     // Create a section header claiming 1000 bytes but provide only 10 content bytes
     const truncated = Buffer.from([
       ...WASM_HEADER,
-      0x02,                       // section id = import
-      ...leb128U(1000),            // claims 1000 bytes
-      0x01, 0x5f, 0x01, 0x61,     // '_', 'a'...  (only 4 bytes of content)
+      0x02, // section id = import
+      ...leb128U(1000), // claims 1000 bytes
+      0x01,
+      0x5f,
+      0x01,
+      0x61, // '_', 'a'...  (only 4 bytes of content)
     ]);
     const result = parseWasmSections(truncated);
     expect(result.parseErrors.length).toBeGreaterThan(0);
@@ -532,7 +555,9 @@ describe('Security Rules', () => {
   // ── SM-001 ──────────────────────────────────────────────────────────────────
   describe('SM-001: Invalid WASM magic number', () => {
     it('fires when buffer has wrong magic bytes', () => {
-      const badMagic = Buffer.from([0x00, 0x61, 0x73, 0x00, 0x01, 0x00, 0x00, 0x00]);
+      const badMagic = Buffer.from([
+        0x00, 0x61, 0x73, 0x00, 0x01, 0x00, 0x00, 0x00,
+      ]);
       const report = scanWasm(badMagic);
       expect(report.status).toBe(SCAN_STATUS.ERROR);
       expect(report.findings.some((f) => f.ruleId === 'SM-001')).toBe(true);
@@ -559,7 +584,9 @@ describe('Security Rules', () => {
   // ── SM-002 ──────────────────────────────────────────────────────────────────
   describe('SM-002: Unsupported WASM version', () => {
     it('fires when version field is not 1', () => {
-      const badVersion = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x02, 0x00, 0x00, 0x00]);
+      const badVersion = Buffer.from([
+        0x00, 0x61, 0x73, 0x6d, 0x02, 0x00, 0x00, 0x00,
+      ]);
       const report = scanWasm(badVersion);
       expect(report.status).toBe(SCAN_STATUS.ERROR);
       expect(report.findings.some((f) => f.ruleId === 'SM-002')).toBe(true);
@@ -580,7 +607,8 @@ describe('Security Rules', () => {
         ...WASM_HEADER,
         0x02,
         ...leb128U(10000),
-        0x01, 0x02,
+        0x01,
+        0x02,
       ]);
       const report = scanWasm(malformed);
       expect(report.findings.some((f) => f.ruleId === 'SM-003')).toBe(true);
@@ -598,7 +626,7 @@ describe('Security Rules', () => {
       const wasm = buildWasm(
         functionSection(1),
         memorySection(1, 16),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-004')).toBe(true);
@@ -608,7 +636,7 @@ describe('Security Rules', () => {
       const wasm = buildWasm(
         importSection(importEntry('env', 'memory', 2, [0x00, 0x01])),
         functionSection(1),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-004')).toBe(true);
@@ -637,10 +665,10 @@ describe('Security Rules', () => {
             importEntry('_', 'fn0', 0, [0x00]),
             importEntry('_', 'fn1', 0, [0x00]),
             importEntry('_', 'fn2', 0, [0x00]),
-            importEntry(mod, 'proc_exit', 0, [0x00]),
+            importEntry(mod, 'proc_exit', 0, [0x00])
           ),
           functionSection(1),
-          exportSection('__invoke'),
+          exportSection('__invoke')
         );
         const report = scanWasm(wasm);
         expect(report.findings.some((f) => f.ruleId === 'SM-005')).toBe(true);
@@ -659,7 +687,7 @@ describe('Security Rules', () => {
       const wasm = buildWasm(
         importSection(importEntry('_', 'fn0', 0, [0x00])),
         functionSection(1),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-006')).toBe(true);
@@ -669,10 +697,10 @@ describe('Security Rules', () => {
       const wasm = buildWasm(
         importSection(
           importEntry('_', 'fn0', 0, [0x00]),
-          importEntry('_', 'fn1', 0, [0x00]),
+          importEntry('_', 'fn1', 0, [0x00])
         ),
         functionSection(1),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-006')).toBe(true);
@@ -697,10 +725,12 @@ describe('Security Rules', () => {
     it('fires when there are no function exports', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         functionSection(1),
-        memorySection(1, 16),
+        memorySection(1, 16)
         // no export section
       );
       const report = scanWasm(wasm);
@@ -710,11 +740,13 @@ describe('Security Rules', () => {
     it('fires when only memory exports exist (kind=2, not function)', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(1, 16),
         // memory export only: kind=2
-        section(7, [...leb128U(1), ...wasmStr('memory'), 0x02, ...leb128U(0)]),
+        section(7, [...leb128U(1), ...wasmStr('memory'), 0x02, ...leb128U(0)])
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-007')).toBe(true);
@@ -730,15 +762,21 @@ describe('Security Rules', () => {
   describe('SM-008: Duplicate export names', () => {
     it('fires when two exports share the same name', () => {
       const dupExport = [
-        ...wasmStr('invoke'), 0x00, ...leb128U(0),
-        ...wasmStr('invoke'), 0x00, ...leb128U(1),
+        ...wasmStr('invoke'),
+        0x00,
+        ...leb128U(0),
+        ...wasmStr('invoke'),
+        0x00,
+        ...leb128U(1),
       ];
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         functionSection(2),
-        section(7, [...leb128U(2), ...dupExport]),
+        section(7, [...leb128U(2), ...dupExport])
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-008')).toBe(true);
@@ -755,10 +793,12 @@ describe('Security Rules', () => {
     it('fires when memory min >= 2 and has no max', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(2, null), // min=2, no max
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-009')).toBe(true);
@@ -767,10 +807,12 @@ describe('Security Rules', () => {
     it('does NOT fire when memory has an explicit max', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(2, 32),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-009')).toBe(false);
@@ -779,10 +821,12 @@ describe('Security Rules', () => {
     it('does NOT fire when memory min is 1 and has no max (below threshold)', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(1, null),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-009')).toBe(false);
@@ -794,10 +838,12 @@ describe('Security Rules', () => {
     it('fires when memory min exceeds 512 pages', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(513, 1024),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-010')).toBe(true);
@@ -806,10 +852,12 @@ describe('Security Rules', () => {
     it('does NOT fire when memory min is exactly 512 pages', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         memorySection(512, 1024),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-010')).toBe(false);
@@ -821,12 +869,14 @@ describe('Security Rules', () => {
     it('fires when a start section is present', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         functionSection(2),
         memorySection(1, 16),
         exportSection('__invoke'),
-        startSection(),
+        startSection()
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-011')).toBe(true);
@@ -845,10 +895,12 @@ describe('Security Rules', () => {
     it('fires when more than 20 mutable globals are declared', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         globalSection(21),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-012')).toBe(true);
@@ -857,10 +909,12 @@ describe('Security Rules', () => {
     it('does NOT fire with exactly 20 mutable globals', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         globalSection(20),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-012')).toBe(false);
@@ -876,23 +930,29 @@ describe('Security Rules', () => {
       );
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(highEntropyData),
+        dataSection(highEntropyData)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-013')).toBe(true);
     });
 
     it('does NOT fire for a small high-entropy segment (<= 256 bytes)', () => {
-      const smallHighEntropy = Buffer.from(Array.from({ length: 128 }, (_, i) => i));
+      const smallHighEntropy = Buffer.from(
+        Array.from({ length: 128 }, (_, i) => i)
+      );
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(smallHighEntropy),
+        dataSection(smallHighEntropy)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-013')).toBe(false);
@@ -902,10 +962,12 @@ describe('Security Rules', () => {
       const lowEntropyData = Buffer.alloc(1024, 0x41); // all 'A'
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(lowEntropyData),
+        dataSection(lowEntropyData)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-013')).toBe(false);
@@ -919,10 +981,12 @@ describe('Security Rules', () => {
       const nullFlood = Buffer.alloc(64, 0x00);
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(nullFlood),
+        dataSection(nullFlood)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-014')).toBe(true);
@@ -930,15 +994,18 @@ describe('Security Rules', () => {
 
     it('fires when data contains an ASCII-encoded Stellar G-address prefix', () => {
       // Embed a G-address-like ASCII string in the data
-      const stellarAddr = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+      const stellarAddr =
+        'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
       const data = Buffer.from(stellarAddr, 'ascii');
       const padded = Buffer.concat([data, Buffer.alloc(200, 0x41)]);
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(padded),
+        dataSection(padded)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-014')).toBe(true);
@@ -949,10 +1016,12 @@ describe('Security Rules', () => {
       const normal = Buffer.from('Hello, Soroban!'.repeat(10), 'ascii');
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(normal),
+        dataSection(normal)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-014')).toBe(false);
@@ -965,10 +1034,12 @@ describe('Security Rules', () => {
       const bigData = Buffer.alloc(520 * 1024, 0x41); // 520 KB
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(bigData),
+        dataSection(bigData)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-015')).toBe(true);
@@ -978,10 +1049,12 @@ describe('Security Rules', () => {
       const borderData = Buffer.alloc(512 * 1024, 0x41);
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(borderData),
+        dataSection(borderData)
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-015')).toBe(false);
@@ -993,10 +1066,12 @@ describe('Security Rules', () => {
     it('fires when function section declares > 2000 functions', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         functionSection(2001),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-016')).toBe(true);
@@ -1005,10 +1080,12 @@ describe('Security Rules', () => {
     it('does NOT fire with exactly 2000 functions', () => {
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         functionSection(2000),
-        exportSection('__invoke'),
+        exportSection('__invoke')
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-016')).toBe(false);
@@ -1024,10 +1101,12 @@ describe('Security Rules', () => {
       const codeSec = section(10, [...bigCode]);
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        codeSec,
+        codeSec
       );
       const report = scanWasm(wasm);
       expect(report.findings.some((f) => f.ruleId === 'SM-017')).toBe(true);
@@ -1050,7 +1129,9 @@ describe('Security Rules', () => {
     });
 
     it('does NOT fire when the buffer is within the limit', () => {
-      const report = scanWasm(buildCleanSorobanWasm(), { maxWasmSize: 5 * 1024 * 1024 });
+      const report = scanWasm(buildCleanSorobanWasm(), {
+        maxWasmSize: 5 * 1024 * 1024,
+      });
       expect(report.findings.some((f) => f.ruleId === 'SM-018')).toBe(false);
     });
   });
@@ -1075,10 +1156,12 @@ describe('Security Rules', () => {
       const bigData = Buffer.alloc(600 * 1024, 0x41);
       const wasm = buildWasm(
         importSection(
-          ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+          ...Array.from({ length: 5 }, (_, i) =>
+            importEntry('_', `fn${i}`, 0, [0x00])
+          )
         ),
         exportSection('__invoke'),
-        dataSection(bigData),
+        dataSection(bigData)
       );
       const report = scanWasm(wasm, { maxWasmSize: 5 * 1024 * 1024 });
       expect(report.findings.some((f) => f.ruleId === 'SM-020')).toBe(true);
@@ -1139,12 +1222,14 @@ describe('scanWasm() — report structure and status derivation', () => {
     // SM-011 (start section) is HIGH severity → should fail
     const wasm = buildWasm(
       importSection(
-        ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+        ...Array.from({ length: 5 }, (_, i) =>
+          importEntry('_', `fn${i}`, 0, [0x00])
+        )
       ),
       functionSection(2),
       memorySection(1, 16),
       exportSection('__invoke'),
-      startSection(),
+      startSection()
     );
     const report = scanWasm(wasm);
     expect(report.status).toBe(SCAN_STATUS.FAILED);
@@ -1155,11 +1240,13 @@ describe('scanWasm() — report structure and status derivation', () => {
     // SM-012 (excessive mutable globals) is MEDIUM severity
     const wasm = buildWasm(
       importSection(
-        ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+        ...Array.from({ length: 5 }, (_, i) =>
+          importEntry('_', `fn${i}`, 0, [0x00])
+        )
       ),
       globalSection(25), // fires SM-012 (medium)
       memorySection(1, 16),
-      exportSection('__invoke'),
+      exportSection('__invoke')
     );
     const report = scanWasm(wasm);
     // SM-012 is medium; no critical/high findings
@@ -1176,13 +1263,19 @@ describe('scanWasm() — report structure and status derivation', () => {
       memorySection(1, 16),
       startSection(), // HIGH
       globalSection(25), // MEDIUM
-      exportSection('__invoke'),
+      exportSection('__invoke')
     );
     const report = scanWasm(wasm);
 
-    const actualHigh     = report.findings.filter((f) => f.severity === 'high').length;
-    const actualMedium   = report.findings.filter((f) => f.severity === 'medium').length;
-    const actualCritical = report.findings.filter((f) => f.severity === 'critical').length;
+    const actualHigh = report.findings.filter(
+      (f) => f.severity === 'high'
+    ).length;
+    const actualMedium = report.findings.filter(
+      (f) => f.severity === 'medium'
+    ).length;
+    const actualCritical = report.findings.filter(
+      (f) => f.severity === 'critical'
+    ).length;
 
     expect(report.summary.high).toBe(actualHigh);
     expect(report.summary.medium).toBe(actualMedium);
@@ -1206,9 +1299,9 @@ describe('scanWasm() — report structure and status derivation', () => {
       importSection(importEntry('_', 'fn0', 0, [0x00])),
       functionSection(1),
       memorySection(513, 1024), // MEDIUM
-      startSection(),            // HIGH
-      globalSection(25),         // MEDIUM
-      exportSection('__invoke'),
+      startSection(), // HIGH
+      globalSection(25), // MEDIUM
+      exportSection('__invoke')
     );
     const report = scanWasm(wasm);
 
@@ -1266,7 +1359,13 @@ describe('RULES registry', () => {
   });
 
   it('every rule has id, severity, title, description, recommendation', () => {
-    const validSeverities = new Set(['critical', 'high', 'medium', 'low', 'info']);
+    const validSeverities = new Set([
+      'critical',
+      'high',
+      'medium',
+      'low',
+      'info',
+    ]);
     for (const [id, rule] of Object.entries(RULES)) {
       expect(rule).toHaveProperty('id', id);
       expect(typeof rule.title).toBe('string');
@@ -1280,7 +1379,9 @@ describe('RULES registry', () => {
   });
 
   it('at least one rule has critical severity', () => {
-    const criticalRules = Object.values(RULES).filter((r) => r.severity === 'critical');
+    const criticalRules = Object.values(RULES).filter(
+      (r) => r.severity === 'critical'
+    );
     expect(criticalRules.length).toBeGreaterThan(0);
   });
 
@@ -1312,7 +1413,10 @@ describe('RULES registry', () => {
 
 describe('Edge cases', () => {
   it('handles a WASM with only a custom section gracefully', () => {
-    const customContent = [...wasmStr('producers'), ...Buffer.from('soroban-sdk v22')];
+    const customContent = [
+      ...wasmStr('producers'),
+      ...Buffer.from('soroban-sdk v22'),
+    ];
     const wasm = buildWasm(section(0, customContent));
     expect(() => scanWasm(wasm)).not.toThrow();
   });
@@ -1324,18 +1428,28 @@ describe('Edge cases', () => {
 
     // Build two active data segments
     const twoSegs = [
-      0x02,                               // count = 2
-      0x00, 0x41, 0x00, 0x0b,             // seg 1: flags=0, i32.const 0, end
-      ...leb128U(seg1.length), ...seg1,
-      0x00, 0x41, 0x00, 0x0b,             // seg 2: flags=0, i32.const 0, end
-      ...leb128U(seg2.length), ...seg2,
+      0x02, // count = 2
+      0x00,
+      0x41,
+      0x00,
+      0x0b, // seg 1: flags=0, i32.const 0, end
+      ...leb128U(seg1.length),
+      ...seg1,
+      0x00,
+      0x41,
+      0x00,
+      0x0b, // seg 2: flags=0, i32.const 0, end
+      ...leb128U(seg2.length),
+      ...seg2,
     ];
     const wasm = buildWasm(
       importSection(
-        ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`, 0, [0x00]))
+        ...Array.from({ length: 5 }, (_, i) =>
+          importEntry('_', `fn${i}`, 0, [0x00])
+        )
       ),
       exportSection('__invoke'),
-      section(11, twoSegs),
+      section(11, twoSegs)
     );
     const report = scanWasm(wasm);
     expect(report.findings.some((f) => f.ruleId === 'SM-015')).toBe(true);
