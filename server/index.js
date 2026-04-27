@@ -11,6 +11,7 @@ initEnv();
 
 const { scheduleBackups } = require('./services/backup-service');
 const { getCacheService } = require('./services/cache-service');
+const { startReconciliationWorker } = require('./services/reconciliation-service');
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -46,8 +47,11 @@ const batchRoutes = require('./routes/batch-routes');
 const referralRoutes = require('./routes/referral-routes');
 const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
+const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
+const keyVaultRoutes = require('./routes/key-vault-routes');
+const reconciliationRoutes = require('./routes/reconciliation-routes');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -91,8 +95,11 @@ const createApp = ({
   app.use('/api/referrals', referralRoutes);
   app.use('/api', dividendRoutes);
   app.use('/api/streaming', streamingRoutes);
+  app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
   app.use('/api/fraud-detection', fraudDetectionRoutes);
+  app.use('/api/key-vault', keyVaultRoutes);
+  app.use('/api/reconciliation', reconciliationRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
@@ -140,11 +147,8 @@ const startServer = async () => {
   const server = app.listen(env.PORT, () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
     sampler.start();
-    console.log(`Server running on http://localhost:${env.PORT}`);
-    console.log(
-      `API Documentation available at http://localhost:${env.PORT}/api-docs`
-    );
     scheduleBackups();
+    startReconciliationWorker();
   });
 
   initSocket(server);

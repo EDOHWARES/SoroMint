@@ -1,22 +1,11 @@
 [package]
 name = "soromint-vault"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
-
-[dependencies]
-soroban-sdk = "20.0.0"
-
-[dev-dependencies]
-soroban-sdk = { version = "20.0.0", features = ["testutils"] }
-version = "1.0.0"
-edition = "2021"
-
-[lib]
-crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = "22.0.0"

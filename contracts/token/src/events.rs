@@ -180,3 +180,8 @@ pub fn emit_supply_snapshot_taken(e: &Env, ledger: u32, supply: i128) {
     let topics = (symbol_short!("sup_snap"),);
     e.events().publish(topics, (ledger, supply));
 }
+
+pub fn emit_upgraded(e: &Env, new_wasm_hash: soroban_sdk::BytesN<32>) {
+    let topics = (symbol_short!("upgraded"),);
+    e.events().publish(topics, new_wasm_hash);
+}
