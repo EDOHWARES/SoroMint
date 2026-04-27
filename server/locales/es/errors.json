@@ -1,0 +1,200 @@
+{
+  "errors": {
+    "common": {
+      "unexpected": "Ocurrió un error inesperado",
+      "invalidRequest": "Solicitud inválida",
+      "notFound": "Recurso no encontrado",
+      "forbidden": "Acceso denegado",
+      "unauthorized": "Se requiere autenticación",
+      "validationFailed": "Falló la validación",
+      "duplicate": "Entrada duplicada",
+      "invalidId": "ID inválido",
+      "syntaxError": "Cuerpo de solicitud inválido",
+      "routeNotFound": "Ruta no encontrada",
+      "internalError": "Error interno del servidor"
+    },
+    "auth": {
+      "required": "Se requiere autenticación. Por favor proporcione un token JWT válido.",
+      "userNotFound": "Usuario no encontrado. El token puede ser inválido.",
+      "accountInactive": "La cuenta está {status}. Por favor contacte al soporte.",
+      "tokenExpired": "El token ha expirado. Por favor inicie sesión nuevamente.",
+      "invalidToken": "Formato de token inválido.",
+      "tokenNotYetValid": "El token aún no es válido.",
+      "authFailed": "Falló la autenticación.",
+      "invalidPublicKey": "Formato de clave pública Stellar inválido. Debe ser una dirección G válida (clave pública Ed25519)",
+      "publicKeyRequired": "Se requiere clave pública",
+      "userExists": "Ya existe un usuario con esta clave pública",
+      "usernameLength": "El nombre de usuario debe tener entre 3 y 50 caracteres",
+      "userNotFoundRegister": "Usuario no encontrado. Por favor regístrese primero.",
+      "signatureMismatch": "Discrepancia de clave pública entre el cuerpo de la solicitud y el desafío firmado.",
+      "challengeRequired": "challengeToken es requerido. Primero llame a GET /api/auth/challenge?publicKey=<su-clave>",
+      "signedXdrRequired": "signedXDR es requerido. Firme la transacción de desafío con su billetera Stellar.",
+      "authFailedDetailed": "Falló la autenticación: {error}",
+      "keyAlreadyLinked": "Esta clave pública Stellar ya está vinculada a otra cuenta",
+      "validPublicKeyRequired": "Se requiere una clave pública Stellar válida"
+    },
+    "token": {
+      "securityScanRequired": "Se requiere escaneo de seguridad antes del despliegue. Por favor complete un escaneo de seguridad primero.",
+      "scanNotFound": "Resultado de escaneo de seguridad no encontrado: {scanId}. Por favor complete un escaneo de seguridad primero.",
+      "scanNotOwned": "El scanId proporcionado no pertenece a su cuenta.",
+      "deploymentBlocked": "Despliegue bloqueado: el escaneo de seguridad ({scanId}) encontró vulnerabilidades.",
+      "tokenNotFound": "Token no encontrado",
+      "zipOnly": "Solo se permiten archivos ZIP",
+      "zipRequired": "Se requiere un archivo ZIP",
+      "fieldsRequired": "name, symbol, contractId y sourcePublicKey son requeridos",
+      "contractAlreadyRegistered": "El ID de contrato ya está registrado por un diferente propietario",
+      "zipProcessingFailed": "Falló el procesamiento del ZIP: {error}",
+      "blockchainFailed": "Falló la transacción en la cadena: {error}"
+    },
+    "apiKey": {
+      "required": "Se requiere clave API. Proporciónela vía el encabezado X-API-Key.",
+      "invalid": "Clave API inválida.",
+      "revoked": "La clave API está revocada.",
+      "expired": "La clave API ha expirado.",
+      "missingScopes": "La clave API le faltan los siguientes alcances: {scopes}",
+      "notFound": "Clave API no encontrada"
+    },
+    "rateLimit": {
+      "exceeded": "Demasiadas solicitudes. Por favor intente más tarde."
+    },
+    "validation": {
+      "invalidDate": "Fecha inválida",
+      "invalidTimestamp": "Marca de tiempo desde/hasta inválida",
+      "invalidParameter": "Parámetro inválido: {param}",
+      "contractIdRequired": "El parámetro de consulta contractId es requerido",
+      "holderBalanceRequired": "Los parámetros de consulta contractId y holderBalance son requeridos",
+      "invalidAddress": "holderAddress debe ser una dirección Stellar válida de 56 caracteres",
+      "dividendParamsRequired": "contractId, depositorAddress, amountStroops y totalSupply son requeridos",
+      "positiveAmount": "amountStroops debe ser un entero positivo",
+      "positiveTotal": "totalSupply debe ser un entero positivo",
+      "opsRange": "ops debe ser un entero entre 1 y 100",
+      "transactionXdrRequired": "transactionXDR es requerido",
+      "feePositive": "feeStroops debe ser un entero positivo",
+      "notEligible": "La transacción no es elegible para patrocinio: {reasons}",
+      "sponsorshipFailed": "Falló el envío de la transacción patrocinada",
+      "searchQueryTooLong": "q no debe exceder 50 caracteres",
+      "missingFields": "Faltan campos requeridos",
+      "invalidFunction": "Función objetivo inválida",
+      "invalidBase64": "Datos WASM base64 inválidos: {error}",
+      "invalidStellarAddress": "contractId debe ser una dirección Stellar C válida (56 caracteres, comienza con C)",
+      "invalidPublicKeyFormat": "publicKey debe ser una dirección Stellar G válida (56 caracteres, comienza con G)",
+      "budgetNonNegative": "requestedBudgetStroops debe ser un entero no negativo"
+    },
+    "proposal": {
+      "notFound": "Propuesta no encontrada",
+      "notActive": "La propuesta no está activa",
+      "expired": "La propuesta ha expirado",
+      "alreadyVoted": "Ya votó",
+      "cannotExecute": "La propuesta no puede ser ejecutada",
+      "invalidStatus": "Estado de propuesta inválido"
+    },
+    "dao": {
+      "tokenNotFound": "Token no encontrado"
+    },
+    "multisig": {
+      "transactionNotFound": "Transacción no encontrada",
+      "cannotExecute": "La transacción no puede ser ejecutada",
+      "alreadySigned": "Ya firmado por este firmante",
+      "transactionStatus": "La transacción está {status}"
+    },
+    "vault": {
+      "missingFields": "Faltan campos requeridos"
+    },
+    "nft": {
+      "zipOnly": "Solo se permiten archivos ZIP",
+      "zipRequired": "Se requiere un archivo ZIP",
+      "collectionNotFound": "collection.json no encontrado en el ZIP",
+      "invalidJson": "collection.json no es JSON válido",
+      "invalidArray": "collection.json debe contener un arreglo de objetos de metadatos NFT",
+      "missingImage": "Cada elemento de metadatos debe tener un id y un campo image",
+      "imageNotFound": "Imagen {image} no encontrada en el ZIP para NFT {id}",
+      "contractAlreadyRegistered": "El ID de contrato ya está registrado por un diferente propietario"
+    },
+    "security": {
+      "scanNotFound": "Resultado de escaneo no encontrado: {scanId}",
+      "permissionDenied": "No tiene permiso para ver este resultado de escaneo.",
+      "deletePermissionDenied": "No tiene permiso para eliminar este resultado de escaneo.",
+      "invalidWasm": "Datos WASM base64 inválidos: {error}",
+      "emptyBuffer": "El búfer decodificado está vacío"
+    },
+    "sponsorship": {
+      "disabled": "El patrocinio no está habilitado en este servidor",
+      "inactiveAccount": "Solo usuarios activos pueden solicitar patrocinio",
+      "submissionFailed": "Falló el envío de la transacción patrocinada"
+    },
+    "fee": {
+      "horizonUnavailable": "No se pueden obtener estadísticas de tarifas desde Horizon"
+    },
+    "ipfs": {
+      "pinFailed": "Falló el anclaje IPFS: {error}",
+      "jsonPinFailed": "Falló el anclaje JSON IPFS: {error}",
+      "invalidBase64": "Formato base64 inválido"
+    },
+    "cors": {
+      "invalidOrigin": "Encabezado Origin inválido",
+      "originDenied": "Origen no permitido por la política CORS"
+    },
+    "batch": {
+      "lockFailed": "La cuenta está actualmente procesando otra transacción. Por favor intente más tarde."
+    },
+    "streaming": {
+      "pollingTimeout": "Tiempo de espera de sondeo de transacción"
+    },
+    "delegation": {
+      "approveFailed": "Falló la aprobación de mintero: {error}",
+      "revokeFailed": "Falló la revocación de mintero: {error}",
+      "executeFailed": "Falló la ejecución de acuñación delegada: {error}",
+      "getFailed": "Falló al obtener delegación: {error}",
+      "getByOwnerFailed": "Falló al obtener delegaciones por propietario: {error}",
+      "getByDelegateFailed": "Falló al obtener delegaciones por delegado: {error}",
+      "getActiveFailed": "Falló al obtener delegaciones activas: {error}",
+      "statsFailed": "Falló al obtener estadísticas de delegación: {error}",
+      "mintCheckFailed": "Falló al verificar si se puede acuñar: {error}"
+    },
+    "recovery": {
+      "backupError": "BACKUP_ENCRYPTION_PASSWORD no configurado - no se puede realizar prueba de recuperación",
+      "restoreFailed": "Falló la restauración",
+      "invalidGzip": "gzip inválido"
+    },
+    "wasm": {
+      "scanError": "Envío rechazado: {error}",
+      "transactionFailed": "Falló la transacción en la cadena: {error}",
+      "timeout": "Tiempo de espera de transacción o atascada en estado desconocido",
+      "pastScheduling": "No se puede programar una acuñación en el pasado."
+    },
+    "mintQueue": {
+      "submissionRejected": "Envío rechazado: {error}",
+      "transactionFailed": "Falló la transacción en la cadena: {error}",
+      "transactionTimeout": "Tiempo de espera de transacción o atascada en estado desconocido"
+    },
+    "bridge": {
+      "validationError": "Error de validación de puente",
+      "rpcFailed": "Solicitud RPC EVM falló con HTTP {status}",
+      "rpcError": "Error RPC EVM desconocido",
+      "relayFailed": "El endpoint de retransmisión de puente respondió con HTTP {status}",
+      "notConfigured": "El retransmisor de puente no está configurado correctamente"
+    },
+    "stellar": {
+      "noRpcUrls": "No se proporcionaron URLs RPC para FailoverRpcServer",
+      "feeStatsFailed": "Solicitud fee_stats de Horizon falló: {status} {statusText}"
+    },
+    "config": {
+      "envNotConfigured": "La variable de entorno {variable} no está configurada",
+      "corsOriginRequired": "El origen CORS debe ser una cadena no vacía",
+      "invalidCorsOrigin": "Origen CORS inválido: {origin}",
+      "corsProtocol": "El origen CORS debe usar http o https: {origin}",
+      "corsBareOrigin": "El origen CORS debe ser un origen desnudo sin ruta, consulta, hash o credenciales: {origin}",
+      "corsStringRequired": "CORS_ALLOWED_ORIGINS debe ser una cadena separada por comas",
+      "validationError": "Error de validación: {errors}"
+    },
+    "event": {
+      "onEventRequired": "El manejador onEvent es requerido"
+    },
+    "lock": {
+      "redisNotConnected": "La caché Redis no está conectada, no se puede adquirir bloqueo"
+    },
+    "simulation": {
+      "failed": "Falló la simulación: {error}"
+    }
+  }
+}

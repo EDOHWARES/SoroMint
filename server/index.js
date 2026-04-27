@@ -21,6 +21,7 @@ const { createCorsOptionsDelegate } = require('./config/cors-config');
 
 const { initSentry } = require('./config/sentry');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
+const { createI18nMiddleware } = require('./middleware/i18n');
 const {
   logger,
   correlationIdMiddleware,
@@ -72,9 +73,9 @@ const createApp = ({
   app.options('*', corsMiddleware);
   app.use(express.json());
 
-  // Initialize fraud detection middleware
-  app.use(fraudMiddleware.monitorRateLimit({ windowMs: 60000, maxRequests: 50 }));
-  app.use(fraudMiddleware.auditOperations());
+  // Initialize i18n middleware (must be before routes to set req.t)
+  const i18nMiddleware = createI18nMiddleware();
+  app.use(i18nMiddleware);
 
   setupSwagger(app);
 
