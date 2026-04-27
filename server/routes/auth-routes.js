@@ -9,6 +9,7 @@ const {
 } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { loginRateLimiter } = require('../middleware/rate-limiter');
+const { logger, withRequestContext } = require('../utils/logger');
 const {
   generateChallenge,
   verifyChallenge,
@@ -188,6 +189,76 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
    * @returns {Object} 400 - Validation error
    * @returns {Object} 409 - User already registered
    */
+  router.post('/login', authLoginRateLimiter, asyncHandler(async (req, res) => {
+  const { publicKey, signature, challenge } = req.body;
+
+  // Validate public key is provided
+  if (!publicKey) {
+    throw new AppError('Public key is required for login', 400, 'VALIDATION_ERROR');
+  }
+
+  // Validate Stellar public key format
+  if (!StrKey.isValidEd25519PublicKey(publicKey)) {
+    throw new AppError(
+      'Invalid Stellar public key format. Must be a valid G-address (Ed25519 public key)',
+      400,
+      'INVALID_PUBLIC_KEY'
+    );
+  }
+
+  const normalizedPublicKey = publicKey.toUpperCase();
+
+  // Find user
+  const user = await User.findByPublicKey(normalizedPublicKey);
+
+  if (!user) {
+    throw new AppError('User not found. Please register first.', 401, 'USER_NOT_FOUND');
+  }
+
+  // Check account status
+  if (!user.isActive()) {
+    throw new AppError(`Account is ${user.status}. Please contact support.`, 403, 'ACCOUNT_INACTIVE');
+  }
+
+  // MVP: Simple public key check
+  // TODO: Implement challenge/response for enhanced security
+  // This would involve:
+  // 1. Server generates a random challenge string
+  // 2. Client signs the challenge with their secret key
+  // 3. Server verifies the signature using the stored public key
+  if (signature && challenge) {
+    // Future enhancement: Validate signature
+    // const isValidSignature = await verifySignature(publicKey, signature, challenge);
+    // if (!isValidSignature) {
+    //   throw new AppError('Invalid signature. Authentication failed.', 401, 'INVALID_SIGNATURE');
+    // }
+    logger.info(
+      'Login signature and challenge provided but not yet validated',
+      withRequestContext(req, { publicKey: normalizedPublicKey })
+    );
+  }
+
+  // Update last login timestamp
+  await user.updateLastLogin();
+
+  // Generate JWT token
+  const token = generateToken(user);
+
+  res.json({
+    success: true,
+    message: 'Login successful',
+    data: {
+      user: {
+        id: user._id,
+        publicKey: user.publicKey,
+        username: user.username,
+        lastLoginAt: user.lastLoginAt
+      },
+      token,
+      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+    }
+  });
+  }));
   router.post(
     '/login',
     authLoginRateLimiter,

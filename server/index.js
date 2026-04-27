@@ -147,6 +147,11 @@ const startServer = async () => {
   const server = app.listen(env.PORT, () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
     sampler.start();
+    logger.info('Server listening', {
+      port: env.PORT,
+      url: `http://localhost:${env.PORT}`,
+      docsUrl: `http://localhost:${env.PORT}/api-docs`,
+    });
     scheduleBackups();
     startReconciliationWorker();
   });
@@ -156,7 +161,7 @@ const startServer = async () => {
 
 if (require.main === module) {
   startServer().catch((error) => {
-    logger.error('Server failed to start', { error: error.message });
+    logger.error('Server failed to start', { error });
     setImmediate(() => {
       throw error;
     });

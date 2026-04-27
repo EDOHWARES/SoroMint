@@ -11,7 +11,15 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check .",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "profile:cpu": "node ./scripts/profile-runner.js cpu",
+    "profile:heap": "node ./scripts/profile-runner.js heap",
+    "benchmark:health": "node ./benchmarks/run-health-benchmark.js",
+    "k6:all": "sh -c 'K6_BIN=${K6_BIN:-k6}; command -v \"$K6_BIN\" >/dev/null 2>&1 || { echo \"k6 is required. Install it or set K6_BIN=/absolute/path/to/k6.\"; exit 1; }; \"$K6_BIN\" run ./load-tests/all-scenarios.js'",
+    "k6:health": "sh -c 'K6_BIN=${K6_BIN:-k6}; command -v \"$K6_BIN\" >/dev/null 2>&1 || { echo \"k6 is required. Install it or set K6_BIN=/absolute/path/to/k6.\"; exit 1; }; \"$K6_BIN\" run ./load-tests/health.js'",
+    "k6:stream:create": "sh -c 'K6_BIN=${K6_BIN:-k6}; command -v \"$K6_BIN\" >/dev/null 2>&1 || { echo \"k6 is required. Install it or set K6_BIN=/absolute/path/to/k6.\"; exit 1; }; \"$K6_BIN\" run ./load-tests/stream-create.js'",
+    "k6:stream:withdraw": "sh -c 'K6_BIN=${K6_BIN:-k6}; command -v \"$K6_BIN\" >/dev/null 2>&1 || { echo \"k6 is required. Install it or set K6_BIN=/absolute/path/to/k6.\"; exit 1; }; \"$K6_BIN\" run ./load-tests/stream-withdraw.js'",
+    "k6:mixed": "sh -c 'K6_BIN=${K6_BIN:-k6}; command -v \"$K6_BIN\" >/dev/null 2>&1 || { echo \"k6 is required. Install it or set K6_BIN=/absolute/path/to/k6.\"; exit 1; }; \"$K6_BIN\" run ./load-tests/mixed.js'"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",

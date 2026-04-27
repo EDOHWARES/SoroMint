@@ -196,13 +196,11 @@ function initEnv() {
     try {
       validatedEnv = validateEnv();
     } catch (error) {
-      logger.error('Environment validation failed', {
-        error: error.message,
-      });
-      console.error('\n❌ Environment Validation Error:');
-      console.error(error.message);
-      console.error(
-        '\nPlease check your .env file and ensure all required variables are set.'
+      logger.error('Environment validation failed', { error });
+      process.stderr.write('\n❌ Environment Validation Error:\n');
+      process.stderr.write(`${error.message}\n`);
+      process.stderr.write(
+        '\nPlease check your .env file and ensure all required variables are set.\n'
       );
       throw error;
     }

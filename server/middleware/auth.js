@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { AppError } = require('./error-handler');
+const { logger, withRequestContext } = require('../utils/logger');
 
 /**
  * @title JWT Authentication Middleware
@@ -134,11 +135,10 @@ const optionalAuthenticate = async (req, res, next) => {
     }
     // If user not found or inactive, continue without attaching user
   } catch (error) {
-    // Silently fail - optional auth doesn't require valid token
-    // Only log in development for debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Optional Auth] Token verification failed:', error.message);
-    }
+    logger.debug(
+      'Optional authentication token verification failed',
+      withRequestContext(req, { error })
+    );
   }
 
   next();

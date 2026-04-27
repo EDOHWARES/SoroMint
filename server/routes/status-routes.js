@@ -8,6 +8,35 @@ const { getCacheService } = require('../services/cache-service');
 const { version } = require('../package.json');
 
 const router = express.Router();
+const DATABASE_CONNECTED_STATE = 1;
+const STATIC_DATABASE_SERVICES = Object.freeze({
+  up: Object.freeze({ status: 'up', connection: 'connected' }),
+  down: Object.freeze({ status: 'down', connection: 'disconnected' }),
+});
+const NOT_CONFIGURED_NETWORK = 'not configured';
+
+let cachedNetworkPassphrase = null;
+let cachedStellarService = Object.freeze({ network: NOT_CONFIGURED_NETWORK });
+
+const formatUptime = (uptimeSeconds) => {
+  const totalSeconds = Math.max(0, Math.floor(uptimeSeconds));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
+const getStellarService = () => {
+  const network = process.env.NETWORK_PASSPHRASE || NOT_CONFIGURED_NETWORK;
+
+  if (network !== cachedNetworkPassphrase) {
+    cachedNetworkPassphrase = network;
+    cachedStellarService = Object.freeze({ network });
+  }
+
+  return cachedStellarService;
+};
 
 /**
  * @title Status Routes
@@ -21,6 +50,25 @@ const router = express.Router();
  * @description Simple liveness check for load balancers
  * @access Public
  */
+const healthHandler = (_req, res) => {
+  const isDatabaseConnected =
+    mongoose.connection.readyState === DATABASE_CONNECTED_STATE;
+  const dbStatus = isDatabaseConnected ? 'up' : 'down';
+  const healthData = {
+    status: dbStatus === 'up' ? 'healthy' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    version,
+    uptime: formatUptime(process.uptime()),
+    services: {
+      database: STATIC_DATABASE_SERVICES[dbStatus],
+      stellar: getStellarService(),
+    },
+  };
+
+  res.status(isDatabaseConnected ? 200 : 503).json(healthData);
+};
+
+router.get('/health', healthHandler);
 router.get('/health', asyncHandler(async (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1;
   const cacheStatus = getCacheService().isHealthy();

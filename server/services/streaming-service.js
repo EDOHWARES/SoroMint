@@ -2,15 +2,49 @@ const {
   Contract,
   SorobanRpc,
   TransactionBuilder,
-  Networks,
   BASE_FEE,
   xdr,
 } = require('@stellar/stellar-sdk');
+const { setTimeout: delay } = require('node:timers/promises');
+
+const DEFAULT_POLL_INTERVAL_MS = 1000;
+const DEFAULT_POLL_TIMEOUT_MS = 30000;
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
 
 class StreamingService {
-  constructor(rpcUrl, networkPassphrase) {
+  constructor(rpcUrl, networkPassphrase, contractId = null, options = {}) {
     this.server = new SorobanRpc.Server(rpcUrl);
     this.networkPassphrase = networkPassphrase;
+    this.contractId = contractId;
+    this.pollIntervalMs = parsePositiveInteger(
+      options.pollIntervalMs,
+      DEFAULT_POLL_INTERVAL_MS
+    );
+    this.pollTimeoutMs = parsePositiveInteger(
+      options.pollTimeoutMs,
+      DEFAULT_POLL_TIMEOUT_MS
+    );
+    this.contractCache = new Map();
+  }
+
+  resolveContractId(contractId) {
+    const resolvedContractId = contractId || this.contractId;
+    if (!resolvedContractId) {
+      throw new Error('Streaming contract id is not configured');
+    }
+    return resolvedContractId;
+  }
+
+  getContract(contractId) {
+    const resolvedContractId = this.resolveContractId(contractId);
+    if (!this.contractCache.has(resolvedContractId)) {
+      this.contractCache.set(resolvedContractId, new Contract(resolvedContractId));
+    }
+    return this.contractCache.get(resolvedContractId);
   }
 
   async createStream(
@@ -23,6 +57,8 @@ class StreamingService {
     startLedger,
     stopLedger
   ) {
+    const contract = this.getContract(contractId);
+    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -66,6 +102,8 @@ class StreamingService {
   }
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {
+    const contract = this.getContract(contractId);
+    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -93,6 +131,8 @@ class StreamingService {
   }
 
   async cancelStream(contractId, sourceKeypair, streamId) {
+    const contract = this.getContract(contractId);
+    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -119,7 +159,7 @@ class StreamingService {
   }
 
   async getStreamBalance(contractId, streamId) {
-    const contract = new Contract(contractId);
+    const contract = this.getContract(contractId);
     const ledgerKey = xdr.LedgerKey.contractData(
       new xdr.LedgerKeyContractData({
         contract: contract.address().toScAddress(),
@@ -137,6 +177,8 @@ class StreamingService {
   }
 
   async getStream(contractId, streamId) {
+    const contract = this.getContract(contractId);
+    const sourceAccount = await this.server.getAccount(contract.address().toString());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       contract.address().toString()
@@ -182,17 +224,76 @@ class StreamingService {
     return new xdr.Int128Parts({ hi, lo });
   }
 
-  async pollTransaction(hash, timeout = 30000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
+  async pollTransaction(hash, timeout = this.pollTimeoutMs) {
+    const timeoutMs = parsePositiveInteger(timeout, this.pollTimeoutMs);
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
       const txResult = await this.server.getTransaction(hash);
       if (txResult.status !== 'NOT_FOUND') {
         return txResult;
       }
+
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        break;
+      }
+
+      await delay(Math.min(this.pollIntervalMs, remainingMs));
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
+
     throw new Error('Transaction polling timeout');
   }
 }
 
+let streamingServiceInstance = null;
+let streamingServiceCacheKey = null;
+
+function getStreamingService({
+  rpcUrl = process.env.SOROBAN_RPC_URL,
+  networkPassphrase = process.env.NETWORK_PASSPHRASE,
+  contractId = process.env.STREAMING_CONTRACT_ID,
+  pollIntervalMs = process.env.STREAMING_TX_POLL_INTERVAL_MS,
+  pollTimeoutMs = process.env.STREAMING_TX_POLL_TIMEOUT_MS,
+} = {}) {
+  const resolvedPollIntervalMs = parsePositiveInteger(
+    pollIntervalMs,
+    DEFAULT_POLL_INTERVAL_MS
+  );
+  const resolvedPollTimeoutMs = parsePositiveInteger(
+    pollTimeoutMs,
+    DEFAULT_POLL_TIMEOUT_MS
+  );
+  const cacheKey = JSON.stringify({
+    rpcUrl,
+    networkPassphrase,
+    contractId,
+    pollIntervalMs: resolvedPollIntervalMs,
+    pollTimeoutMs: resolvedPollTimeoutMs,
+  });
+
+  if (!streamingServiceInstance || streamingServiceCacheKey !== cacheKey) {
+    streamingServiceInstance = new StreamingService(
+      rpcUrl,
+      networkPassphrase,
+      contractId,
+      {
+        pollIntervalMs: resolvedPollIntervalMs,
+        pollTimeoutMs: resolvedPollTimeoutMs,
+      }
+    );
+    streamingServiceCacheKey = cacheKey;
+  }
+
+  return streamingServiceInstance;
+}
+
+function resetStreamingService() {
+  streamingServiceInstance = null;
+  streamingServiceCacheKey = null;
+}
+
 module.exports = StreamingService;
+module.exports.getStreamingService = getStreamingService;
+module.exports.resetStreamingService = resetStreamingService;

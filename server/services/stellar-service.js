@@ -108,7 +108,7 @@ const wrapAsset = async (assetCode, assetIssuer) => {
 
   // Logic to get the contract ID for the wrapped asset
   // Note: This often requires calling the RPC or using a predictable derivation logic
-  console.log(`Wrapping asset: ${assetCode}`);
+  logger.info('Wrapping asset', { assetCode, assetIssuer: assetIssuer || null });
   return asset;
 };
 
@@ -124,7 +124,7 @@ const deployStellarAssetContract = async (wasmHash, salt, sourceAccount) => {
   // 1. Create a deployment operation (e.g. createContractHostFunction)
   // 2. Build, sign, and submit transaction
   // This is a complex operation that usually involves source signing on client or server
-  console.log('Deploying Custom Stellar Asset Contract...');
+  logger.info('Deploying custom stellar asset contract', { wasmHash, salt, sourceAccount });
   return {
     contractId: 'C...', // Placeholder for generated contract ID
     status: 'pending',
