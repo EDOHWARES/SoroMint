@@ -58,7 +58,10 @@ const delegationSchema = new mongoose.Schema(
 );
 
 // Compound index for efficient queries
-delegationSchema.index({ tokenContractId: 1, owner: 1, delegate: 1 }, { unique: true });
+delegationSchema.index(
+  { tokenContractId: 1, owner: 1, delegate: 1 },
+  { unique: true }
+);
 delegationSchema.index({ tokenContractId: 1, owner: 1, status: 1 });
 delegationSchema.index({ tokenContractId: 1, delegate: 1, status: 1 });
 
@@ -93,25 +96,35 @@ delegationSchema.methods.updateMinted = function (newMinted) {
   this.minted = newMinted;
   this.lastMintedAt = new Date();
   this.totalMintCount += 1;
-  
+
   // Mark as exhausted if limit reached
   if (BigInt(newMinted) >= BigInt(this.limit)) {
     this.status = 'exhausted';
   }
-  
+
   return this.save();
 };
 
 // Statics
-delegationSchema.statics.findByTokenAndOwner = function (tokenContractId, owner) {
+delegationSchema.statics.findByTokenAndOwner = function (
+  tokenContractId,
+  owner
+) {
   return this.find({ tokenContractId, owner, status: 'active' });
 };
 
-delegationSchema.statics.findByTokenAndDelegate = function (tokenContractId, delegate) {
+delegationSchema.statics.findByTokenAndDelegate = function (
+  tokenContractId,
+  delegate
+) {
   return this.find({ tokenContractId, delegate, status: 'active' });
 };
 
-delegationSchema.statics.findByTokenOwnerDelegate = function (tokenContractId, owner, delegate) {
+delegationSchema.statics.findByTokenOwnerDelegate = function (
+  tokenContractId,
+  owner,
+  delegate
+) {
   return this.findOne({ tokenContractId, owner, delegate });
 };
 

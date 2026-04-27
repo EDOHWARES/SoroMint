@@ -167,7 +167,7 @@ const logError = (err, req, isProduction) => {
     path: req.originalUrl,
     method: req.method,
     correlationId: req.correlationId,
-    isOperational: err.isOperational || false
+    isOperational: err.isOperational || false,
   };
 
   // Include stack trace in log data
@@ -194,7 +194,9 @@ const logError = (err, req, isProduction) => {
 const handleKnownErrors = (err) => {
   // Mongoose ValidationError
   if (err.name === 'ValidationError') {
-    const messages = Object.values(err.errors).map(e => e.message).join(', ');
+    const messages = Object.values(err.errors)
+      .map((e) => e.message)
+      .join(', ');
     return new AppError(messages, 400, 'VALIDATION_ERROR');
   }
 
@@ -276,8 +278,15 @@ const errorHandler = (err, req, res, next) => {
 
   // Capture unexpected server errors in Sentry
   if (statusCode >= 500) {
-    addBreadcrumb(`${req.method} ${req.originalUrl}`, { correlationId: req.correlationId });
-    captureException(processedError, { req, user: req.user ? { id: req.user._id, publicKey: req.user.publicKey } : undefined });
+    addBreadcrumb(`${req.method} ${req.originalUrl}`, {
+      correlationId: req.correlationId,
+    });
+    captureException(processedError, {
+      req,
+      user: req.user
+        ? { id: req.user._id, publicKey: req.user.publicKey }
+        : undefined,
+    });
   }
 
   // Send standardized response with i18n support
@@ -305,5 +314,5 @@ module.exports = {
   errorHandler,
   notFoundHandler,
   asyncHandler,
-  AppError
+  AppError,
 };

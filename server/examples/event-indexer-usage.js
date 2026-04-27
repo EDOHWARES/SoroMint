@@ -1,6 +1,6 @@
 /**
  * Example: Using the Soroban Event Indexer
- * 
+ *
  * This example demonstrates:
  * 1. Starting the indexer
  * 2. Querying indexed events
@@ -22,7 +22,7 @@ async function getContractEvents(contractId) {
       limit: 50,
     },
   });
-  
+
   console.log(`Found ${response.data.pagination.total} events`);
   return response.data.events;
 }
@@ -32,12 +32,12 @@ async function getEventStats() {
   const response = await axios.get(`${API_BASE}/soroban/events/stats`, {
     headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
   });
-  
+
   console.log('Top contracts by event count:');
-  response.data.stats.forEach(stat => {
+  response.data.stats.forEach((stat) => {
     console.log(`  ${stat._id}: ${stat.eventCount} events`);
   });
-  
+
   return response.data.stats;
 }
 
@@ -51,7 +51,7 @@ async function getEventsByLedgerRange(startLedger, endLedger) {
       limit: 100,
     },
   });
-  
+
   return response.data.events;
 }
 
@@ -59,16 +59,17 @@ async function getEventsByLedgerRange(startLedger, endLedger) {
 async function main() {
   try {
     // Get events for a contract
-    const events = await getContractEvents('CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE');
+    const events = await getContractEvents(
+      'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE'
+    );
     console.log('Recent events:', events.slice(0, 3));
-    
+
     // Get statistics
     await getEventStats();
-    
+
     // Query by ledger range
     const recentEvents = await getEventsByLedgerRange(1000000, 1000100);
     console.log(`Events in ledger range: ${recentEvents.length}`);
-    
   } catch (error) {
     console.error('Error:', error.message);
   }

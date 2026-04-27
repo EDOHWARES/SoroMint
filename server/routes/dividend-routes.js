@@ -16,10 +16,10 @@
  * @see VAULT_IMPLEMENTATION.md for the analogous vault pattern.
  */
 
-const express = require("express");
-const { asyncHandler, AppError } = require("../middleware/error-handler");
-const { authenticate } = require("../middleware/auth");
-const { logger } = require("../utils/logger");
+const express = require('express');
+const { asyncHandler, AppError } = require('../middleware/error-handler');
+const { authenticate } = require('../middleware/auth');
+const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -51,15 +51,19 @@ const router = express.Router();
  *         description: Missing contractId query param
  */
 router.get(
-  "/dividend/stats",
+  '/dividend/stats',
   asyncHandler(async (req, res) => {
     const { contractId } = req.query;
 
     if (!contractId) {
-      throw new AppError("contractId query param is required", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        'contractId query param is required',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    logger.info("Dividend stats requested", {
+    logger.info('Dividend stats requested', {
       correlationId: req.correlationId,
       contractId,
     });
@@ -79,9 +83,9 @@ router.get(
       success: true,
       data: {
         contractId,
-        globalDps: "0",
-        totalDistributed: "0",
-        note: "Invoke global_dps() and total_distributed() on-chain for live values",
+        globalDps: '0',
+        totalDistributed: '0',
+        note: 'Invoke global_dps() and total_distributed() on-chain for live values',
       },
     });
   })
@@ -123,24 +127,28 @@ router.get(
  *         description: Missing required query params
  */
 router.get(
-  "/dividend/claimable/:holderAddress",
+  '/dividend/claimable/:holderAddress',
   asyncHandler(async (req, res) => {
     const { holderAddress } = req.params;
     const { contractId, holderBalance } = req.query;
 
     if (!contractId || !holderBalance) {
       throw new AppError(
-        "contractId and holderBalance query params are required",
+        'contractId and holderBalance query params are required',
         400,
-        "VALIDATION_ERROR"
+        'VALIDATION_ERROR'
       );
     }
 
     if (!holderAddress || holderAddress.length !== 56) {
-      throw new AppError("holderAddress must be a valid 56-character Stellar address", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        'holderAddress must be a valid 56-character Stellar address',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    logger.info("Dividend claimable query", {
+    logger.info('Dividend claimable query', {
       correlationId: req.correlationId,
       holderAddress,
       contractId,
@@ -153,8 +161,8 @@ router.get(
         holderAddress,
         contractId,
         holderBalance,
-        claimableStroops: "0",
-        note: "Invoke claimable() on-chain for live values",
+        claimableStroops: '0',
+        note: 'Invoke claimable() on-chain for live values',
       },
     });
   })
@@ -211,28 +219,37 @@ router.get(
  *         description: Unauthorized
  */
 router.post(
-  "/dividend/deposit",
+  '/dividend/deposit',
   authenticate,
   asyncHandler(async (req, res) => {
-    const { contractId, depositorAddress, amountStroops, totalSupply } = req.body;
+    const { contractId, depositorAddress, amountStroops, totalSupply } =
+      req.body;
 
     if (!contractId || !depositorAddress || !amountStroops || !totalSupply) {
       throw new AppError(
-        "contractId, depositorAddress, amountStroops, and totalSupply are required",
+        'contractId, depositorAddress, amountStroops, and totalSupply are required',
         400,
-        "VALIDATION_ERROR"
+        'VALIDATION_ERROR'
       );
     }
 
     if (BigInt(amountStroops) <= 0n) {
-      throw new AppError("amountStroops must be a positive integer", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        'amountStroops must be a positive integer',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
     if (BigInt(totalSupply) <= 0n) {
-      throw new AppError("totalSupply must be a positive integer", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        'totalSupply must be a positive integer',
+        400,
+        'VALIDATION_ERROR'
+      );
     }
 
-    logger.info("Dividend deposit transaction requested", {
+    logger.info('Dividend deposit transaction requested', {
       correlationId: req.correlationId,
       contractId,
       depositorAddress,
@@ -274,7 +291,7 @@ router.post(
         amountStroops,
         totalSupply,
         unsignedXdr: null,
-        note: "Sign and submit deposit() directly via Soroban CLI or Freighter SDK",
+        note: 'Sign and submit deposit() directly via Soroban CLI or Freighter SDK',
       },
     });
   })
@@ -328,20 +345,20 @@ router.post(
  *         description: Unauthorized
  */
 router.post(
-  "/dividend/claim",
+  '/dividend/claim',
   authenticate,
   asyncHandler(async (req, res) => {
     const { contractId, holderAddress, holderBalance } = req.body;
 
     if (!contractId || !holderAddress || !holderBalance) {
       throw new AppError(
-        "contractId, holderAddress, and holderBalance are required",
+        'contractId, holderAddress, and holderBalance are required',
         400,
-        "VALIDATION_ERROR"
+        'VALIDATION_ERROR'
       );
     }
 
-    logger.info("Dividend claim transaction requested", {
+    logger.info('Dividend claim transaction requested', {
       correlationId: req.correlationId,
       contractId,
       holderAddress,
@@ -358,7 +375,7 @@ router.post(
         holderAddress,
         holderBalance,
         unsignedXdr: null,
-        note: "Sign and submit claim() directly via Soroban CLI or Freighter SDK",
+        note: 'Sign and submit claim() directly via Soroban CLI or Freighter SDK',
       },
     });
   })

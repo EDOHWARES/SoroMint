@@ -31,13 +31,18 @@ const deliver = (url, payload, signature) =>
         timeout: 5000,
       },
       (res) => {
-        res.statusCode >= 200 && res.statusCode < 300 ? resolve(res.statusCode) : reject(new Error(`HTTP ${res.statusCode}`));
+        res.statusCode >= 200 && res.statusCode < 300
+          ? resolve(res.statusCode)
+          : reject(new Error(`HTTP ${res.statusCode}`));
         res.resume();
       }
     );
 
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('timeout'));
+    });
     req.write(body);
     req.end();
   });
@@ -49,17 +54,29 @@ const deliverWithRetry = async (webhook, event, data) => {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       await deliver(webhook.url, payload, signature);
-      logger.info('Webhook delivered', { webhookId: webhook._id, event, attempt });
+      logger.info('Webhook delivered', {
+        webhookId: webhook._id,
+        event,
+        attempt,
+      });
       return;
     } catch (err) {
-      logger.warn('Webhook delivery failed', { webhookId: webhook._id, event, attempt, error: err.message });
+      logger.warn('Webhook delivery failed', {
+        webhookId: webhook._id,
+        event,
+        attempt,
+        error: err.message,
+      });
       if (attempt < MAX_RETRIES) {
         await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
       }
     }
   }
 
-  logger.error('Webhook delivery exhausted retries', { webhookId: webhook._id, event });
+  logger.error('Webhook delivery exhausted retries', {
+    webhookId: webhook._id,
+    event,
+  });
 };
 
 const dispatch = async (event, data) => {
