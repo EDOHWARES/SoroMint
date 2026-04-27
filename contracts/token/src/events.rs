@@ -3,7 +3,7 @@
 //! Provides helper functions for emitting structured Soroban events
 //! for every state-changing operation in the SoroMint token contract.
 
-use soroban_sdk::{symbol_short, Address, Env, String, Symbol};
+use soroban_sdk::{symbol_short, Address, BytesN, Env, String, Symbol};
 
 pub fn emit_transfer(e: &Env, from: &Address, to: &Address, amount: i128, new_from_balance: i128, new_to_balance: i128) {
     let topics = (Symbol::new(e, "transfer"), from.clone(), to.clone());
@@ -78,4 +78,22 @@ pub fn emit_transfer_from(
 ) {
     let topics = (Symbol::new(e, "tx_from"), spender.clone(), from.clone(), to.clone());
     e.events().publish(topics, (amount, remaining_allowance, new_from_balance, new_to_balance));
+}
+
+/// Emitted when multi-sig contract is configured for high-risk operations.
+pub fn emit_multisig_configured(e: &Env, admin: &Address, multisig_contract: &Address) {
+    let topics = (Symbol::new(e, "multisig_set"), admin.clone());
+    e.events().publish(topics, multisig_contract.clone());
+}
+
+/// Emitted when a treasury withdrawal is proposed (requires multi-sig approval).
+pub fn emit_treasury_withdrawal_proposed(e: &Env, recipient: &Address, amount: i128, operation_id: &BytesN<32>) {
+    let topics = (Symbol::new(e, "treasury_propose"), recipient.clone());
+    e.events().publish(topics, (amount, operation_id.clone()));
+}
+
+/// Emitted when a treasury withdrawal is executed (after multi-sig approval).
+pub fn emit_treasury_withdrawal(e: &Env, recipient: &Address, amount: i128, operation_id: &BytesN<32>) {
+    let topics = (Symbol::new(e, "treasury_withdraw"), recipient.clone());
+    e.events().publish(topics, (amount, operation_id.clone()));
 }
