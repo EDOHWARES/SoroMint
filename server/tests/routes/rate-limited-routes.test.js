@@ -7,8 +7,10 @@ const { createRateLimiter } = require('../../middleware/rate-limiter');
 const { createAuthRouter } = require('../../routes/auth-routes');
 const { createTokenRouter } = require('../../routes/token-routes');
 
-const TEST_PUBLIC_KEY = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
-const TEST_CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const TEST_PUBLIC_KEY =
+  'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+const TEST_CONTRACT_ID =
+  'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 let mongoServer;
 let testUser;
@@ -28,7 +30,7 @@ beforeAll(async () => {
 
   testUser = await User.create({
     publicKey: TEST_PUBLIC_KEY,
-    username: 'ratelimituser'
+    username: 'ratelimituser',
   });
 
   validToken = generateToken(TEST_PUBLIC_KEY, 'ratelimituser');
@@ -39,7 +41,7 @@ afterEach(async () => {
 
   testUser = await User.create({
     publicKey: TEST_PUBLIC_KEY,
-    username: 'ratelimituser'
+    username: 'ratelimituser',
   });
 
   validToken = generateToken(TEST_PUBLIC_KEY, 'ratelimituser');
@@ -58,8 +60,8 @@ describe('Rate Limited Routes', () => {
   it('should rate limit login attempts with the standard error response', async () => {
     const limitedApp = createApp({
       authRouter: createAuthRouter({
-        authLoginRateLimiter: createRateLimiter({ windowMs: 60_000, max: 1 })
-      })
+        authLoginRateLimiter: createRateLimiter({ windowMs: 60_000, max: 1 }),
+      }),
     });
 
     const firstResponse = await request(limitedApp)
@@ -75,15 +77,15 @@ describe('Rate Limited Routes', () => {
     expect(secondResponse.body).toEqual({
       error: 'Too many requests. Please try again later.',
       code: 'RATE_LIMIT_EXCEEDED',
-      status: 429
+      status: 429,
     });
   });
 
   it('should rate limit token deployment requests with the standard error response', async () => {
     const app = createApp({
       tokenRouter: createTokenRouter({
-        deployRateLimiter: createRateLimiter({ windowMs: 60_000, max: 1 })
-      })
+        deployRateLimiter: createRateLimiter({ windowMs: 60_000, max: 1 }),
+      }),
     });
 
     const firstResponse = await request(app)
@@ -93,7 +95,7 @@ describe('Rate Limited Routes', () => {
         name: 'Limited Token',
         symbol: 'LIM',
         contractId: TEST_CONTRACT_ID,
-        ownerPublicKey: TEST_PUBLIC_KEY
+        ownerPublicKey: TEST_PUBLIC_KEY,
       });
 
     const secondResponse = await request(app)
@@ -103,7 +105,7 @@ describe('Rate Limited Routes', () => {
         name: 'Blocked Token',
         symbol: 'BLK',
         contractId: `C${'B'.repeat(55)}`,
-        ownerPublicKey: TEST_PUBLIC_KEY
+        ownerPublicKey: TEST_PUBLIC_KEY,
       });
 
     expect(firstResponse.status).toBe(201);
@@ -111,7 +113,7 @@ describe('Rate Limited Routes', () => {
     expect(secondResponse.body).toEqual({
       error: 'Too many requests. Please try again later.',
       code: 'RATE_LIMIT_EXCEEDED',
-      status: 429
+      status: 429,
     });
   });
 });

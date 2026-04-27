@@ -34,7 +34,10 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'testsecret';
 
   testUser = await User.create({ publicKey: PK, username: 'tester' });
-  userToken = jwt.sign({ id: testUser._id, publicKey: PK, role: 'user' }, 'testsecret');
+  userToken = jwt.sign(
+    { id: testUser._id, publicKey: PK, role: 'user' },
+    'testsecret'
+  );
   app = setupApp();
 });
 
@@ -50,9 +53,28 @@ beforeEach(async () => {
 describe('GET /api/logs/export', () => {
   const seed = async () => {
     await DeploymentAudit.create([
-      { userId: testUser._id, tokenName: 'Alpha', contractId: 'CA1', status: 'SUCCESS', createdAt: new Date('2024-01-15') },
-      { userId: testUser._id, tokenName: 'Beta',  contractId: 'CA2', status: 'FAIL',    errorMessage: 'err', createdAt: new Date('2024-02-20') },
-      { userId: testUser._id, tokenName: 'Gamma', contractId: 'CA3', status: 'SUCCESS', createdAt: new Date('2024-03-10') },
+      {
+        userId: testUser._id,
+        tokenName: 'Alpha',
+        contractId: 'CA1',
+        status: 'SUCCESS',
+        createdAt: new Date('2024-01-15'),
+      },
+      {
+        userId: testUser._id,
+        tokenName: 'Beta',
+        contractId: 'CA2',
+        status: 'FAIL',
+        errorMessage: 'err',
+        createdAt: new Date('2024-02-20'),
+      },
+      {
+        userId: testUser._id,
+        tokenName: 'Gamma',
+        contractId: 'CA3',
+        status: 'SUCCESS',
+        createdAt: new Date('2024-03-10'),
+      },
     ]);
   };
 
@@ -65,7 +87,9 @@ describe('GET /api/logs/export', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/csv/);
     expect(res.headers['content-disposition']).toMatch(/attachment/);
-    expect(res.text).toMatch(/^id,tokenName,contractId,status,errorMessage,createdAt\n/);
+    expect(res.text).toMatch(
+      /^id,tokenName,contractId,status,errorMessage,createdAt\n/
+    );
   });
 
   it('contains all records when no date filter', async () => {
@@ -134,7 +158,9 @@ describe('GET /api/logs/export', () => {
       .set('Authorization', `Bearer ${userToken}`);
 
     expect(res.status).toBe(200);
-    expect(res.text.trim()).toBe('id,tokenName,contractId,status,errorMessage,createdAt');
+    expect(res.text.trim()).toBe(
+      'id,tokenName,contractId,status,errorMessage,createdAt'
+    );
   });
 
   it('requires authentication', async () => {
