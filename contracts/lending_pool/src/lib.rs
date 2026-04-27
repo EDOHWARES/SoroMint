@@ -16,6 +16,12 @@ pub struct LendingPool;
 
 #[contractimpl]
 impl LendingPool {
+    /// Initializes the lending pool contract.
+    /// 
+    /// # Arguments
+    /// * `admin` - The address of the pool administrator.
+    /// * `smt_token` - The address of the SoroMint (SMT) token used for debt.
+    /// * `oracle` - The address of the price oracle.
     pub fn initialize(e: Env, admin: Address, smt_token: Address, oracle: Address) {
         if e.storage().instance().has(&DataKey::Admin) {
             panic!("already initialized");
@@ -25,6 +31,11 @@ impl LendingPool {
         e.storage().instance().set(&DataKey::Oracle, &oracle);
     }
 
+    /// Sets the configuration for a specific asset in the pool.
+    /// 
+    /// # Arguments
+    /// * `asset` - The address of the asset to configure.
+    /// * `config` - The configuration parameters for the asset.
     pub fn set_asset_config(e: Env, asset: Address, config: AssetConfig) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
@@ -38,6 +49,12 @@ impl LendingPool {
         e.storage().instance().set(&DataKey::AssetConfig(asset), &config);
     }
 
+    /// Deposits an asset into the pool as collateral.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user depositing the asset.
+    /// * `asset` - The address of the asset being deposited.
+    /// * `amount` - The amount of the asset to deposit.
     pub fn deposit(e: Env, user: Address, asset: Address, amount: i128) {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
@@ -57,6 +74,12 @@ impl LendingPool {
         events::emit_deposit(&e, &user, &asset, amount);
     }
 
+    /// Withdraws an asset from the pool, provided the account remains healthy.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user withdrawing the asset.
+    /// * `asset` - The address of the asset being withdrawn.
+    /// * `amount` - The amount of the asset to withdraw.
     pub fn withdraw(e: Env, user: Address, asset: Address, amount: i128) {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
@@ -80,6 +103,11 @@ impl LendingPool {
         events::emit_withdraw(&e, &user, &asset, amount);
     }
 
+    /// Borrows SMT tokens against the deposited collateral.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user borrowing tokens.
+    /// * `amount` - The amount of SMT tokens to borrow.
     pub fn borrow(e: Env, user: Address, amount: i128) {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
@@ -107,6 +135,11 @@ impl LendingPool {
         events::emit_borrow(&e, &user, amount);
     }
 
+    /// Repays borrowed SMT tokens.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user repaying the debt.
+    /// * `amount` - The amount of SMT tokens to repay.
     pub fn repay(e: Env, user: Address, amount: i128) {
         user.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
@@ -127,6 +160,13 @@ impl LendingPool {
         events::emit_repay(&e, &user, repay_amount);
     }
 
+    /// Liquidates an under-collateralized borrower.
+    /// 
+    /// # Arguments
+    /// * `liquidator` - The address of the liquidator.
+    /// * `borrower` - The address of the under-collateralized borrower.
+    /// * `asset` - The collateral asset to seize.
+    /// * `amount` - The amount of debt to cover.
     pub fn liquidate(e: Env, liquidator: Address, borrower: Address, asset: Address, amount: i128) {
         liquidator.require_auth();
         if amount <= 0 { panic!("amount must be positive"); }
@@ -171,6 +211,7 @@ impl LendingPool {
         events::emit_liquidate(&e, &liquidator, &borrower, &asset, actual_give);
     }
 
+    /// Returns true if the user's account is healthy (sufficiently collateralized).
     pub fn is_healthy(e: Env, user: Address) -> bool {
         let debt: i128 = e.storage().persistent().get(&DataKey::UserDebt(user.clone())).unwrap_or(0);
         if debt == 0 { return true; }
@@ -179,6 +220,11 @@ impl LendingPool {
         total_collateral_value >= debt
     }
 
+    /// Calculates the total collateral value of an account in SMT.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user.
+    /// * `use_threshold` - Whether to use the liquidation threshold instead of the borrow LTV.
     pub fn get_account_collateral_value(e: Env, user: Address, use_threshold: bool) -> i128 {
         let oracle_addr: Address = e.storage().instance().get(&DataKey::Oracle).unwrap();
         let oracle = OracleClient::new(&e, &oracle_addr);
