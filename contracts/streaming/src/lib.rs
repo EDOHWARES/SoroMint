@@ -294,3 +294,7 @@ mod test {
         // However, we can check that it doesn't panic when admin is used.
     }
 }
+
+#[cfg(test)]
+mod test_system;
+
