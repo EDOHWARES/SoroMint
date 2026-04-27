@@ -39,6 +39,7 @@ npm run test:watch
 ## Writing new End-to-End Tests
 
 When writing new integration tests in `server/tests/integration.test.js`, please ensure that:
+
 1. NatSpec-style comments (JSdoc) are added at the top of test blocks explaining what the block covers.
 2. Full lifecycle operations are exercised: `Create` -> `List` -> `Search`.
 3. Valid Stellar public keys (e.g., Ed25519 standard `G...`) and Contract IDs (e.g., standard `C...` length of 56 chars) are used for payloads since the request validators strictly enforce parameter shapes.

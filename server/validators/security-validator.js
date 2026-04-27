@@ -46,20 +46,20 @@ const scanRequestSchema = z.object({
       invalid_type_error: 'wasm must be a base64-encoded string',
     })
     .trim()
-    .min(12, 'wasm must be at least 12 characters (smallest valid WASM in base64)')
+    .min(
+      12,
+      'wasm must be at least 12 characters (smallest valid WASM in base64)'
+    )
     .max(
       7_000_000,
       'wasm exceeds the maximum allowed length (≈5 MB decoded). ' +
         'Use wasm-opt to reduce the binary size before uploading.'
     )
-    .refine(
-      (val) => base64Regex.test(val),
-      {
-        message:
-          'wasm must be a valid base64-encoded string. ' +
-          'Only characters A-Z, a-z, 0-9, +, /, -, _ and = (padding) are allowed.',
-      }
-    ),
+    .refine((val) => base64Regex.test(val), {
+      message:
+        'wasm must be a valid base64-encoded string. ' +
+        'Only characters A-Z, a-z, 0-9, +, /, -, _ and = (padding) are allowed.',
+    }),
 
   contractName: z
     .string()
@@ -136,14 +136,11 @@ const preDeploymentCheckSchema = z.object({
   scanId: z
     .string()
     .trim()
-    .refine(
-      (val) => uuidRegex.test(val) || mongoObjectIdRegex.test(val),
-      {
-        message:
-          'scanId must be a valid UUID (e.g. "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") ' +
-          'or a 24-character hex MongoDB ObjectId.',
-      }
-    )
+    .refine((val) => uuidRegex.test(val) || mongoObjectIdRegex.test(val), {
+      message:
+        'scanId must be a valid UUID (e.g. "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") ' +
+        'or a 24-character hex MongoDB ObjectId.',
+    })
     .optional(),
 });
 

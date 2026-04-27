@@ -1,26 +1,41 @@
-const { Contract, nativeToScVal, xdr, Address } = require('@stellar/stellar-sdk');
+const {
+  Contract,
+  nativeToScVal,
+  xdr,
+  Address,
+} = require('@stellar/stellar-sdk');
 const { getRpcServer } = require('./stellar-service');
 const MultiSigTransaction = require('../models/MultiSigTransaction');
 const { logger } = require('../utils/logger');
 
 class MultiSigService {
-  async proposeTransaction(multiSigContractId, tokenContractId, targetFunction, functionArgs, proposerPublicKey) {
+  async proposeTransaction(
+    multiSigContractId,
+    tokenContractId,
+    targetFunction,
+    functionArgs,
+    proposerPublicKey
+  ) {
     const rpcServer = getRpcServer();
-    
+
     const contract = new Contract(multiSigContractId);
     const argsBuffer = this.encodeArgs(functionArgs);
-    
+
     const txId = await rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
         contract.call(
           'propose_tx',
-          nativeToScVal(Address.fromString(proposerPublicKey), { type: 'address' }),
-          nativeToScVal(Address.fromString(tokenContractId), { type: 'address' }),
+          nativeToScVal(Address.fromString(proposerPublicKey), {
+            type: 'address',
+          }),
+          nativeToScVal(Address.fromString(tokenContractId), {
+            type: 'address',
+          }),
           nativeToScVal(targetFunction, { type: 'symbol' }),
           nativeToScVal(argsBuffer, { type: 'bytes' })
         )
       );
-      
+
       return this.extractTxIdFromResult(result);
     });
 
@@ -31,10 +46,12 @@ class MultiSigService {
       targetFunction,
       functionArgs,
       proposer: proposerPublicKey,
-      signatures: [{
-        signer: proposerPublicKey,
-        signedAt: new Date(),
-      }],
+      signatures: [
+        {
+          signer: proposerPublicKey,
+          signedAt: new Date(),
+        },
+      ],
       requiredSignatures: await this.getThreshold(multiSigContractId),
       status: 'pending',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -55,7 +72,7 @@ class MultiSigService {
 
   async approveTransaction(txId, signerPublicKey) {
     const multiSigTx = await MultiSigTransaction.findOne({ txId });
-    
+
     if (!multiSigTx) {
       throw new Error('Transaction not found');
     }
@@ -70,12 +87,14 @@ class MultiSigService {
 
     const rpcServer = getRpcServer();
     const contract = new Contract(multiSigTx.multiSigContractId);
-    
+
     await rpcServer.execute(async (server) => {
       await server.simulateTransaction(
         contract.call(
           'approve_tx',
-          nativeToScVal(Address.fromString(signerPublicKey), { type: 'address' }),
+          nativeToScVal(Address.fromString(signerPublicKey), {
+            type: 'address',
+          }),
           nativeToScVal(parseInt(txId), { type: 'u64' })
         )
       );
@@ -104,7 +123,7 @@ class MultiSigService {
 
   async executeTransaction(txId, executorPublicKey) {
     const multiSigTx = await MultiSigTransaction.findOne({ txId });
-    
+
     if (!multiSigTx) {
       throw new Error('Transaction not found');
     }
@@ -115,16 +134,18 @@ class MultiSigService {
 
     const rpcServer = getRpcServer();
     const contract = new Contract(multiSigTx.multiSigContractId);
-    
+
     const txHash = await rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
         contract.call(
           'execute_tx',
-          nativeToScVal(Address.fromString(executorPublicKey), { type: 'address' }),
+          nativeToScVal(Address.fromString(executorPublicKey), {
+            type: 'address',
+          }),
           nativeToScVal(parseInt(txId), { type: 'u64' })
         )
       );
-      
+
       return result.hash;
     });
 
@@ -159,12 +180,12 @@ class MultiSigService {
   async getThreshold(multiSigContractId) {
     const rpcServer = getRpcServer();
     const contract = new Contract(multiSigContractId);
-    
+
     return rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
         contract.call('get_threshold')
       );
-      
+
       return this.extractU32FromResult(result);
     });
   }
@@ -172,12 +193,12 @@ class MultiSigService {
   async getSigners(multiSigContractId) {
     const rpcServer = getRpcServer();
     const contract = new Contract(multiSigContractId);
-    
+
     return rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
         contract.call('get_signers')
       );
-      
+
       return this.extractAddressVecFromResult(result);
     });
   }

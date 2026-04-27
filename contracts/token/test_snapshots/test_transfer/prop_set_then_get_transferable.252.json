@@ -16,7 +16,7 @@
               "function_name": "set_transferable",
               "args": [
                 {
-                  "bool": true
+                  "bool": false
                 }
               ]
             }
@@ -165,7 +165,7 @@
                           ]
                         },
                         "val": {
-                          "bool": true
+                          "bool": false
                         }
                       }
                     ]

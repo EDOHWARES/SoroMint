@@ -37,23 +37,27 @@ const consoleTransport = new winston.transports.Console({
   format: winston.format.combine(
     winston.format.colorize(),
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.printf(({ timestamp, level, message, correlationId, ...metadata }) => {
-      const correlationPrefix = correlationId ? `[${correlationId}] ` : '';
-      let logMessage = `${timestamp} ${level}: ${correlationPrefix}${message}`;
-      
-      // Include additional metadata if present
-      const metaKeys = Object.keys(metadata).filter(key => 
-        key !== 'timestamp' && key !== 'level' && key !== 'message'
-      );
-      
-      if (metaKeys.length > 0) {
-        const metaString = metaKeys.map(key => `${key}=${metadata[key]}`).join(' ');
-        logMessage += ` ${metaString}`;
+    winston.format.printf(
+      ({ timestamp, level, message, correlationId, ...metadata }) => {
+        const correlationPrefix = correlationId ? `[${correlationId}] ` : '';
+        let logMessage = `${timestamp} ${level}: ${correlationPrefix}${message}`;
+
+        // Include additional metadata if present
+        const metaKeys = Object.keys(metadata).filter(
+          (key) => key !== 'timestamp' && key !== 'level' && key !== 'message'
+        );
+
+        if (metaKeys.length > 0) {
+          const metaString = metaKeys
+            .map((key) => `${key}=${metadata[key]}`)
+            .join(' ');
+          logMessage += ` ${metaString}`;
+        }
+
+        return logMessage;
       }
-      
-      return logMessage;
-    })
-  )
+    )
+  ),
 });
 
 /**
@@ -67,7 +71,7 @@ const fileTransport = new DailyRotateFile({
   maxSize: '20m',
   maxFiles: '30d',
   format: logFormat,
-  level: 'debug'
+  level: 'debug',
 });
 
 /**
@@ -77,15 +81,12 @@ const fileTransport = new DailyRotateFile({
  */
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-  defaultMeta: { 
+  defaultMeta: {
     service: 'soromint-server',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
   },
-  transports: [
-    consoleTransport,
-    fileTransport
-  ],
-  exitOnError: false
+  transports: [consoleTransport, fileTransport],
+  exitOnError: false,
 });
 
 /**
@@ -115,11 +116,12 @@ const generateCorrelationId = () => {
  */
 const correlationIdMiddleware = (req, res, next) => {
   // Get correlation ID from header or generate new one
-  req.correlationId = req.headers['x-correlation-id'] || generateCorrelationId();
-  
+  req.correlationId =
+    req.headers['x-correlation-id'] || generateCorrelationId();
+
   // Set response header for client tracing
   res.setHeader('X-Correlation-ID', req.correlationId);
-  
+
   next();
 };
 
@@ -136,7 +138,7 @@ const correlationIdMiddleware = (req, res, next) => {
 const httpLoggerMiddleware = (req, res, next) => {
   const startTime = Date.now();
   const correlationId = req.correlationId;
-  
+
   // Log when response is finished
   res.on('finish', () => {
     const duration = Date.now() - startTime;
@@ -147,9 +149,9 @@ const httpLoggerMiddleware = (req, res, next) => {
       statusCode: res.statusCode,
       durationMs: duration,
       ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('user-agent')
+      userAgent: req.get('user-agent'),
     };
-    
+
     // Log level based on status code
     if (res.statusCode >= 500) {
       logger.error('HTTP Request', logData);
@@ -159,7 +161,7 @@ const httpLoggerMiddleware = (req, res, next) => {
       logger.http('HTTP Request', logData);
     }
   });
-  
+
   next();
 };
 
@@ -176,7 +178,7 @@ const logStartupInfo = (port, network) => {
     port,
     network,
     nodeEnv: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -190,7 +192,7 @@ const logStartupInfo = (port, network) => {
 const logShutdownInfo = (reason) => {
   logger.warn('Server shutting down', {
     reason,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -205,12 +207,12 @@ const logShutdownInfo = (reason) => {
 const logDatabaseConnection = (success, error = null) => {
   if (success) {
     logger.info('MongoDB Connected', {
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } else {
     logger.error('MongoDB Connection Error', {
       error: error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 };
@@ -226,7 +228,7 @@ const logDatabaseConnection = (success, error = null) => {
 const logRouteRegistration = (method, path) => {
   logger.debug('Route registered', {
     method,
-    path
+    path,
   });
 };
 
@@ -238,5 +240,5 @@ module.exports = {
   logStartupInfo,
   logShutdownInfo,
   logDatabaseConnection,
-  logRouteRegistration
+  logRouteRegistration,
 };

@@ -33,6 +33,8 @@ const authRoutes = require('./routes/auth-routes');
 const statusRoutes = require('./routes/status-routes');
 const auditRoutes = require('./routes/audit-routes');
 const tokenRoutes = require('./routes/token-routes');
+const feeRoutes = require('./routes/fee-routes');
+const tokenSearchRoutes = require('./routes/token-search-routes');
 const webhookRoutes = require('./routes/webhook-routes');
 const analyticsRoutes = require('./routes/analytics-routes');
 const notificationRoutes = require('./routes/notification-routes');
@@ -40,6 +42,13 @@ const votingRoutes = require('./routes/voting-routes');
 const securityRoutes = require('./routes/security-routes');
 const multiSigRoutes = require('./routes/multisig-routes');
 const vaultRoutes = require('./routes/vault-routes');
+const batchRoutes = require('./routes/batch-routes');
+const referralRoutes = require('./routes/referral-routes');
+const dividendRoutes = require('./routes/dividend-routes');
+const streamingRoutes = require('./routes/streaming-routes');
+const bridgeRoutes = require('./routes/bridge-routes');
+const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
+const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -49,6 +58,7 @@ const createApp = ({
 } = {}) => {
   const app = express();
   const corsMiddleware = cors(createCorsOptionsDelegate());
+  const fraudMiddleware = FraudDetectionMiddleware.getInstance();
 
   initSentry(app);
   app.use(securityHeaders);
@@ -58,11 +68,17 @@ const createApp = ({
   app.options('*', corsMiddleware);
   app.use(express.json());
 
+  // Initialize fraud detection middleware
+  app.use(fraudMiddleware.monitorRateLimit({ windowMs: 60000, maxRequests: 50 }));
+  app.use(fraudMiddleware.auditOperations());
+
   setupSwagger(app);
 
   app.use('/api', statusRoutes);
   app.use('/api', auditRoutes);
   app.use('/api', tokenRouter);
+  app.use('/api', feeRoutes);
+  app.use('/api', tokenSearchRoutes);
   app.use('/api', analyticsRoutes);
   app.use('/api', notificationRoutes);
   app.use('/api/auth', authRouter);
@@ -71,6 +87,15 @@ const createApp = ({
   app.use('/api', securityRouter);
   app.use('/api/multisig', multiSigRoutes);
   app.use('/api/vault', vaultRoutes);
+  app.use('/api', batchRoutes);
+  app.use('/api/referrals', referralRoutes);
+  app.use('/api', dividendRoutes);
+  app.use('/api/streaming', streamingRoutes);
+  app.use('/api/bridge', bridgeRoutes);
+  app.use('/api/fraud-detection', fraudDetectionRoutes);
+
+  // Apply streaming fraud detection middleware
+  app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
 
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -110,7 +135,9 @@ const startServer = async () => {
   await connectDatabase();
   const app = createApp();
 
-  app.listen(env.PORT, () => {
+  const { initSocket } = require('./utils/socket');
+
+  const server = app.listen(env.PORT, () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
     sampler.start();
     console.log(`Server running on http://localhost:${env.PORT}`);
@@ -119,6 +146,8 @@ const startServer = async () => {
     );
     scheduleBackups();
   });
+
+  initSocket(server);
 };
 
 if (require.main === module) {
