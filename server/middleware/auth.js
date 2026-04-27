@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
 const { AppError } = require('./error-handler');
 
 /**
@@ -174,12 +176,12 @@ const authorize = (...roles) => {
 };
 
 /**
- * @notice Generates a JWT token for a user
+ * @notice Generates a short-lived access JWT token for a user
  * @param {Object} user - User document
  * @returns {string} Signed JWT token
  * @throws {Error} If JWT_SECRET is not configured
  */
-const generateToken = (user) => {
+const generateAccessToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is not configured');
   }
@@ -191,15 +193,79 @@ const generateToken = (user) => {
     type: 'access',
   };
 
-  // Token expires in 24 hours by default
   const options = {
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
     issuer: 'SoroMint',
     audience: 'SoroMint-API',
   };
 
   return jwt.sign(payload, process.env.JWT_SECRET, options);
 };
+
+/**
+ * @notice Generates a refresh JWT token for a user
+ * @param {Object} user - User document
+ * @returns {string} Signed JWT token
+ * @throws {Error} If JWT_SECRET is not configured
+ */
+const generateRefreshToken = (user, options = {}) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is not configured');
+  }
+
+  const payload = {
+    id: user._id,
+    type: 'refresh'
+  };
+
+  const tokenOptions = {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+    issuer: 'SoroMint',
+    audience: 'SoroMint-API'
+  };
+
+  return jwt.sign(payload, process.env.JWT_SECRET, tokenOptions);
+};
+
+/**
+ * @notice Verifies a refresh token and returns the user
+ * @param {string} token - The refresh token to verify
+ * @returns {Object} User document if valid
+ * @throws {AppError} If token is invalid or expired
+ */
+const verifyRefreshToken = async (token) => {
+  if (!process.env.JWT_SECRET) {
+    throw new AppError('JWT_SECRET not configured', 500, 'CONFIG_ERROR');
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new AppError('Refresh token expired. Please login again.', 401, 'REFRESH_TOKEN_EXPIRED');
+    }
+    throw new AppError('Invalid refresh token.', 401, 'INVALID_REFRESH_TOKEN');
+  }
+
+  if (decoded.type !== 'refresh') {
+    throw new AppError('Invalid token type.', 401, 'INVALID_TOKEN_TYPE');
+  }
+
+  const refreshTokenDoc = await RefreshToken.verifyToken(token, decoded.id);
+  if (!refreshTokenDoc.valid) {
+    throw new AppError(refreshTokenDoc.error, 401, 'INVALID_REFRESH_TOKEN');
+  }
+
+  const user = await User.findById(decoded.id);
+  if (!user || !user.isActive()) {
+    throw new AppError('User not found or inactive.', 401, 'USER_NOT_FOUND');
+  }
+
+  return { user, refreshTokenDoc };
+};
+
+const generateToken = generateAccessToken;
 
 /**
  * @notice Decodes a JWT token without verification
@@ -233,6 +299,9 @@ module.exports = {
   authenticate,
   optionalAuthenticate,
   authorize,
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
   generateToken,
   decodeToken,
   verifyToken,
