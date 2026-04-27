@@ -1,0 +1,341 @@
+name: Full CI/CD Pipeline - Build, Test & Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+env:
+  REGISTRY: docker.io
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+  STAGING_DEPLOYMENT_KEY: ${{ secrets.STAGING_DEPLOYMENT_KEY }}
+  PRODUCTION_DEPLOYMENT_KEY: ${{ secrets.PRODUCTION_DEPLOYMENT_KEY }}
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 1: Verify Code Quality
+  # ─────────────────────────────────────────────────────────────────────────────
+  
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies (Server)
+        working-directory: ./server
+        run: npm ci
+
+      - name: Install Dependencies (Client)
+        working-directory: ./client
+        run: npm ci
+
+      - name: Run ESLint (Server)
+        working-directory: ./server
+        run: npm run lint
+
+      - name: Run ESLint (Client)
+        working-directory: ./client
+        run: npm run lint
+
+      - name: Check Prettier Formatting (Server)
+        working-directory: ./server
+        run: npm run format
+
+      - name: Check Prettier Formatting (Client)
+        working-directory: ./client
+        run: npm run format
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 2: Run Tests
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  test:
+    name: Run Unit & Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies (Server)
+        working-directory: ./server
+        run: npm ci
+
+      - name: Install Dependencies (Client)
+        working-directory: ./client
+        run: npm ci
+
+      - name: Run Backend Tests
+        working-directory: ./server
+        run: npm test -- --ci --coverage --forceExit
+        env:
+          NODE_ENV: test
+
+      - name: Upload Coverage Reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./server/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 3: Security Scan
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  security:
+    name: Security & Dependency Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies (Server)
+        working-directory: ./server
+        run: npm ci
+
+      - name: Install Dependencies (Client)
+        working-directory: ./client
+        run: npm ci
+
+      - name: Run npm audit (Server)
+        working-directory: ./server
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (Client)
+        working-directory: ./client
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 4: Build Docker Images
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      server-image-tag: ${{ steps.meta-server.outputs.tags }}
+      client-image-tag: ${{ steps.meta-client.outputs.tags }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ env.DOCKER_HUB_TOKEN }}
+
+      - name: Generate Docker Metadata (Server)
+        id: meta-server
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_HUB_USERNAME }}/soromint-server
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Generate Docker Metadata (Client)
+        id: meta-client
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_HUB_USERNAME }}/soromint-client
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build & Push Server Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta-server.outputs.tags }}
+          labels: ${{ steps.meta-server.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.DOCKER_HUB_USERNAME }}/soromint-server:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_HUB_USERNAME }}/soromint-server:buildcache,mode=max
+
+      - name: Build & Push Client Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: true
+          tags: ${{ steps.meta-client.outputs.tags }}
+          labels: ${{ steps.meta-client.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.DOCKER_HUB_USERNAME }}/soromint-client:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_HUB_USERNAME }}/soromint-client:buildcache,mode=max
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 5: Deploy to Staging
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.soromint.example.com
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Server
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_DEPLOY_USER }}
+          DEPLOY_KEY: ${{ env.STAGING_DEPLOYMENT_KEY }}
+          SERVER_IMAGE: ${{ needs.build.outputs.server-image-tag }}
+          CLIENT_IMAGE: ${{ needs.build.outputs.client-image-tag }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ env.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          
+          # SSH into staging server and pull latest images
+          ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
+            cd /opt/soromint
+            docker-compose pull
+            docker-compose up -d
+            docker-compose exec -T server npm run migrate
+          EOF
+
+      - name: Health Check (Staging)
+        run: |
+          for i in {1..30}; do
+            if curl -f https://staging.soromint.example.com/health; then
+              echo "✓ Staging deployment successful"
+              exit 0
+            fi
+            echo "Attempt $i/30: Waiting for health check..."
+            sleep 10
+          done
+          echo "✗ Health check failed"
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stage 6: Deploy to Production
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://soromint.example.com
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Production Server
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_DEPLOY_USER }}
+          DEPLOY_KEY: ${{ env.PRODUCTION_DEPLOYMENT_KEY }}
+          SERVER_IMAGE: ${{ needs.build.outputs.server-image-tag }}
+          CLIENT_IMAGE: ${{ needs.build.outputs.client-image-tag }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ env.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          
+          # SSH into production server and pull latest images
+          ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
+            cd /opt/soromint
+            docker-compose pull
+            docker-compose up -d
+            docker-compose exec -T server npm run migrate
+          EOF
+
+      - name: Health Check (Production)
+        run: |
+          for i in {1..30}; do
+            if curl -f https://soromint.example.com/health; then
+              echo "✓ Production deployment successful"
+              exit 0
+            fi
+            echo "Attempt $i/30: Waiting for health check..."
+            sleep 10
+          done
+          echo "✗ Health check failed"
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Notification (Optional)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: Determine Status
+        id: status
+        run: |
+          if [ "${{ needs.build.result }}" = "success" ] && [ "${{ needs.deploy-staging.result }}" = "success" ] && [ "${{ needs.deploy-production.result }}" = "success" ]; then
+            echo "status=✓ All deployments successful" >> $GITHUB_OUTPUT
+          else
+            echo "status=✗ Deployment failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Notification (Slack/Email Placeholder)
+        run: |
+          echo "Deployment Status: ${{ steps.status.outputs.status }}"
+          # TODO: Add Slack webhook URL to secrets and uncomment:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d '{"text":"${{ steps.status.outputs.status }}"}'
