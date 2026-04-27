@@ -15,10 +15,11 @@ env:
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
   STAGING_DEPLOYMENT_KEY: ${{ secrets.STAGING_DEPLOYMENT_KEY }}
   PRODUCTION_DEPLOYMENT_KEY: ${{ secrets.PRODUCTION_DEPLOYMENT_KEY }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # Stage 1: Verify Code Quality
+  # Stage 1: Verify Code Quality (Linting)
   # ─────────────────────────────────────────────────────────────────────────────
   
   lint:
@@ -242,7 +243,6 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
           
-          # SSH into staging server and pull latest images
           ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
             cd /opt/soromint
             docker-compose pull
@@ -292,7 +292,6 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
           
-          # SSH into production server and pull latest images
           ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'EOF'
             cd /opt/soromint
             docker-compose pull
@@ -314,28 +313,130 @@ jobs:
           exit 1
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Notification (Optional)
+  # Stage 7: Send Deployment Notifications
   # ─────────────────────────────────────────────────────────────────────────────
 
   notify:
-    name: Send Deployment Notification
+    name: Send Deployment Notifications
     runs-on: ubuntu-latest
     needs: [build, deploy-staging, deploy-production]
     if: always()
     steps:
-      - name: Determine Status
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Determine Deployment Status
         id: status
         run: |
-          if [ "${{ needs.build.result }}" = "success" ] && [ "${{ needs.deploy-staging.result }}" = "success" ] && [ "${{ needs.deploy-production.result }}" = "success" ]; then
-            echo "status=✓ All deployments successful" >> $GITHUB_OUTPUT
+          BUILD_STATUS="${{ needs.build.result }}"
+          STAGING_STATUS="${{ needs.deploy-staging.result }}"
+          PRODUCTION_STATUS="${{ needs.deploy-production.result }}"
+          
+          if [ "$BUILD_STATUS" = "success" ] && [ "$STAGING_STATUS" = "success" ] && [ "$PRODUCTION_STATUS" = "success" ]; then
+            echo "status=✅ SUCCESS" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+            echo "message=All deployments completed successfully!" >> $GITHUB_OUTPUT
           else
-            echo "status=✗ Deployment failed" >> $GITHUB_OUTPUT
+            echo "status=❌ FAILED" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+            echo "message=Deployment pipeline failed. Check logs for details." >> $GITHUB_OUTPUT
           fi
+          
+          echo "build_status=$BUILD_STATUS" >> $GITHUB_OUTPUT
+          echo "staging_status=$STAGING_STATUS" >> $GITHUB_OUTPUT
+          echo "production_status=$PRODUCTION_STATUS" >> $GITHUB_OUTPUT
 
-      - name: Send Notification (Slack/Email Placeholder)
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1
+        if: env.SLACK_WEBHOOK_URL != ''
+        with:
+          webhook-url: ${{ env.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "SoroMint Deployment Report",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*
+${{ steps.status.outputs.status }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*
+${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*
+${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*
+<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*
+${{ github.actor }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Run:*
+<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Logs>"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Stage Results:*
+• Build: ${{ steps.status.outputs.build_status }}
+• Staging: ${{ steps.status.outputs.staging_status }}
+• Production: ${{ steps.status.outputs.production_status }}"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Message: ${{ steps.status.outputs.message }}"
+                    }
+                  ]
+                }
+              ]
+            }
+
+      - name: Send Discord Notification
+        if: failure()
         run: |
-          echo "Deployment Status: ${{ steps.status.outputs.status }}"
-          # TODO: Add Slack webhook URL to secrets and uncomment:
-          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-          #   -H 'Content-Type: application/json' \
-          #   -d '{"text":"${{ steps.status.outputs.status }}"}'
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "username": "SoroMint CI/CD",
+              "avatar_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+              "embeds": [{
+                "color": 15158332,
+                "title": "Deployment Failed",
+                "description": "SoroMint deployment pipeline encountered an error",
+                "fields": [
+                  {"name": "Repository", "value": "${{ github.repository }}", "inline": true},
+                  {"name": "Branch", "value": "${{ github.ref_name }}", "inline": true},
+                  {"name": "Author", "value": "${{ github.actor }}", "inline": true},
+                  {"name": "Status", "value": "${{ steps.status.outputs.status }}", "inline": true},
+                  {"name": "Logs", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "inline": false}
+                ]
+              }]
+            }'
