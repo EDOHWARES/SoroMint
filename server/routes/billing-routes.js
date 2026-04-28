@@ -6,7 +6,7 @@ const Billing = require('../models/Billing');
 const DeploymentUsage = require('../models/DeploymentUsage');
 const logger = require('winston');
 
-// Middleware to verify authentication
+// Check if user is authenticated
 const authenticateUser = (req, res, next) => {
   if (!req.user || !req.user.id) {
     return res.status(401).json({ error: 'Unauthorized' });

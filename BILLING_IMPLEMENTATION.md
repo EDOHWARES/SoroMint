@@ -1,263 +1,68 @@
-# Stripe-Powered Tiered Usage Limits - Implementation Summary
+# Billing System - What Was Added
 
-## Feature Overview
+Stripe integration with three tiers, deployment limits, and subscription management.
 
-This implementation adds a comprehensive three-tier billing system (Free, Pro, Enterprise) with Stripe integration and hard/soft deployment limits to SoroMint.
+## New Models
 
-## Issue Reference
-- **Issue #167**: Stripe-Powered Tiered Usage Limits
-- **Complexity**: High
-- **Area**: Backend
+- **AccountTier** - Tier config (name, price, deployment limit, features)
+- **Billing** - Subscription info, payment history, Stripe customer ID
+- **DeploymentUsage** - Monthly deployment count per user
 
-## What's Implemented
+## New Service
 
-### 1. Database Models
+**BillingService** (`services/billing-service.js`)
+- Initialize tiers
+- Create Stripe customers and subscriptions
+- Upgrade/downgrade tiers
+- Track deployment usage
+- Handle Stripe webhooks (subscription updates, payments)
 
-#### AccountTier Model (`models/AccountTier.js`)
-- Defines tier configurations (name, price, limits, features)
-- Stores Stripe product and price IDs
-- Includes feature flags for tier-specific capabilities
+## Routes
 
-#### Billing Model (`models/Billing.js`)
-- Tracks user billing information
-- Stores Stripe customer and subscription IDs
-- Records payment history and subscription status
-- Manages billing address and payment methods
+**Public:**
+- `GET /billing/tiers` - List tiers
+- `GET /billing/tiers/:id` - Get tier details
 
-#### DeploymentUsage Model (`models/DeploymentUsage.js`)
-- Tracks monthly deployment usage per user
-- Records soft limit warnings
-- Tracks billing period dates
-- Manages hard limit exceeded status
-
-#### User Model (Enhanced)
-- Added `accountTierId` field to track current tier
-- Added `tierChangedAt` timestamp
-- Added `totalDeployments` counter
-- Added `hasReceivedTrial` flag
-
-### 2. Core Service: BillingService (`services/billing-service.js`)
-
-**Key Methods:**
-
-- `initializeAccountTiers()` - Initializes default tiers in database
-- `createStripeCustomer()` - Creates Stripe customer for user
-- `createSubscription()` - Creates Stripe subscription with price
-- `upgradeTier()` / `downgradeTier()` - Manages tier changes
-- `incrementDeploymentCount()` - Tracks usage, enforces hard limits
-- `getDeploymentUsage()` - Returns current usage stats
-- `cancelSubscription()` - Cancels Stripe subscription
-- `handleStripeWebhook()` - Processes Stripe webhook events
-- `handleSubscriptionUpdated()` - Updates subscription status
-- `handleSubscriptionDeleted()` - Reverts to free tier
-- `handlePaymentSucceeded()` / `handlePaymentFailed()` - Records payment status
-
-**Features:**
-- Stripe API integration
-- Automatic hard limit enforcement
-- Soft limit warning tracking
-- Webhook event handling
-- Subscription lifecycle management
-
-### 3. API Routes (`routes/billing-routes.js`)
-
-**Public Endpoints:**
-- `GET /billing/tiers` - List all active tiers
-- `GET /billing/tiers/:id` - Get specific tier details
-
-**Private Endpoints:**
-- `GET /billing/info` - Get user's billing information
-- `GET /billing/usage` - Get current deployment usage
-- `GET /billing/deployment-limit-status` - Get deployment limit status
-- `POST /billing/create-customer` - Create Stripe customer
-- `POST /billing/subscribe` - Subscribe to a tier
-- `POST /billing/upgrade` - Upgrade to higher tier
-- `POST /billing/downgrade` - Downgrade to lower tier
+**Private (requires auth):**
+- `GET /billing/info` - User billing info
+- `GET /billing/usage` - Current deployment usage
+- `POST /billing/subscribe` - Subscribe to tier
+- `POST /billing/upgrade` - Upgrade tier
+- `POST /billing/downgrade` - Downgrade tier
 - `POST /billing/cancel-subscription` - Cancel subscription
 
-**Webhook Endpoint:**
-- `POST /billing/webhook/stripe` - Stripe webhook receiver (signature verified)
+**Webhook:**
+- `POST /billing/webhook/stripe` - Stripe webhook (signature verified)
 
-### 4. Middleware (`middleware/deployment-limit-middleware.js`)
+## Middleware
 
-**Three Middleware Functions:**
+- `checkDeploymentLimit` - Blocks deployment if limit reached
+- `trackDeployment` - Counts deployments on success
+- `checkFeatureAccess` - Blocks features not in tier
 
-1. **checkDeploymentLimit**
-   - Enforces hard limits
-   - Prevents deployment if limit reached
-   - Sets warning headers near soft limit
-   - Returns 403 if limit exceeded
+## Files Added/Changed
 
-2. **trackDeployment**
-   - Automatically increments usage counter
-   - Called after successful deployment
-   - Non-blocking async operation
+New files:
+- `models/AccountTier.js`, `Billing.js`, `DeploymentUsage.js`
+- `services/billing-service.js`
+- `routes/billing-routes.js`
+- `middleware/deployment-limit-middleware.js`
+- `migrations/initialize-billing-system.js`
+- `docs/billing-system.md`, `billing-integration-guide.md`
 
-3. **checkFeatureAccess**
-   - Verifies tier has feature access
-   - Prevents access to tier-specific features
-   - Returns 403 if feature not available
+Updated:
+- `models/User.js` - Added tier tracking
+- `package.json` - Added stripe dependency
+- `index.js` - Added billing routes and initialization
+- `.env.example` - Added Stripe config
 
-### 5. Configuration & Documentation
+## Setup
 
-#### .env.example (Updated)
-- Added all Stripe configuration keys
-- Documented billing period configuration
-- Includes default tier settings
-
-#### Documentation Files
-
-**1. `docs/billing-system.md`**
-- Comprehensive system overview
-- Tier definitions and pricing
-- Hard/soft limit explanation
-- Complete API reference
-- Database model documentation
-- Setup instructions
-- Testing guide
-- Error handling examples
-- Future enhancements
-
-**2. `docs/billing-integration-guide.md`**
-- Step-by-step integration instructions
-- Frontend code examples
-- Token deployment route integration
-- Billing UI components
-- Testing procedures
-- Webhook configuration
-- Debugging tips
-- Performance considerations
-- Security best practices
-
-## Tier Configuration
-
-### Free Tier
-- **Price**: $0/month
-- **Deployments**: 10/month (Hard limit)
-- **Features**: API access
-- **Support**: Community
-
-### Pro Tier
-- **Price**: $29.99/month
-- **Deployments**: 100/month (Hard limit)
-- **Features**: Advanced analytics, multi-sig, custom networks, webhooks
-- **Support**: Priority email
-
-### Enterprise Tier
-- **Price**: $99.99/month
-- **Deployments**: Unlimited
-- **Features**: All Pro features + custom SLA
-- **Support**: Dedicated
-
-## Limit Enforcement
-
-### Hard Limits
-- Strictly enforced before deployment
-- Returns HTTP 403 if exceeded
-- Can't be bypassed by any user
-- Resets monthly (1st of month)
-
-### Soft Limits
-- Default: 80% of hard limit
-- Warning notifications sent
-- Included in response headers
-- Can be sent multiple times per period
-
-## Stripe Integration Points
-
-### Subscription Management
-- Create subscriptions with Stripe priceId
-- Update subscription on tier change
-- Automatic proration handling
-- Cancel at period end option
-
-### Payment Tracking
-- Records successful payments
-- Tracks failed payments
-- Retries failed charges
-- Maintains payment history
-
-### Webhook Events
-- `customer.subscription.updated` - Updates status
-- `customer.subscription.deleted` - Reverts to free
-- `invoice.payment_succeeded` - Records success
-- `invoice.payment_failed` - Tracks failures
-
-## File Structure
-
-```
-server/
-├── models/
-│   ├── AccountTier.js (NEW)
-│   ├── Billing.js (NEW)
-│   ├── DeploymentUsage.js (NEW)
-│   └── User.js (UPDATED)
-├── services/
-│   └── billing-service.js (NEW)
-├── routes/
-│   └── billing-routes.js (NEW)
-├── middleware/
-│   └── deployment-limit-middleware.js (NEW)
-├── migrations/
-│   └── initialize-billing-system.js (NEW)
-├── docs/
-│   ├── billing-system.md (NEW)
-│   └── billing-integration-guide.md (NEW)
-├── .env.example (UPDATED)
-└── index.js (UPDATED)
-```
-
-## Changes Made
-
-### Dependencies
-- Added `stripe@^14.0.0` to package.json
-
-### Main Application File (index.js)
-- Imported BillingService
-- Added billing routes to app
-- Added billing system initialization on startup
-- Graceful handling if initialization fails
-
-### User Model
-- Added tier tracking fields
-- Added deployment counter
-- Added trial eligibility
-
-## Setup Instructions
-
-### 1. Install Dependencies
-```bash
-cd server
-npm install --legacy-peer-deps
-```
-
-### 2. Configure Environment
-```bash
-# Copy and edit .env
-cp .env.example .env
-
-# Add Stripe keys from https://dashboard.stripe.com/apikeys
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLIC_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-### 3. Initialize Billing System
-```bash
-# Creates default account tiers
-node migrations/initialize-billing-system.js
-```
-
-### 4. Start Server
-```bash
-npm run dev
-```
-
-### 5. Configure Stripe Webhook
-1. Go to https://dashboard.stripe.com/webhooks
-2. Create endpoint: `https://yourdomain.com/api/billing/webhook/stripe`
-3. Select events: subscription.updated, subscription.deleted, invoice.payment_succeeded, invoice.payment_failed
-4. Copy signing secret to `STRIPE_WEBHOOK_SECRET`
+1. Install: `npm install --legacy-peer-deps`
+2. Configure `.env` with Stripe keys
+3. Run: `node migrations/initialize-billing-system.js`
+4. Start: `npm run dev`
+5. Add webhook in Stripe dashboard
 
 ## Testing
 

@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
-/**
- * @title AccountTier Model
- * @author SoroMint Team
- * @notice Defines account tiers with deployment limits and pricing
- * @dev Used for tiered access control and billing management
- */
-
+// Store tier configs: free, pro, enterprise
 const AccountTierSchema = new mongoose.Schema(
   {
     /**

@@ -1,8 +1,4 @@
-# Stripe-Powered Tiered Usage Limits
-
-## Overview
-
-This feature implements a three-tier account system (Free, Pro, Enterprise) with Stripe billing integration and hard/soft deployment limits.
+# Billing & Deployment Limits\n\nThree tiers with Stripe integration. Free gets 10 deployments/month, Pro gets 100, Enterprise is unlimited."
 
 ## Account Tiers
 
@@ -33,17 +29,11 @@ This feature implements a three-tier account system (Free, Pro, Enterprise) with
   - Custom SLA
   - Advanced security features
 
-## Deployment Limits
+## Limits
 
-### Hard Limits
-- Users cannot exceed their tier's monthly deployment limit
-- Attempting to deploy when at limit returns HTTP 403 error
-- Limit resets on the first day of each calendar month
+**Hard limits** - Can't deploy past your tier's monthly limit. Returns 403 error. Resets on the 1st of each month.
 
-### Soft Limits
-- Default threshold: 80% of monthly limit
-- Warning notifications sent when approaching limit
-- Header `X-Deployment-Warning: true` included in responses when near limit
+**Soft limits** - Warnings start at 80% of your limit. Response headers include `X-Deployment-Warning: true` when approaching limit.
 
 ## Environment Variables
 

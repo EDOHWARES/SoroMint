@@ -5,13 +5,7 @@ const Billing = require('../models/Billing');
 const DeploymentUsage = require('../models/DeploymentUsage');
 const logger = require('winston');
 
-/**
- * @title Billing Service
- * @author SoroMint Team
- * @notice Manages Stripe integration and billing operations
- * @dev Handles tier management, subscription lifecycle, and deployment limits
- */
-
+// Handle billing, subscriptions, and usage tracking
 class BillingService {
   /**
    * Initialize account tiers in the database

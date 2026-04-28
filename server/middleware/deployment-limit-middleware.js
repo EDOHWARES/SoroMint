@@ -1,12 +1,7 @@
 const BillingService = require('../services/billing-service');
 const logger = require('winston');
 
-/**
- * @title Deployment Limit Middleware
- * @author SoroMint Team
- * @notice Enforces deployment limits based on user tier
- * @dev Checks both hard and soft limits before allowing deployments
- */
+// Check deployment limits and track usage
 
 /**
  * Middleware to check deployment limits

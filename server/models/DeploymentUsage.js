@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
-/**
- * @title DeploymentUsage Model
- * @author SoroMint Team
- * @notice Tracks token deployment usage per user per billing period
- * @dev Used to enforce hard limits and trigger soft limit warnings
- */
-
+// Track monthly deployments per user
 const DeploymentUsageSchema = new mongoose.Schema(
   {
     /**

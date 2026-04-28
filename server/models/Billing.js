@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
-/**
- * @title Billing Model
- * @author SoroMint Team
- * @notice Tracks user billing and subscription information
- * @dev Manages Stripe subscription lifecycle and tier changes
- */
-
+// Track user subscriptions and payment info
 const BillingSchema = new mongoose.Schema(
   {
     /**
