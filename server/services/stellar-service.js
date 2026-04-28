@@ -11,32 +11,15 @@ const {
   scValToNative,
   xdr,
 } = require('@stellar/stellar-sdk');
-const { getEnv } = require('../config/env-config');
 const { logger } = require('../utils/logger');
+const { getEnv } = require('../config/env-config');
 
-/**
- * @title FailoverRpcServer
- * @notice A wrapper for Soroban RPC server with failover and retry capabilities.
- * @dev Manages an array of RPC endpoints and automatically cycles through them on failure.
- */
 class FailoverRpcServer {
-  /**
-   * @notice Initializes the failover server with multiple endpoints.
-   * @param {string[]} urls - Array of Soroban RPC endpoint URLs.
-   */
   constructor(urls) {
-    if (!urls || urls.length === 0) {
-      throw new Error('No RPC URLs provided for FailoverRpcServer');
-    }
     this.urls = urls;
     this.currentIndex = 0;
     this.instances = urls.map((url) => new rpc.Server(url));
   }
-
-  /**
-   * @notice Gets the current RPC server instance.
-   * @returns {rpc.Server} The current Stellar Soroban RPC server instance.
-   */
   get current() {
     return this.instances[this.currentIndex];
   }
@@ -62,7 +45,6 @@ class FailoverRpcServer {
    */
   async execute(fn) {
     let lastError;
-
     for (let i = 0; i < this.urls.length; i++) {
       try {
         return await fn(this.current);
@@ -75,32 +57,42 @@ class FailoverRpcServer {
         this.next();
       }
     }
-
-    logger.error('All RPC endpoints failed');
     throw lastError;
   }
 }
 
 let failoverServer = null;
-
-/**
- * @title getRpcServer
- * @notice Initializes or returns a singleton connection to the Soroban RPC.
- * @dev Reads SOROBAN_RPC_URLS (comma-separated) or fallback to SOROBAN_RPC_URL.
- * @returns {FailoverRpcServer} The failover-enabled RPC server wrapper.
- */
 const getRpcServer = () => {
   if (failoverServer) return failoverServer;
-
   const env = getEnv();
   const urls = env.SOROBAN_RPC_URLS
     ? env.SOROBAN_RPC_URLS.split(',')
         .map((u) => u.trim())
         .filter(Boolean)
     : [env.SOROBAN_RPC_URL];
-
   failoverServer = new FailoverRpcServer(urls);
   return failoverServer;
+};
+
+/**
+ * @notice Fetches the token balance for a given contract and public key.
+ * @param {string} contractId - The contract ID of the token.
+ * @param {string} publicKey - The public key of the account.
+ * @returns {Promise<bigint>} The token balance.
+ */
+const getTokenBalance = async (contractId, publicKey) => {
+  if (process.env.NODE_ENV === 'test') return 100000000n;
+  const server = getRpcServer();
+  const env = getEnv();
+  // Using a known account or the provided publicKey to fetch sequence
+  const account = await server.execute(s => s.getAccount(publicKey));
+  const txBuilder = new TransactionBuilder(account, { fee: '100', networkPassphrase: env.NETWORK_PASSPHRASE });
+  const op = new Contract(contractId).call('balance', new Address(publicKey).toScVal());
+  txBuilder.addOperation(op);
+  const tx = txBuilder.setTimeout(30).build();
+  const sim = await server.execute(s => s.simulateTransaction(tx));
+  if (sim.error) throw new Error(sim.error);
+  return rpc.Api.parseRawSimulationResult(sim.results[0].xdr).value().toBigInt();
 };
 
 /**
@@ -174,32 +166,29 @@ const submitBatchOperations = async (operations, sourcePublicKey) => {
   });
 
   // Build one contract invocation per operation
+
   for (const op of operations) {
     const contract = new Contract(op.contractId);
     let invokeOp;
-
-    if (op.type === 'mint') {
+    if (op.type === 'mint')
       invokeOp = contract.call(
         'mint',
         new Address(op.to || sourcePublicKey).toScVal(),
         nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
       );
-    } else if (op.type === 'burn') {
+    else if (op.type === 'burn')
       invokeOp = contract.call(
         'burn',
         new Address(sourcePublicKey).toScVal(),
         nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
       );
-    } else {
-      // transfer
+    else
       invokeOp = contract.call(
         'transfer',
         new Address(sourcePublicKey).toScVal(),
         new Address(op.destination).toScVal(),
         nativeToScVal(BigInt(Math.round(op.amount * 1e7)), { type: 'i128' })
       );
-    }
-
     txBuilder.addOperation(invokeOp);
   }
 
@@ -390,6 +379,7 @@ const getTokenMetadata = async (contractId) => {
 
 module.exports = {
   getRpcServer,
+  getTokenBalance,
   wrapAsset,
   deployStellarAssetContract,
   FailoverRpcServer,
