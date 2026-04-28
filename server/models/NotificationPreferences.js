@@ -26,6 +26,10 @@ const NotificationPreferencesSchema = new mongoose.Schema(
       tokenMinted: { type: Boolean, default: true },
       transactionConfirmed: { type: Boolean, default: true },
       deploymentFailed: { type: Boolean, default: true },
+      // Stream lifecycle events (Task 1)
+      stream_created: { type: Boolean, default: true },
+      stream_funds_received: { type: Boolean, default: true },
+      stream_cancelled: { type: Boolean, default: true },
     },
   },
   {
