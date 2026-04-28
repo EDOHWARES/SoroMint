@@ -73,7 +73,10 @@ const _sweepTimer = setInterval(() => {
     }
   }
   if (removed > 0) {
-    logger.debug('[SEP-10] Swept expired challenges', { removed, remaining: _store.size });
+    logger.debug('[SEP-10] Swept expired challenges', {
+      removed,
+      remaining: _store.size,
+    });
   }
 }, SWEEP_INTERVAL_MS);
 
@@ -103,13 +106,13 @@ const _getServerKeypair = () => {
   if (env.NODE_ENV === 'production') {
     throw new Error(
       'SERVER_SIGNING_SECRET must be set in production. ' +
-      'Generate one with: node -e "const {Keypair}=require(\'@stellar/stellar-sdk\');console.log(Keypair.random().secret())"'
+        'Generate one with: node -e "const {Keypair}=require(\'@stellar/stellar-sdk\');console.log(Keypair.random().secret())"'
     );
   }
 
   logger.warn(
     '[SEP-10] SERVER_SIGNING_SECRET not set — using insecure ephemeral key. ' +
-    'Set SERVER_SIGNING_SECRET in your .env for a stable signing identity.'
+      'Set SERVER_SIGNING_SECRET in your .env for a stable signing identity.'
   );
 
   // Deterministic within one process lifetime
@@ -255,7 +258,10 @@ const verifyChallenge = (challengeToken, signedTransactionXDR) => {
     const maxTime = parseInt(tx.timeBounds.maxTime, 10);
 
     if (nowSec < minTime) {
-      return { valid: false, error: 'Transaction is not yet valid (minTime in the future)' };
+      return {
+        valid: false,
+        error: 'Transaction is not yet valid (minTime in the future)',
+      };
     }
     if (nowSec > maxTime) {
       return { valid: false, error: 'Transaction time bounds have expired' };
@@ -263,13 +269,19 @@ const verifyChallenge = (challengeToken, signedTransactionXDR) => {
 
     // ── 5. Operation count ───────────────────────────────────────────────
     if (tx.operations.length < 2) {
-      return { valid: false, error: 'Challenge transaction must contain at least 2 operations' };
+      return {
+        valid: false,
+        error: 'Challenge transaction must contain at least 2 operations',
+      };
     }
 
     // ── 6. Verify domain operation ───────────────────────────────────────
     const domainOp = tx.operations[0];
     if (domainOp.type !== 'manageData' || domainOp.name !== 'web_auth_domain') {
-      return { valid: false, error: 'First operation must be a web_auth_domain ManageData' };
+      return {
+        valid: false,
+        error: 'First operation must be a web_auth_domain ManageData',
+      };
     }
 
     // ── 7 & 8. Signature verification ────────────────────────────────────
@@ -297,13 +309,17 @@ const verifyChallenge = (challengeToken, signedTransactionXDR) => {
     }
 
     if (!hasValidServerSig) {
-      return { valid: false, error: 'Server signature on challenge is missing or invalid' };
+      return {
+        valid: false,
+        error: 'Server signature on challenge is missing or invalid',
+      };
     }
 
     if (!hasValidClientSig) {
       return {
         valid: false,
-        error: 'Client signature is missing or invalid — make sure you signed with the correct keypair',
+        error:
+          'Client signature is missing or invalid — make sure you signed with the correct keypair',
       };
     }
 
@@ -316,7 +332,6 @@ const verifyChallenge = (challengeToken, signedTransactionXDR) => {
     });
 
     return { valid: true, publicKey: stored.publicKey };
-
   } catch (err) {
     logger.error('[SEP-10] Challenge verification threw an exception', {
       error: err.message,

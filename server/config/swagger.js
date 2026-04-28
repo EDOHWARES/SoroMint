@@ -91,7 +91,8 @@ All errors return standardized JSON responses with:
             },
             decimals: {
               type: 'integer',
-              description: 'Number of decimal places for the token (default: 7)',
+              description:
+                'Number of decimal places for the token (default: 7)',
               example: 7,
               default: 7,
               minimum: 0,
@@ -100,13 +101,15 @@ All errors return standardized JSON responses with:
             contractId: {
               type: 'string',
               description: 'Stellar contract address (C... format)',
-              example: 'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE',
+              example:
+                'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE',
               pattern: '^C[A-Z0-9]{55}$',
             },
             ownerPublicKey: {
               type: 'string',
-              description: 'Owner\'s Stellar public key (G... format)',
-              example: 'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
+              description: "Owner's Stellar public key (G... format)",
+              example:
+                'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
               pattern: '^G[A-Z0-9]{55}$',
             },
             createdAt: {
@@ -146,13 +149,16 @@ All errors return standardized JSON responses with:
             },
             contractId: {
               type: 'string',
-              description: 'Stellar contract address (optional, auto-generated if not provided)',
-              example: 'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE',
+              description:
+                'Stellar contract address (optional, auto-generated if not provided)',
+              example:
+                'CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE',
             },
             ownerPublicKey: {
               type: 'string',
-              description: 'Owner\'s Stellar public key',
-              example: 'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
+              description: "Owner's Stellar public key",
+              example:
+                'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
             },
           },
         },
@@ -164,7 +170,8 @@ All errors return standardized JSON responses with:
             error: {
               type: 'string',
               description: 'Human-readable error message',
-              example: 'Missing required fields: name, symbol, and ownerPublicKey are required',
+              example:
+                'Missing required fields: name, symbol, and ownerPublicKey are required',
             },
             code: {
               type: 'string',
@@ -223,10 +230,11 @@ All errors return standardized JSON responses with:
         get: {
           tags: ['System'],
           summary: 'Get server status',
-          description: 'Retrieves the current server status and network configuration',
+          description:
+            'Retrieves the current server status and network configuration',
           operationId: 'getStatus',
           responses: {
-            '200': {
+            200: {
               description: 'Server status information',
               content: {
                 'application/json': {
@@ -253,22 +261,24 @@ All errors return standardized JSON responses with:
         get: {
           tags: ['Tokens'],
           summary: 'Get tokens by owner',
-          description: 'Retrieves all tokens owned by a specific Stellar public key',
+          description:
+            'Retrieves all tokens owned by a specific Stellar public key',
           operationId: 'getTokensByOwner',
           parameters: [
             {
               name: 'owner',
               in: 'path',
               required: true,
-              description: 'Owner\'s Stellar public key',
+              description: "Owner's Stellar public key",
               schema: {
                 type: 'string',
-                example: 'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
+                example:
+                  'GBZ4XGQW5X6V7Y2Z3A4B5C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T',
               },
             },
           ],
           responses: {
-            '200': {
+            200: {
               description: 'Array of tokens owned by the specified address',
               content: {
                 'application/json': {
@@ -281,7 +291,7 @@ All errors return standardized JSON responses with:
                 },
               },
             },
-            '400': {
+            400: {
               description: 'Invalid owner public key format',
               content: {
                 'application/json': {
@@ -321,7 +331,7 @@ All errors return standardized JSON responses with:
             },
           },
           responses: {
-            '201': {
+            201: {
               description: 'Successfully created token',
               content: {
                 'application/json': {
@@ -331,7 +341,7 @@ All errors return standardized JSON responses with:
                 },
               },
             },
-            '400': {
+            400: {
               description: 'Missing required fields or validation error',
               content: {
                 'application/json': {
@@ -341,7 +351,7 @@ All errors return standardized JSON responses with:
                 },
               },
             },
-            '409': {
+            409: {
               description: 'Token with this contractId already exists',
               content: {
                 'application/json': {
