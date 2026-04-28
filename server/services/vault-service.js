@@ -4,21 +4,29 @@ const Vault = require('../models/Vault');
 const { logger } = require('../utils/logger');
 
 class VaultService {
-  async createVault(vaultContractId, user, collateralToken, collateralAmount, smtAmount) {
+  async createVault(
+    vaultContractId,
+    user,
+    collateralToken,
+    collateralAmount,
+    smtAmount
+  ) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     const vaultId = await rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
         contract.call(
           'deposit_and_mint',
           nativeToScVal(Address.fromString(user), { type: 'address' }),
-          nativeToScVal(Address.fromString(collateralToken), { type: 'address' }),
+          nativeToScVal(Address.fromString(collateralToken), {
+            type: 'address',
+          }),
           nativeToScVal(collateralAmount, { type: 'i128' }),
           nativeToScVal(smtAmount, { type: 'i128' })
         )
       );
-      
+
       return this.extractVaultIdFromResult(result);
     });
 
@@ -26,10 +34,12 @@ class VaultService {
       vaultId: vaultId.toString(),
       contractAddress: vaultContractId,
       owner: user,
-      collaterals: [{
-        tokenAddress: collateralToken,
-        amount: collateralAmount.toString(),
-      }],
+      collaterals: [
+        {
+          tokenAddress: collateralToken,
+          amount: collateralAmount.toString(),
+        },
+      ],
       debt: smtAmount.toString(),
       status: 'active',
     });
@@ -50,13 +60,15 @@ class VaultService {
   async addCollateral(vaultContractId, vaultId, collateralToken, amount) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     await rpcServer.execute(async (server) => {
       await server.simulateTransaction(
         contract.call(
           'add_collateral',
           nativeToScVal(parseInt(vaultId), { type: 'u64' }),
-          nativeToScVal(Address.fromString(collateralToken), { type: 'address' }),
+          nativeToScVal(Address.fromString(collateralToken), {
+            type: 'address',
+          }),
           nativeToScVal(amount, { type: 'i128' })
         )
       );
@@ -64,9 +76,13 @@ class VaultService {
 
     const vault = await Vault.findOne({ vaultId });
     if (vault) {
-      const existingCollateral = vault.collaterals.find(c => c.tokenAddress === collateralToken);
+      const existingCollateral = vault.collaterals.find(
+        (c) => c.tokenAddress === collateralToken
+      );
       if (existingCollateral) {
-        existingCollateral.amount = (BigInt(existingCollateral.amount) + BigInt(amount)).toString();
+        existingCollateral.amount = (
+          BigInt(existingCollateral.amount) + BigInt(amount)
+        ).toString();
       } else {
         vault.collaterals.push({
           tokenAddress: collateralToken,
@@ -77,7 +93,11 @@ class VaultService {
       await vault.save();
     }
 
-    logger.info('Collateral added to vault', { vaultId, collateralToken, amount });
+    logger.info('Collateral added to vault', {
+      vaultId,
+      collateralToken,
+      amount,
+    });
 
     return vault;
   }
@@ -85,7 +105,7 @@ class VaultService {
   async mintMore(vaultContractId, vaultId, smtAmount) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     await rpcServer.execute(async (server) => {
       await server.simulateTransaction(
         contract.call(
@@ -108,17 +128,25 @@ class VaultService {
     return vault;
   }
 
-  async repayAndWithdraw(vaultContractId, vaultId, repayAmount, collateralToken, withdrawAmount) {
+  async repayAndWithdraw(
+    vaultContractId,
+    vaultId,
+    repayAmount,
+    collateralToken,
+    withdrawAmount
+  ) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     await rpcServer.execute(async (server) => {
       await server.simulateTransaction(
         contract.call(
           'repay_and_withdraw',
           nativeToScVal(parseInt(vaultId), { type: 'u64' }),
           nativeToScVal(repayAmount, { type: 'i128' }),
-          nativeToScVal(Address.fromString(collateralToken), { type: 'address' }),
+          nativeToScVal(Address.fromString(collateralToken), {
+            type: 'address',
+          }),
           nativeToScVal(withdrawAmount, { type: 'i128' })
         )
       );
@@ -129,11 +157,15 @@ class VaultService {
       if (repayAmount > 0) {
         vault.debt = (BigInt(vault.debt) - BigInt(repayAmount)).toString();
       }
-      
+
       if (withdrawAmount > 0) {
-        const collateral = vault.collaterals.find(c => c.tokenAddress === collateralToken);
+        const collateral = vault.collaterals.find(
+          (c) => c.tokenAddress === collateralToken
+        );
         if (collateral) {
-          collateral.amount = (BigInt(collateral.amount) - BigInt(withdrawAmount)).toString();
+          collateral.amount = (
+            BigInt(collateral.amount) - BigInt(withdrawAmount)
+          ).toString();
         }
       }
 
@@ -145,7 +177,11 @@ class VaultService {
       await vault.save();
     }
 
-    logger.info('Vault repay and withdraw', { vaultId, repayAmount, withdrawAmount });
+    logger.info('Vault repay and withdraw', {
+      vaultId,
+      repayAmount,
+      withdrawAmount,
+    });
 
     return vault;
   }
@@ -153,7 +189,7 @@ class VaultService {
   async liquidate(vaultContractId, vaultId, liquidator, debtToCover) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     await rpcServer.execute(async (server) => {
       await server.simulateTransaction(
         contract.call(
@@ -190,10 +226,13 @@ class VaultService {
   async getVault(vaultContractId, vaultId) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     const vaultData = await rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
-        contract.call('get_vault', nativeToScVal(parseInt(vaultId), { type: 'u64' }))
+        contract.call(
+          'get_vault',
+          nativeToScVal(parseInt(vaultId), { type: 'u64' })
+        )
       );
       return this.parseVaultData(result);
     });
@@ -204,10 +243,13 @@ class VaultService {
   async getVaultHealth(vaultContractId, vaultId) {
     const rpcServer = getRpcServer();
     const contract = new Contract(vaultContractId);
-    
+
     const health = await rpcServer.execute(async (server) => {
       const result = await server.simulateTransaction(
-        contract.call('get_vault_health', nativeToScVal(parseInt(vaultId), { type: 'u64' }))
+        contract.call(
+          'get_vault_health',
+          nativeToScVal(parseInt(vaultId), { type: 'u64' })
+        )
       );
       return this.extractI128FromResult(result);
     });
@@ -216,10 +258,10 @@ class VaultService {
   }
 
   async getUserVaults(vaultContractId, userAddress) {
-    return Vault.find({ 
+    return Vault.find({
       contractAddress: vaultContractId,
       owner: userAddress,
-      status: { $in: ['active', 'liquidated'] }
+      status: { $in: ['active', 'liquidated'] },
     }).sort({ createdAt: -1 });
   }
 
@@ -227,7 +269,7 @@ class VaultService {
     return Vault.find({
       contractAddress: vaultContractId,
       status: 'active',
-      collateralizationRatio: { $lt: liquidationThreshold }
+      collateralizationRatio: { $lt: liquidationThreshold },
     }).sort({ collateralizationRatio: 1 });
   }
 

@@ -7,7 +7,7 @@ import {
   Contract,
   SorobanRpc,
   nativeToScVal,
-  Address
+  Address,
 } from '@stellar/stellar-sdk';
 
 // 1. Setup Redis Connection
@@ -17,12 +17,15 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
 export const mintQueue = new Queue('MintQueue', { connection });
 
 // 3. Setup Soroban RPC & Network Configurations
-const RPC_URL = process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
+const RPC_URL =
+  process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
 const NETWORK_PASSPHRASE = process.env.NETWORK_PASSPHRASE || Networks.TESTNET;
 const rpcServer = new SorobanRpc.Server(RPC_URL);
 
 if (!process.env.ADMIN_SECRET_KEY) {
-  console.warn("WARNING: ADMIN_SECRET_KEY is not set in the environment variables!");
+  console.warn(
+    'WARNING: ADMIN_SECRET_KEY is not set in the environment variables!'
+  );
 }
 
 // 4. Create the Worker
@@ -41,7 +44,7 @@ const mintWorker = new Worker(
 
       // 4b. Build the base transaction
       let tx = new TransactionBuilder(adminAccount, {
-        fee: '100', 
+        fee: '100',
         networkPassphrase: NETWORK_PASSPHRASE,
       })
         .addOperation(
@@ -70,56 +73,68 @@ const mintWorker = new Worker(
       }
 
       // 4f. Poll for the final status
-      console.log(`[MintWorker] Transaction submitted with hash ${sendResponse.hash}. Waiting for ledger...`);
-      
+      console.log(
+        `[MintWorker] Transaction submitted with hash ${sendResponse.hash}. Waiting for ledger...`
+      );
+
       let txStatus = await rpcServer.getTransaction(sendResponse.hash);
       let attempts = 0;
-      
+
       while (txStatus.status === 'NOT_FOUND' && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         txStatus = await rpcServer.getTransaction(sendResponse.hash);
         attempts++;
       }
 
       if (txStatus.status === 'FAILED') {
-        throw new Error(`Transaction failed on chain: ${JSON.stringify(txStatus.resultMetaXdr)}`);
+        throw new Error(
+          `Transaction failed on chain: ${JSON.stringify(txStatus.resultMetaXdr)}`
+        );
       }
 
       if (txStatus.status === 'SUCCESS') {
-        console.log(`[MintWorker] Successfully minted ${amount} tokens to ${recipientAddress} via contract ${contractId}`);
+        console.log(
+          `[MintWorker] Successfully minted ${amount} tokens to ${recipientAddress} via contract ${contractId}`
+        );
         return { success: true, txHash: sendResponse.hash };
       }
 
-      throw new Error(`Transaction timed out or stuck in unknown state: ${txStatus.status}`);
-
+      throw new Error(
+        `Transaction timed out or stuck in unknown state: ${txStatus.status}`
+      );
     } catch (error) {
-      console.error(`[MintWorker] Failed to execute mint for job ${job.id}:`, error);
-      throw error; 
+      console.error(
+        `[MintWorker] Failed to execute mint for job ${job.id}:`,
+        error
+      );
+      throw error;
     }
   },
-  { 
+  {
     connection,
-    concurrency: 1 
+    concurrency: 1,
   }
 );
 
 // 5. Helper function to schedule mints
 export async function scheduleMint(payload, executeAt) {
   const delay = executeAt.getTime() - Date.now();
-  
+
   if (delay < 0) {
     throw new Error('Cannot schedule a mint in the past.');
   }
 
   const job = await mintQueue.add('scheduled-mint', payload, {
     delay,
-    attempts: 3, 
+    attempts: 3,
     backoff: {
       type: 'exponential',
-      delay: 5000 
-    }
+      delay: 5000,
+    },
   });
 
-  console.log(`[MintQueue] Scheduled mint job ${job.id} for ${executeAt.toISOString()}`);
+  console.log(
+    `[MintQueue] Scheduled mint job ${job.id} for ${executeAt.toISOString()}`
+  );
   return job.id;
 }

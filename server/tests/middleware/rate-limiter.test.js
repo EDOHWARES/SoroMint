@@ -5,7 +5,7 @@ const {
   DEFAULT_LIMIT_MESSAGE,
   parsePositiveInteger,
   createRateLimitResponse,
-  createRateLimiter
+  createRateLimiter,
 } = require('../../middleware/rate-limiter');
 
 describe('Rate Limiter Middleware', () => {
@@ -23,16 +23,20 @@ describe('Rate Limiter Middleware', () => {
     expect(createRateLimitResponse()).toEqual({
       error: DEFAULT_LIMIT_MESSAGE,
       code: DEFAULT_LIMIT_CODE,
-      status: 429
+      status: 429,
     });
   });
 
   it('should reject requests after the configured threshold', async () => {
     const app = express();
     app.use(express.json());
-    app.post('/limited', createRateLimiter({ windowMs: 60_000, max: 1 }), (req, res) => {
-      res.status(201).json({ success: true });
-    });
+    app.post(
+      '/limited',
+      createRateLimiter({ windowMs: 60_000, max: 1 }),
+      (req, res) => {
+        res.status(201).json({ success: true });
+      }
+    );
 
     const firstResponse = await request(app)
       .post('/limited')
@@ -47,7 +51,7 @@ describe('Rate Limiter Middleware', () => {
     expect(secondResponse.body).toEqual({
       error: DEFAULT_LIMIT_MESSAGE,
       code: DEFAULT_LIMIT_CODE,
-      status: 429
+      status: 429,
     });
   });
 });

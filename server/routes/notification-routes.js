@@ -19,12 +19,14 @@ router.get(
         email: prefs.email,
         webPush: {
           enabled: prefs.webPush.enabled,
-          subscribed: !!(prefs.webPush.subscription && prefs.webPush.subscription.endpoint),
+          subscribed: !!(
+            prefs.webPush.subscription && prefs.webPush.subscription.endpoint
+          ),
         },
         events: prefs.events,
       },
     });
-  }),
+  })
 );
 
 router.put(
@@ -36,21 +38,26 @@ router.put(
     const prefs = await NotificationPreferences.findByUserId(req.user._id);
 
     if (email) {
-      if (typeof email.enabled === 'boolean') prefs.email.enabled = email.enabled;
+      if (typeof email.enabled === 'boolean')
+        prefs.email.enabled = email.enabled;
       if (email.address) prefs.email.address = email.address;
     }
 
     if (webPush) {
-      if (typeof webPush.enabled === 'boolean') prefs.webPush.enabled = webPush.enabled;
+      if (typeof webPush.enabled === 'boolean')
+        prefs.webPush.enabled = webPush.enabled;
       if (webPush.subscription) {
         prefs.webPush.subscription = webPush.subscription;
       }
     }
 
     if (events) {
-      if (typeof events.tokenMinted === 'boolean') prefs.events.tokenMinted = events.tokenMinted;
-      if (typeof events.transactionConfirmed === 'boolean') prefs.events.transactionConfirmed = events.transactionConfirmed;
-      if (typeof events.deploymentFailed === 'boolean') prefs.events.deploymentFailed = events.deploymentFailed;
+      if (typeof events.tokenMinted === 'boolean')
+        prefs.events.tokenMinted = events.tokenMinted;
+      if (typeof events.transactionConfirmed === 'boolean')
+        prefs.events.transactionConfirmed = events.transactionConfirmed;
+      if (typeof events.deploymentFailed === 'boolean')
+        prefs.events.deploymentFailed = events.deploymentFailed;
     }
 
     await prefs.save();
@@ -67,12 +74,14 @@ router.put(
         email: prefs.email,
         webPush: {
           enabled: prefs.webPush.enabled,
-          subscribed: !!(prefs.webPush.subscription && prefs.webPush.subscription.endpoint),
+          subscribed: !!(
+            prefs.webPush.subscription && prefs.webPush.subscription.endpoint
+          ),
         },
         events: prefs.events,
       },
     });
-  }),
+  })
 );
 
 router.get(
@@ -85,7 +94,7 @@ router.get(
         publicKey: env.VAPID_PUBLIC_KEY || '',
       },
     });
-  }),
+  })
 );
 
 module.exports = router;

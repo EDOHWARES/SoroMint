@@ -16,7 +16,7 @@ const {
   generateToken,
   decodeToken,
   verifyToken,
-  extractTokenFromHeader
+  extractTokenFromHeader,
 } = require('../../middleware/auth');
 const { errorHandler, AppError } = require('../../middleware/error-handler');
 
@@ -30,16 +30,19 @@ let expiredToken;
 let invalidToken;
 
 // Valid Stellar public keys for testing (generated via Keypair.random())
-const TEST_PUBLIC_KEY = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
-const TEST_PUBLIC_KEY_2 = 'GA2DQGWZTIICWQ7MZ5VZ6CKKXQOGCDHUUFIFO7YUG6SGX63BVG433GZD';
-const TEST_PUBLIC_KEY_3 = 'GAMDBSITFGKPOC6ZFLP7HXJFFQMQYMIOXJEFYRBZKM6XWJFFM6SXXHCV';
+const TEST_PUBLIC_KEY =
+  'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+const TEST_PUBLIC_KEY_2 =
+  'GA2DQGWZTIICWQ7MZ5VZ6CKKXQOGCDHUUFIFO7YUG6SGX63BVG433GZD';
+const TEST_PUBLIC_KEY_3 =
+  'GAMDBSITFGKPOC6ZFLP7HXJFFQMQYMIOXJEFYRBZKM6XWJFFM6SXXHCV';
 
 /**
  * Helper to create a mock Express request object
  */
 const createMockRequest = (overrides = {}) => ({
   headers: {},
-  ...overrides
+  ...overrides,
 });
 
 /**
@@ -71,14 +74,14 @@ beforeAll(async () => {
   testUser = new User({
     publicKey: TEST_PUBLIC_KEY,
     username: 'testuser',
-    role: 'admin'
+    role: 'admin',
   });
   await testUser.save();
 
   adminUser = new User({
     publicKey: TEST_PUBLIC_KEY_3,
     username: 'adminuser',
-    role: 'admin'
+    role: 'admin',
   });
   await adminUser.save();
 
@@ -103,14 +106,14 @@ afterEach(async () => {
   testUser = new User({
     publicKey: TEST_PUBLIC_KEY,
     username: 'testuser',
-    role: 'admin'
+    role: 'admin',
   });
   await testUser.save();
 
   adminUser = new User({
     publicKey: TEST_PUBLIC_KEY_3,
     username: 'adminuser',
-    role: 'admin'
+    role: 'admin',
   });
   await adminUser.save();
 
@@ -129,7 +132,7 @@ describe('Auth Middleware', () => {
   describe('extractTokenFromHeader', () => {
     it('should extract token from valid Bearer header', () => {
       const req = createMockRequest({
-        headers: { authorization: 'Bearer mytoken123' }
+        headers: { authorization: 'Bearer mytoken123' },
       });
 
       const token = extractTokenFromHeader(req);
@@ -147,7 +150,7 @@ describe('Auth Middleware', () => {
 
     it('should return null if header does not start with Bearer', () => {
       const req = createMockRequest({
-        headers: { authorization: 'Basic mytoken123' }
+        headers: { authorization: 'Basic mytoken123' },
       });
 
       const token = extractTokenFromHeader(req);
@@ -157,7 +160,7 @@ describe('Auth Middleware', () => {
 
     it('should return null if authorization header is empty', () => {
       const req = createMockRequest({
-        headers: { authorization: '' }
+        headers: { authorization: '' },
       });
 
       const token = extractTokenFromHeader(req);
@@ -167,7 +170,7 @@ describe('Auth Middleware', () => {
 
     it('should handle Bearer with no token', () => {
       const req = createMockRequest({
-        headers: { authorization: 'Bearer ' }
+        headers: { authorization: 'Bearer ' },
       });
 
       const token = extractTokenFromHeader(req);
@@ -208,7 +211,9 @@ describe('Auth Middleware', () => {
       const originalSecret = process.env.JWT_SECRET;
       delete process.env.JWT_SECRET;
 
-      expect(() => generateToken(TEST_PUBLIC_KEY)).toThrow('JWT_SECRET environment variable is not configured');
+      expect(() => generateToken(TEST_PUBLIC_KEY)).toThrow(
+        'JWT_SECRET environment variable is not configured'
+      );
 
       process.env.JWT_SECRET = originalSecret;
     });
@@ -277,7 +282,9 @@ describe('Auth Middleware', () => {
       const originalSecret = process.env.JWT_SECRET;
       delete process.env.JWT_SECRET;
 
-      expect(() => verifyToken(validToken)).toThrow('JWT_SECRET environment variable is not configured');
+      expect(() => verifyToken(validToken)).toThrow(
+        'JWT_SECRET environment variable is not configured'
+      );
 
       process.env.JWT_SECRET = originalSecret;
     });
@@ -286,7 +293,7 @@ describe('Auth Middleware', () => {
   describe('authenticate middleware', () => {
     it('should authenticate valid token and attach user to request', async () => {
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${validToken}` }
+        headers: { authorization: `Bearer ${validToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -315,7 +322,7 @@ describe('Auth Middleware', () => {
 
     it('should call next with error if token is invalid', async () => {
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${invalidToken}` }
+        headers: { authorization: `Bearer ${invalidToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -330,7 +337,7 @@ describe('Auth Middleware', () => {
 
     it('should call next with error if token is expired', async () => {
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${expiredToken}` }
+        headers: { authorization: `Bearer ${expiredToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -348,7 +355,7 @@ describe('Auth Middleware', () => {
       const fakeToken = generateToken(TEST_PUBLIC_KEY_2, 'fakeuser');
 
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${fakeToken}` }
+        headers: { authorization: `Bearer ${fakeToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -366,14 +373,14 @@ describe('Auth Middleware', () => {
       const suspendedUser = new User({
         publicKey: TEST_PUBLIC_KEY_2,
         username: 'suspendeduser',
-        status: 'suspended'
+        status: 'suspended',
       });
       await suspendedUser.save();
 
       const suspendedToken = generateToken(TEST_PUBLIC_KEY_2, 'suspendeduser');
 
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${suspendedToken}` }
+        headers: { authorization: `Bearer ${suspendedToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -390,14 +397,14 @@ describe('Auth Middleware', () => {
       const deletedUser = new User({
         publicKey: TEST_PUBLIC_KEY_2,
         username: 'deleteduser',
-        status: 'deleted'
+        status: 'deleted',
       });
       await deletedUser.save();
 
       const deletedToken = generateToken(TEST_PUBLIC_KEY_2, 'deleteduser');
 
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${deletedToken}` }
+        headers: { authorization: `Bearer ${deletedToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -412,7 +419,7 @@ describe('Auth Middleware', () => {
 
     it('should handle malformed Bearer token format', async () => {
       const req = createMockRequest({
-        headers: { authorization: 'Bearer' } // Missing space and token
+        headers: { authorization: 'Bearer' }, // Missing space and token
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -428,7 +435,7 @@ describe('Auth Middleware', () => {
   describe('optionalAuthenticate middleware', () => {
     it('should attach user if valid token provided', async () => {
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${validToken}` }
+        headers: { authorization: `Bearer ${validToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -453,7 +460,7 @@ describe('Auth Middleware', () => {
 
     it('should not fail if invalid token provided', async () => {
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${invalidToken}` }
+        headers: { authorization: `Bearer ${invalidToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -468,7 +475,7 @@ describe('Auth Middleware', () => {
       const fakeToken = generateToken(TEST_PUBLIC_KEY_2, 'fakeuser');
 
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${fakeToken}` }
+        headers: { authorization: `Bearer ${fakeToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -483,14 +490,14 @@ describe('Auth Middleware', () => {
       const suspendedUser = new User({
         publicKey: TEST_PUBLIC_KEY_2,
         username: 'suspendeduser',
-        status: 'suspended'
+        status: 'suspended',
       });
       await suspendedUser.save();
 
       const suspendedToken = generateToken(TEST_PUBLIC_KEY_2, 'suspendeduser');
 
       const req = createMockRequest({
-        headers: { authorization: `Bearer ${suspendedToken}` }
+        headers: { authorization: `Bearer ${suspendedToken}` },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -505,7 +512,7 @@ describe('Auth Middleware', () => {
   describe('authorize middleware', () => {
     it('should allow access if user has required role', async () => {
       const req = createMockRequest({
-        user: { publicKey: TEST_PUBLIC_KEY, role: 'user' }
+        user: { publicKey: TEST_PUBLIC_KEY, role: 'user' },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -518,7 +525,7 @@ describe('Auth Middleware', () => {
 
     it('should allow access if user has admin role', async () => {
       const req = createMockRequest({
-        user: { publicKey: TEST_PUBLIC_KEY_3, role: 'admin' }
+        user: { publicKey: TEST_PUBLIC_KEY_3, role: 'admin' },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -545,7 +552,7 @@ describe('Auth Middleware', () => {
 
     it('should work with multiple roles', async () => {
       const req = createMockRequest({
-        user: { publicKey: TEST_PUBLIC_KEY, role: 'user' }
+        user: { publicKey: TEST_PUBLIC_KEY, role: 'user' },
       });
       const res = createMockResponse();
       const next = createMockNext();
@@ -591,7 +598,7 @@ describe('Auth Middleware Integration', () => {
     app.get('/optional', optionalAuthenticate, (req, res) => {
       res.json({
         authenticated: !!req.user,
-        publicKey: req.user?.publicKey || null
+        publicKey: req.user?.publicKey || null,
       });
     });
 

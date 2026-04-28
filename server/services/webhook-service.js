@@ -77,6 +77,7 @@ const deliverWithRetry = async (webhook, event, data) => {
         'X-SoroMint-Event': event,
         'X-SoroMint-Webhook-Id': String(webhook._id),
       });
+      await deliver(webhook.url, payload, signature);
       logger.info('Webhook delivered', {
         webhookId: webhook._id,
         event,

@@ -1,4 +1,8 @@
-const { getRpcServer, wrapAsset, deployStellarAssetContract } = require('../services/stellar-service');
+const {
+  getRpcServer,
+  wrapAsset,
+  deployStellarAssetContract,
+} = require('../services/stellar-service');
 
 describe('Stellar Service', () => {
   it('should return an RPC server instance', () => {
@@ -15,7 +19,8 @@ describe('Stellar Service', () => {
 
   it('should wrap custom asset correctly', async () => {
     // Valid stellar address format G...
-    const mockIssuer = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+    const mockIssuer =
+      'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
     const asset = await wrapAsset('USDC', mockIssuer);
     expect(asset.isNative()).toBe(false);
     expect(asset.code).toBe('USDC');

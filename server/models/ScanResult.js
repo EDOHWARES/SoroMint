@@ -29,9 +29,9 @@ const mongoose = require('mongoose');
  */
 const FindingLocationSchema = new mongoose.Schema(
   {
-    section: { type: String },      // e.g. 'import', 'export', 'memory', 'data', 'code'
-    offset:  { type: Number },      // byte offset within the WASM binary
-    detail:  { type: String },      // free-text extra context
+    section: { type: String }, // e.g. 'import', 'export', 'memory', 'data', 'code'
+    offset: { type: Number }, // byte offset within the WASM binary
+    detail: { type: String }, // free-text extra context
   },
   { _id: false }
 );
@@ -98,15 +98,15 @@ const FindingSchema = new mongoose.Schema(
  */
 const SummarySchema = new mongoose.Schema(
   {
-    critical:      { type: Number, default: 0, min: 0 },
-    high:          { type: Number, default: 0, min: 0 },
-    medium:        { type: Number, default: 0, min: 0 },
-    low:           { type: Number, default: 0, min: 0 },
-    info:          { type: Number, default: 0, min: 0 },
+    critical: { type: Number, default: 0, min: 0 },
+    high: { type: Number, default: 0, min: 0 },
+    medium: { type: Number, default: 0, min: 0 },
+    low: { type: Number, default: 0, min: 0 },
+    info: { type: Number, default: 0, min: 0 },
     /** Number of rules that produced no finding. */
-    passedChecks:  { type: Number, default: 0, min: 0 },
+    passedChecks: { type: Number, default: 0, min: 0 },
     /** Total rules evaluated in this scan. */
-    totalChecks:   { type: Number, default: 0, min: 0 },
+    totalChecks: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -250,8 +250,8 @@ const ScanResultSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,   // createdAt + updatedAt
-    toJSON:   { virtuals: true },
+    timestamps: true, // createdAt + updatedAt
+    toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
 );
@@ -289,10 +289,14 @@ ScanResultSchema.virtual('deploymentAllowed').get(function () {
  */
 ScanResultSchema.virtual('headline').get(function () {
   const { critical, high, medium, low } = this.summary;
-  if (this.status === 'error')   return 'Scanner error — WASM could not be parsed';
-  if (this.status === 'clean')   return 'No issues found — contract is safe to deploy';
-  if (this.status === 'failed')  return `Deployment blocked: ${critical} critical, ${high} high-severity issue(s) found`;
-  if (this.status === 'warning') return `${medium} medium, ${low} low-severity issue(s) found`;
+  if (this.status === 'error')
+    return 'Scanner error — WASM could not be parsed';
+  if (this.status === 'clean')
+    return 'No issues found — contract is safe to deploy';
+  if (this.status === 'failed')
+    return `Deployment blocked: ${critical} critical, ${high} high-severity issue(s) found`;
+  if (this.status === 'warning')
+    return `${medium} medium, ${low} low-severity issue(s) found`;
   return `Scan ${this.status}`;
 });
 
@@ -348,9 +352,9 @@ ScanResultSchema.statics.getStats = async function (userId) {
     {
       $group: {
         _id: null,
-        total:        { $sum: 1 },
+        total: { $sum: 1 },
         blockedCount: { $sum: { $cond: ['$deploymentBlocked', 1, 0] } },
-        avgDuration:  { $avg: '$duration' },
+        avgDuration: { $avg: '$duration' },
         statusCounts: { $push: '$status' },
       },
     },
@@ -368,10 +372,10 @@ ScanResultSchema.statics.getStats = async function (userId) {
   }
 
   return {
-    total:        result.total,
+    total: result.total,
     byStatus,
     blockedCount: result.blockedCount,
-    avgDuration:  Math.round(result.avgDuration || 0),
+    avgDuration: Math.round(result.avgDuration || 0),
   };
 };
 

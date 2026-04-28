@@ -13,6 +13,7 @@ const webhookSchema = z.object({
   url: z.string().url('Invalid URL'),
   events: z
     .array(z.enum(SUPPORTED_WEBHOOK_EVENTS))
+    .array(z.enum(['token.minted', 'token.transferred', 'token.burned']))
     .min(1)
     .default(['token.minted']),
   secret: z.string().min(16, 'Secret must be at least 16 characters'),
@@ -26,6 +27,7 @@ router.post(
     const parsed = webhookSchema.safeParse(req.body);
     if (!parsed.success) {
       const msg = getZodIssues(parsed.error)
+      const msg = parsed.error.errors
         .map((e) => `${e.path.join('.')}: ${e.message}`)
         .join(', ');
       throw new AppError(msg, 400, 'VALIDATION_ERROR');

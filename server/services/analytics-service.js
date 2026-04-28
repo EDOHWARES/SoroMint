@@ -5,13 +5,13 @@
  *   All exports are privacy-compliant — no PII is shared, only on-chain identifiers.
  */
 
-const https = require("https");
-const http = require("http");
-const { URL } = require("url");
-const Token = require("../models/Token");
-const DeploymentAudit = require("../models/DeploymentAudit");
-const SorobanEvent = require("../models/SorobanEvent");
-const { logger } = require("../utils/logger");
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
+const Token = require('../models/Token');
+const DeploymentAudit = require('../models/DeploymentAudit');
+const SorobanEvent = require('../models/SorobanEvent');
+const { logger } = require('../utils/logger');
 
 /**
  * Build a privacy-safe token payload — strips internal MongoDB IDs,
@@ -49,13 +49,15 @@ function sanitizeAudit(audit) {
  */
 async function buildAnalyticsPayload() {
   const [tokens, audits] = await Promise.all([
-    Token.find({}).select("contractId name symbol decimals createdAt").lean(),
-    DeploymentAudit.find({}).select("contractId tokenName status createdAt").lean(),
+    Token.find({}).select('contractId name symbol decimals createdAt').lean(),
+    DeploymentAudit.find({})
+      .select('contractId tokenName status createdAt')
+      .lean(),
   ]);
 
   const totalTokens = tokens.length;
-  const successfulDeploys = audits.filter((a) => a.status === "SUCCESS").length;
-  const failedDeploys = audits.filter((a) => a.status === "FAIL").length;
+  const successfulDeploys = audits.filter((a) => a.status === 'SUCCESS').length;
+  const failedDeploys = audits.filter((a) => a.status === 'FAIL').length;
 
   return {
     exportedAt: new Date().toISOString(),
@@ -78,30 +80,32 @@ function postWebhook(webhookUrl, payload, apiKey) {
     const body = JSON.stringify(payload);
 
     const headers = {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(body),
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
     };
-    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-    const lib = parsed.protocol === "https:" ? https : http;
+    const lib = parsed.protocol === 'https:' ? https : http;
     const req = lib.request(
       {
         hostname: parsed.hostname,
-        port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
         path: parsed.pathname + parsed.search,
-        method: "POST",
+        method: 'POST',
         headers,
       },
       (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => resolve({ statusCode: res.statusCode, body: data }));
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () =>
+          resolve({ statusCode: res.statusCode, body: data })
+        );
       }
     );
 
-    req.on("error", reject);
+    req.on('error', reject);
     req.setTimeout(10000, () => {
-      req.destroy(new Error("Analytics webhook request timed out"));
+      req.destroy(new Error('Analytics webhook request timed out'));
     });
     req.write(body);
     req.end();
@@ -132,14 +136,18 @@ async function syncAnalytics() {
         payload,
         process.env.ANALYTICS_WEBHOOK_KEY
       );
-      logger.info("Analytics synced to webhook", {
+      logger.info('Analytics synced to webhook', {
         url: webhookUrl,
         statusCode: res.statusCode,
       });
-      results.push({ platform: "webhook", statusCode: res.statusCode, ok: res.statusCode < 400 });
+      results.push({
+        platform: 'webhook',
+        statusCode: res.statusCode,
+        ok: res.statusCode < 400,
+      });
     } catch (err) {
-      logger.error("Analytics webhook sync failed", { error: err.message });
-      results.push({ platform: "webhook", ok: false, error: err.message });
+      logger.error('Analytics webhook sync failed', { error: err.message });
+      results.push({ platform: 'webhook', ok: false, error: err.message });
     }
   }
 
@@ -162,20 +170,26 @@ async function syncAnalytics() {
 
       const duneUrl = `https://api.dune.com/api/v1/table/${duneNamespace}/${duneTable}/insert`;
       const res = await postWebhook(duneUrl, dunePayload, duneKey);
-      logger.info("Analytics synced to Dune", {
+      logger.info('Analytics synced to Dune', {
         namespace: duneNamespace,
         table: duneTable,
         statusCode: res.statusCode,
       });
-      results.push({ platform: "dune", statusCode: res.statusCode, ok: res.statusCode < 400 });
+      results.push({
+        platform: 'dune',
+        statusCode: res.statusCode,
+        ok: res.statusCode < 400,
+      });
     } catch (err) {
-      logger.error("Dune Analytics sync failed", { error: err.message });
-      results.push({ platform: "dune", ok: false, error: err.message });
+      logger.error('Dune Analytics sync failed', { error: err.message });
+      results.push({ platform: 'dune', ok: false, error: err.message });
     }
   }
 
   if (results.length === 0) {
-    logger.warn("No analytics platforms configured — set ANALYTICS_WEBHOOK_URL or DUNE_API_KEY");
+    logger.warn(
+      'No analytics platforms configured — set ANALYTICS_WEBHOOK_URL or DUNE_API_KEY'
+    );
   }
 
   return { exportedAt: payload.exportedAt, summary: payload.summary, results };
@@ -189,8 +203,10 @@ async function syncAnalytics() {
 async function getTransferAggregation() {
   try {
     // Get all tokens in the system
-    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
-    
+    const tokens = await Token.find({})
+      .select('contractId name symbol decimals')
+      .lean();
+
     const transferData = [];
     let totalTransfers = 0;
     let totalUniqueTransferers = new Set();
@@ -199,7 +215,7 @@ async function getTransferAggregation() {
       // Find all transfer events for this token
       const transfers = await SorobanEvent.find({
         contractId: token.contractId,
-        eventType: { $regex: "transfer", $options: "i" },
+        eventType: { $regex: 'transfer', $options: 'i' },
       }).lean();
 
       const transferCount = transfers.length;
@@ -217,7 +233,11 @@ async function getTransferAggregation() {
       // Calculate total volume from all transfers
       let totalVolume = 0n;
       transfers.forEach((event) => {
-        if (event.value && typeof event.value === "object" && event.value.amount) {
+        if (
+          event.value &&
+          typeof event.value === 'object' &&
+          event.value.amount
+        ) {
           try {
             totalVolume += BigInt(event.value.amount || 0);
           } catch (e) {
@@ -234,9 +254,14 @@ async function getTransferAggregation() {
         transferCount,
         uniqueTransferers: uniqueSenders.size,
         totalVolume: totalVolume.toString(),
-        lastTransferAt: transfers.length > 0 
-          ? new Date(Math.max(...transfers.map(t => new Date(t.ledgerClosedAt).getTime())))
-          : null,
+        lastTransferAt:
+          transfers.length > 0
+            ? new Date(
+                Math.max(
+                  ...transfers.map((t) => new Date(t.ledgerClosedAt).getTime())
+                )
+              )
+            : null,
       });
     }
 
@@ -245,12 +270,15 @@ async function getTransferAggregation() {
       summary: {
         totalTransfers,
         totalUniqueTransferers: totalUniqueTransferers.size,
-        tokensWithTransfers: transferData.filter(t => t.transferCount > 0).length,
+        tokensWithTransfers: transferData.filter((t) => t.transferCount > 0)
+          .length,
       },
       transfers: transferData,
     };
   } catch (error) {
-    logger.error("Error getting transfer aggregation", { error: error.message });
+    logger.error('Error getting transfer aggregation', {
+      error: error.message,
+    });
     throw error;
   }
 }
@@ -262,8 +290,10 @@ async function getTransferAggregation() {
  */
 async function getHolderDistribution() {
   try {
-    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
-    
+    const tokens = await Token.find({})
+      .select('contractId name symbol decimals')
+      .lean();
+
     const holderData = [];
     let totalHolders = new Set();
 
@@ -271,7 +301,7 @@ async function getHolderDistribution() {
       // Find all transfer events involving this token
       const transfers = await SorobanEvent.find({
         contractId: token.contractId,
-        eventType: { $regex: "transfer", $options: "i" },
+        eventType: { $regex: 'transfer', $options: 'i' },
       }).lean();
 
       // Extract unique recipients (typically second topic) and senders (first topic)
@@ -285,7 +315,7 @@ async function getHolderDistribution() {
         }
       });
 
-      uniqueHolders.forEach(holder => totalHolders.add(holder));
+      uniqueHolders.forEach((holder) => totalHolders.add(holder));
 
       holderData.push({
         contractId: token.contractId,
@@ -301,15 +331,19 @@ async function getHolderDistribution() {
       exportedAt: new Date().toISOString(),
       summary: {
         totalUniquePlatformHolders: totalHolders.size,
-        tokensWithHolders: holderData.filter(h => h.uniqueHolders > 0).length,
-        averageHoldersPerToken: holderData.length > 0 
-          ? Math.round(holderData.reduce((sum, h) => sum + h.uniqueHolders, 0) / holderData.length)
-          : 0,
+        tokensWithHolders: holderData.filter((h) => h.uniqueHolders > 0).length,
+        averageHoldersPerToken:
+          holderData.length > 0
+            ? Math.round(
+                holderData.reduce((sum, h) => sum + h.uniqueHolders, 0) /
+                  holderData.length
+              )
+            : 0,
       },
       holders: holderData,
     };
   } catch (error) {
-    logger.error("Error getting holder distribution", { error: error.message });
+    logger.error('Error getting holder distribution', { error: error.message });
     throw error;
   }
 }
@@ -322,21 +356,25 @@ async function getHolderDistribution() {
  */
 async function getVolumeMetrics(days = 30) {
   try {
-    const tokens = await Token.find({}).select("contractId name symbol decimals").lean();
-    
+    const tokens = await Token.find({})
+      .select('contractId name symbol decimals')
+      .lean();
+
     const volumeData = [];
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    
+
     let totalPlatformVolume = 0n;
 
     for (const token of tokens) {
       // Get recent transfer events
       const recentTransfers = await SorobanEvent.find({
         contractId: token.contractId,
-        eventType: { $regex: "transfer", $options: "i" },
+        eventType: { $regex: 'transfer', $options: 'i' },
         ledgerClosedAt: { $gte: cutoffDate },
-      }).sort({ ledgerClosedAt: -1 }).lean();
+      })
+        .sort({ ledgerClosedAt: -1 })
+        .lean();
 
       // Calculate volume metrics
       let volume24h = 0n;
@@ -356,7 +394,7 @@ async function getVolumeMetrics(days = 30) {
         }
 
         const eventDate = new Date(event.ledgerClosedAt);
-        
+
         if (eventDate >= oneDayAgo) volume24h += eventAmount;
         if (eventDate >= sevenDaysAgo) volume7d += eventAmount;
         volume30d += eventAmount;
@@ -365,9 +403,10 @@ async function getVolumeMetrics(days = 30) {
       totalPlatformVolume += volume30d;
 
       // Calculate daily average
-      const dailyAverage = days > 0 
-        ? (BigInt(Math.floor(Number(volume30d) / days))).toString()
-        : "0";
+      const dailyAverage =
+        days > 0
+          ? BigInt(Math.floor(Number(volume30d) / days)).toString()
+          : '0';
 
       volumeData.push({
         contractId: token.contractId,
@@ -379,9 +418,12 @@ async function getVolumeMetrics(days = 30) {
         volume30d: volume30d.toString(),
         dailyAverage,
         transferCount30d: recentTransfers.length,
-        avgTransferSize: recentTransfers.length > 0
-          ? (BigInt(Math.floor(Number(volume30d) / recentTransfers.length))).toString()
-          : "0",
+        avgTransferSize:
+          recentTransfers.length > 0
+            ? BigInt(
+                Math.floor(Number(volume30d) / recentTransfers.length)
+              ).toString()
+            : '0',
       });
     }
 
@@ -390,12 +432,13 @@ async function getVolumeMetrics(days = 30) {
       period: { days, startDate: cutoffDate.toISOString() },
       summary: {
         totalPlatformVolume30d: totalPlatformVolume.toString(),
-        volumeMetricsTokens: volumeData.filter(v => BigInt(v.volume30d) > 0n).length,
+        volumeMetricsTokens: volumeData.filter((v) => BigInt(v.volume30d) > 0n)
+          .length,
       },
       volumes: volumeData,
     };
   } catch (error) {
-    logger.error("Error getting volume metrics", { error: error.message });
+    logger.error('Error getting volume metrics', { error: error.message });
     throw error;
   }
 }
@@ -456,18 +499,21 @@ async function getTokensMetrics(days = 30) {
         totalUniqueTransferers: transfers.summary.totalUniqueTransferers,
         totalUniquePlatformHolders: holders.summary.totalUniquePlatformHolders,
         totalPlatformVolume30d: volumes.summary.totalPlatformVolume30d,
-        tokensWithActivity: metrics.filter(m => (m.transferCount || 0) > 0).length,
+        tokensWithActivity: metrics.filter((m) => (m.transferCount || 0) > 0)
+          .length,
       },
       tokens: metrics,
     };
   } catch (error) {
-    logger.error("Error getting comprehensive tokens metrics", { error: error.message });
+    logger.error('Error getting comprehensive tokens metrics', {
+      error: error.message,
+    });
     throw error;
   }
 }
 
-module.exports = { 
-  syncAnalytics, 
+module.exports = {
+  syncAnalytics,
   buildAnalyticsPayload,
   getTransferAggregation,
   getHolderDistribution,
