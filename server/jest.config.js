@@ -7,6 +7,6 @@ module.exports = {
     '!**/node_modules/**',
     '!**/coverage/**',
     '!jest.config.js',
-    '!tests/setup.js'
-  ]
+    '!tests/setup.js',
+  ],
 };

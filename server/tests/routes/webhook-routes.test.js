@@ -20,12 +20,65 @@ jest.mock('../../models/Webhook', () => ({
 const Webhook = require('../../models/Webhook');
 const webhookRoutes = require('../../routes/webhook-routes');
 const { errorHandler } = require('../../middleware/error-handler');
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const User = require('../../models/User');
+const Webhook = require('../../models/Webhook');
+const { generateToken } = require('../../middleware/auth');
+const { errorHandler } = require('../../middleware/error-handler');
+const webhookRoutes = require('../../routes/webhook-routes');
+
+let mongoServer;
+let app;
+let validToken;
+let testUser;
+
+const TEST_PUBLIC_KEY =
+  'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+
+beforeAll(async () => {
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
+  process.env.JWT_SECRET = 'test-secret-key-for-testing-only';
+  process.env.JWT_EXPIRES_IN = '1h';
+
+  app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.correlationId = 'test-id';
+    next();
+  });
+  app.use('/api', webhookRoutes);
+  app.use(errorHandler);
+
+  testUser = await User.create({
+    publicKey: TEST_PUBLIC_KEY,
+    username: 'tester',
+  });
+  validToken = generateToken(TEST_PUBLIC_KEY, 'tester');
+});
+
+afterAll(async () => {
+  await mongoose.disconnect();
+  await mongoServer.stop();
+});
 
 describe('webhook routes', () => {
   let app;
 
   beforeEach(() => {
     jest.clearAllMocks();
+describe('POST /api/webhooks', () => {
+  it('registers a webhook', async () => {
+    const res = await request(app)
+      .post('/api/webhooks')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'supersecretvalue1234',
+        events: ['token.minted'],
+      });
 
     app = express();
     app.use(express.json());
@@ -60,6 +113,15 @@ describe('webhook routes', () => {
         })
       );
     });
+  it('rejects invalid URL', async () => {
+    const res = await request(app)
+      .post('/api/webhooks')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({
+        url: 'not-a-url',
+        secret: 'supersecretvalue1234',
+        events: ['token.minted'],
+      });
 
     it('registers a stream webhook', async () => {
       Webhook.create.mockResolvedValue({
@@ -91,6 +153,15 @@ describe('webhook routes', () => {
           secret: 'supersecretvalue1234',
           events: ['token.minted'],
         });
+  it('rejects short secret', async () => {
+    const res = await request(app)
+      .post('/api/webhooks')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'short',
+        events: ['token.minted'],
+      });
 
       expect(res.status).toBe(400);
     });
@@ -103,6 +174,13 @@ describe('webhook routes', () => {
           secret: 'short',
           events: ['token.minted'],
         });
+  it('requires authentication', async () => {
+    const res = await request(app)
+      .post('/api/webhooks')
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'supersecretvalue1234',
+      });
 
       expect(res.status).toBe(400);
     });

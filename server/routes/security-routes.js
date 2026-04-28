@@ -106,36 +106,36 @@ const createSecurityRouter = () => {
       // ── Persist result ─────────────────────────────────────────────────────
       const scanResult = await ScanResult.create({
         userId,
-        wasmHash:         report.wasmHash,
-        wasmSize:         report.wasmSize,
-        contractName:     contractName || null,
-        notes:            notes || null,
-        status:           report.status,
-        findings:         report.findings,
-        summary:          report.summary,
-        duration:         report.duration,
+        wasmHash: report.wasmHash,
+        wasmSize: report.wasmSize,
+        contractName: contractName || null,
+        notes: notes || null,
+        status: report.status,
+        findings: report.findings,
+        summary: report.summary,
+        duration: report.duration,
         deploymentBlocked: report.deploymentBlocked,
-        scannerVersion:   report.scannerVersion,
+        scannerVersion: report.scannerVersion,
       });
 
       logger.info('[Security] WASM scan completed', {
         correlationId: req.correlationId,
-        scanId:          scanResult.scanId,
-        status:          scanResult.status,
+        scanId: scanResult.scanId,
+        status: scanResult.status,
         deploymentBlocked: scanResult.deploymentBlocked,
-        duration:        scanResult.duration,
-        findingCount:    scanResult.findings.length,
+        duration: scanResult.duration,
+        findingCount: scanResult.findings.length,
       });
 
       // ── Fire webhook event ─────────────────────────────────────────────────
       try {
         dispatch('security.scan_complete', {
-          scanId:           scanResult.scanId,
-          wasmHash:         scanResult.wasmHash,
-          status:           scanResult.status,
+          scanId: scanResult.scanId,
+          wasmHash: scanResult.wasmHash,
+          status: scanResult.status,
           deploymentBlocked: scanResult.deploymentBlocked,
-          userId:           String(userId),
-          summary:          scanResult.summary,
+          userId: String(userId),
+          summary: scanResult.summary,
         });
       } catch (webhookErr) {
         // Webhook dispatch is non-critical — log and continue
@@ -147,29 +147,33 @@ const createSecurityRouter = () => {
 
       // ── Compose response ───────────────────────────────────────────────────
       const statusMessages = {
-        clean:   'No security issues found. Contract is safe to deploy.',
-        passed:  'No critical or high-severity issues found. Review warnings before deploying.',
-        warning: 'Medium or low-severity issues found. Review findings before deploying.',
-        failed:  'Critical or high-severity issues found. Deployment is blocked.',
-        error:   'Scanner could not parse the WASM binary. Deployment is blocked.',
+        clean: 'No security issues found. Contract is safe to deploy.',
+        passed:
+          'No critical or high-severity issues found. Review warnings before deploying.',
+        warning:
+          'Medium or low-severity issues found. Review findings before deploying.',
+        failed:
+          'Critical or high-severity issues found. Deployment is blocked.',
+        error:
+          'Scanner could not parse the WASM binary. Deployment is blocked.',
       };
 
       res.status(201).json({
         success: true,
         message: statusMessages[scanResult.status] || 'Scan complete.',
         data: {
-          scanId:           scanResult.scanId,
-          status:           scanResult.status,
-          wasmHash:         scanResult.wasmHash,
-          wasmSize:         scanResult.wasmSize,
-          contractName:     scanResult.contractName,
-          notes:            scanResult.notes,
-          findings:         scanResult.findings,
-          summary:          scanResult.summary,
+          scanId: scanResult.scanId,
+          status: scanResult.status,
+          wasmHash: scanResult.wasmHash,
+          wasmSize: scanResult.wasmSize,
+          contractName: scanResult.contractName,
+          notes: scanResult.notes,
+          findings: scanResult.findings,
+          summary: scanResult.summary,
           deploymentBlocked: scanResult.deploymentBlocked,
-          scannerVersion:   scanResult.scannerVersion,
-          duration:         scanResult.duration,
-          createdAt:        scanResult.createdAt,
+          scannerVersion: scanResult.scannerVersion,
+          duration: scanResult.duration,
+          createdAt: scanResult.createdAt,
         },
       });
     })
@@ -198,16 +202,20 @@ const createSecurityRouter = () => {
       const { page, limit, status } = req.query;
       const userId = req.user._id;
 
-      const result = await ScanResult.findByUser(userId, { page, limit, status });
+      const result = await ScanResult.findByUser(userId, {
+        page,
+        limit,
+        status,
+      });
 
       res.json({
         success: true,
         data: result.scans,
         metadata: {
           totalCount: result.totalCount,
-          page:       result.page,
+          page: result.page,
           totalPages: result.totalPages,
-          limit:      result.limit,
+          limit: result.limit,
         },
       });
     })
@@ -331,10 +339,10 @@ const createSecurityRouter = () => {
     '/security/rules',
     asyncHandler(async (_req, res) => {
       const rules = Object.values(RULES).map((rule) => ({
-        id:             rule.id,
-        severity:       rule.severity,
-        title:          rule.title,
-        description:    rule.description,
+        id: rule.id,
+        severity: rule.severity,
+        title: rule.title,
+        description: rule.description,
         recommendation: rule.recommendation,
       }));
 
@@ -342,9 +350,9 @@ const createSecurityRouter = () => {
       rules.sort((a, b) => a.id.localeCompare(b.id));
 
       res.json({
-        success:    true,
+        success: true,
         totalRules: rules.length,
-        data:       rules,
+        data: rules,
       });
     })
   );
@@ -377,25 +385,27 @@ const createSecurityRouter = () => {
         ScanResult.getStats(userId),
         ScanResult.findOne({ userId })
           .sort({ createdAt: -1 })
-          .select('scanId status wasmHash contractName createdAt deploymentBlocked')
+          .select(
+            'scanId status wasmHash contractName createdAt deploymentBlocked'
+          )
           .lean(),
       ]);
 
       res.json({
         success: true,
         data: {
-          total:          stats.total,
-          byStatus:       stats.byStatus,
-          blockedCount:   stats.blockedCount,
-          avgDuration:    stats.avgDuration,
+          total: stats.total,
+          byStatus: stats.byStatus,
+          blockedCount: stats.blockedCount,
+          avgDuration: stats.avgDuration,
           mostRecentScan: mostRecentScan
             ? {
-                scanId:           mostRecentScan.scanId,
-                status:           mostRecentScan.status,
-                wasmHash:         mostRecentScan.wasmHash,
-                contractName:     mostRecentScan.contractName,
+                scanId: mostRecentScan.scanId,
+                status: mostRecentScan.status,
+                wasmHash: mostRecentScan.wasmHash,
+                contractName: mostRecentScan.contractName,
                 deploymentBlocked: mostRecentScan.deploymentBlocked,
-                createdAt:        mostRecentScan.createdAt,
+                createdAt: mostRecentScan.createdAt,
               }
             : null,
         },

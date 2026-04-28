@@ -4,7 +4,7 @@
  *   Content Security Policy, XSS Protection, HSTS, and more.
  */
 
-const helmet = require("helmet");
+const helmet = require('helmet');
 
 /**
  * Returns a configured Helmet middleware stack for SoroMint.
@@ -25,17 +25,17 @@ const securityHeaders = helmet({
       scriptSrc: [
         "'self'",
         // Allow inline scripts required by Vite HMR in development
-        process.env.NODE_ENV === "development" ? "'unsafe-inline'" : null,
+        process.env.NODE_ENV === 'development' ? "'unsafe-inline'" : null,
       ].filter(Boolean),
       styleSrc: ["'self'", "'unsafe-inline'"], // inline styles used by React
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: [
         "'self'",
         // Stellar Horizon endpoints
-        "https://horizon.stellar.org",
-        "https://horizon-testnet.stellar.org",
+        'https://horizon.stellar.org',
+        'https://horizon-testnet.stellar.org',
       ],
-      fontSrc: ["'self'", "https:", "data:"],
+      fontSrc: ["'self'", 'https:', 'data:'],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
@@ -48,8 +48,8 @@ const securityHeaders = helmet({
     includeSubDomains: true,
     preload: true,
   },
-  referrerPolicy: { policy: "no-referrer" },
-  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  referrerPolicy: { policy: 'no-referrer' },
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
 });
 
 module.exports = { securityHeaders };
