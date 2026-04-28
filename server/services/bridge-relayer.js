@@ -4,33 +4,33 @@
  * @notice High-complexity cross-chain relay service with event normalization and command queuing
  */
 
-const { logger } = require("../utils/logger");
-const { getEnv } = require("../config/env-config");
-const { SOURCE_CHAINS } = require("../validators/bridge-validator");
+const { logger } = require('../utils/logger');
+const { getEnv } = require('../config/env-config');
+const { SOURCE_CHAINS } = require('../validators/bridge-validator');
 
 /**
  * Event action classification
  */
 const ACTION_FAMILIES = Object.freeze({
-  LOCK: ["lock", "deposit", "bridge.lock", "bridge.deposit", "bridge_locked"],
+  LOCK: ['lock', 'deposit', 'bridge.lock', 'bridge.deposit', 'bridge_locked'],
   RELEASE: [
-    "release",
-    "withdraw",
-    "bridge.release",
-    "bridge.withdraw",
-    "bridge_released",
+    'release',
+    'withdraw',
+    'bridge.release',
+    'bridge.withdraw',
+    'bridge_released',
   ],
-  MINT: ["mint", "bridge.mint", "bridge_mint"],
-  BURN: ["burn", "bridge.burn", "bridge_burn"],
-  TRANSFER: ["transfer", "bridge.transfer"],
+  MINT: ['mint', 'bridge.mint', 'bridge_mint'],
+  BURN: ['burn', 'bridge.burn', 'bridge_burn'],
+  TRANSFER: ['transfer', 'bridge.transfer'],
 });
 
 const RELAY_ACTION_BY_FAMILY = Object.freeze({
-  LOCK: "mint",
-  RELEASE: "release",
-  MINT: "mint",
-  BURN: "release",
-  TRANSFER: "transfer",
+  LOCK: 'mint',
+  RELEASE: 'release',
+  MINT: 'mint',
+  BURN: 'release',
+  TRANSFER: 'transfer',
 });
 
 /**
@@ -43,22 +43,22 @@ const hexFromNumber = (value) => `0x${Number(value).toString(16)}`;
  */
 const normalizeText = (value) => {
   if (value === null || value === undefined) {
-    return "";
+    return '';
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return value.trim().toLowerCase();
   }
 
-  if (typeof value === "number" || typeof value === "bigint") {
+  if (typeof value === 'number' || typeof value === 'bigint') {
     return String(value).toLowerCase();
   }
 
-  if (typeof value === "object") {
-    if (typeof value.value === "string") {
+  if (typeof value === 'object') {
+    if (typeof value.value === 'string') {
       return value.value.trim().toLowerCase();
     }
-    if (typeof value.toString === "function") {
+    if (typeof value.toString === 'function') {
       return value.toString().toLowerCase();
     }
   }
@@ -76,7 +76,7 @@ const pickFirst = (...candidates) => {
       return normalized;
     }
   }
-  return "";
+  return '';
 };
 
 /**
@@ -100,22 +100,22 @@ const getActionFamily = (action) => {
 const createBridgeId = (source, event, family, symbol, amount, recipient) => {
   const parts = [
     source,
-    family || "unknown",
-    symbol || "unknown-token",
-    amount || "0",
-    recipient || "unknown-addr",
+    family || 'unknown',
+    symbol || 'unknown-token',
+    amount || '0',
+    recipient || 'unknown-addr',
     event.id || event.eventId || Date.now(),
   ];
 
-  const combined = parts.join("|");
-  return Buffer.from(combined).toString("base64").substring(0, 64);
+  const combined = parts.join('|');
+  return Buffer.from(combined).toString('base64').substring(0, 64);
 };
 
 /**
  * Get relay action type for event family
  */
 const getRelayAction = (family) => {
-  return RELAY_ACTION_BY_FAMILY[family] || "transfer";
+  return RELAY_ACTION_BY_FAMILY[family] || 'transfer';
 };
 
 /**
@@ -123,20 +123,22 @@ const getRelayAction = (family) => {
  */
 const buildRelayCommand = (sourceChain, event, context = {}) => {
   const source = normalizeText(sourceChain);
-  
+
   if (!source || !event) {
     return null;
   }
 
   // Determine target chain
   const targetChain =
-    source === SOURCE_CHAINS.SOROBAN ? SOURCE_CHAINS.EVM : SOURCE_CHAINS.SOROBAN;
+    source === SOURCE_CHAINS.SOROBAN
+      ? SOURCE_CHAINS.EVM
+      : SOURCE_CHAINS.SOROBAN;
 
   // Extract action
   const sourceAction = pickFirst(
     event.action,
     event.type,
-    typeof event.event === "string" ? event.event : null,
+    typeof event.event === 'string' ? event.event : null
   );
 
   if (!sourceAction) {
@@ -158,13 +160,13 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
     event.assetSymbol,
     event.token,
     event.details?.symbol,
-    event.args?.symbol,
+    event.args?.symbol
   );
 
   const contractId = pickFirst(
     event.contractId,
     event.details?.contractId,
-    event.args?.contractId,
+    event.args?.contractId
   );
 
   // Extract amount
@@ -174,7 +176,7 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
     event.details?.amount,
     event.details?.value,
     event.args?.amount,
-    event.args?.value,
+    event.args?.value
   );
 
   // Extract recipient/destination
@@ -185,7 +187,7 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
     event.details?.destination,
     event.args?.recipient,
     event.args?.destination,
-    event.args?.to,
+    event.args?.to
   );
 
   // Extract sender
@@ -195,7 +197,7 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
     event.data?.sender,
     event.details?.sender,
     event.args?.sender,
-    event.args?.from,
+    event.args?.from
   );
 
   // Validate that at least one of recipient/amount is present
@@ -208,11 +210,18 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
     event.txHash,
     event.hash,
     event.transaction_hash,
-    event.id,
+    event.id
   );
 
   return {
-    bridgeId: createBridgeId(source, event, family, assetSymbol, amount, recipient),
+    bridgeId: createBridgeId(
+      source,
+      event,
+      family,
+      assetSymbol,
+      amount,
+      recipient
+    ),
     sourceChain: source,
     targetChain,
     sourceAction,
@@ -231,7 +240,7 @@ const buildRelayCommand = (sourceChain, event, context = {}) => {
         event.id,
         event.eventId,
         event.sequence,
-        event.paging_token,
+        event.paging_token
       ),
       sourceChainName: source,
       targetChainName: targetChain,
@@ -251,22 +260,25 @@ const defaultConfig = () => {
 
   return {
     enabled: Boolean(env.BRIDGE_RELAYER_ENABLED),
-    direction: env.BRIDGE_RELAYER_DIRECTION || "both",
+    direction: env.BRIDGE_RELAYER_DIRECTION || 'both',
     sorobanAccountId:
-      env.BRIDGE_SOROBAN_ACCOUNT_ID || env.BRIDGE_SOROBAN_ACCOUNT || "",
+      env.BRIDGE_SOROBAN_ACCOUNT_ID || env.BRIDGE_SOROBAN_ACCOUNT || '',
     sorobanRpcUrl:
-      env.BRIDGE_SOROBAN_RPC_URL || env.SOROBAN_RPC_URLS || env.SOROBAN_RPC_URL || "",
-    evmRpcUrl: env.BRIDGE_EVM_RPC_URL || "",
-    evmBridgeAddress: env.BRIDGE_EVM_BRIDGE_ADDRESS || "",
+      env.BRIDGE_SOROBAN_RPC_URL ||
+      env.SOROBAN_RPC_URLS ||
+      env.SOROBAN_RPC_URL ||
+      '',
+    evmRpcUrl: env.BRIDGE_EVM_RPC_URL || '',
+    evmBridgeAddress: env.BRIDGE_EVM_BRIDGE_ADDRESS || '',
     evmStartBlock:
       env.BRIDGE_EVM_START_BLOCK === null ||
       env.BRIDGE_EVM_START_BLOCK === undefined
         ? null
         : Number(env.BRIDGE_EVM_START_BLOCK),
     pollIntervalMs: env.BRIDGE_POLL_INTERVAL_MS || 15000,
-    relayEndpointUrl: env.BRIDGE_RELAY_ENDPOINT_URL || "",
-    evmRelayUrl: env.BRIDGE_EVM_RELAY_URL || "",
-    sorobanRelayUrl: env.BRIDGE_SOROBAN_RELAY_URL || "",
+    relayEndpointUrl: env.BRIDGE_RELAY_ENDPOINT_URL || '',
+    evmRelayUrl: env.BRIDGE_EVM_RELAY_URL || '',
+    sorobanRelayUrl: env.BRIDGE_SOROBAN_RELAY_URL || '',
   };
 };
 
@@ -299,25 +311,29 @@ class BridgeRelayer {
       lastError: null,
     };
 
-    this.logger = logger.child({ component: "BridgeRelayer" });
+    this.logger = logger.child({ component: 'BridgeRelayer' });
   }
 
   /**
    * Check if relayer is properly configured
    */
   isConfigured() {
-    const sorobanConfigured = Boolean(this.config.sorobanAccountId && this.config.sorobanRpcUrl);
-    const evmConfigured = Boolean(this.config.evmBridgeAddress && this.config.evmRpcUrl);
+    const sorobanConfigured = Boolean(
+      this.config.sorobanAccountId && this.config.sorobanRpcUrl
+    );
+    const evmConfigured = Boolean(
+      this.config.evmBridgeAddress && this.config.evmRpcUrl
+    );
 
-    if (this.config.direction === "both") {
+    if (this.config.direction === 'both') {
       return sorobanConfigured && evmConfigured;
     }
 
-    if (this.config.direction === "soroban-to-evm") {
+    if (this.config.direction === 'soroban-to-evm') {
       return sorobanConfigured && evmConfigured;
     }
 
-    if (this.config.direction === "evm-to-soroban") {
+    if (this.config.direction === 'evm-to-soroban') {
       return sorobanConfigured && evmConfigured;
     }
 
@@ -329,19 +345,21 @@ class BridgeRelayer {
    */
   async start() {
     if (!this.isConfigured()) {
-      throw new Error("Bridge relayer is not properly configured");
+      throw new Error('Bridge relayer is not properly configured');
     }
 
     const shouldMonitorSoroban =
-      this.config.direction === "both" || this.config.direction === "evm-to-soroban";
+      this.config.direction === 'both' ||
+      this.config.direction === 'evm-to-soroban';
     const shouldMonitorEvm =
-      this.config.direction === "both" || this.config.direction === "soroban-to-evm";
+      this.config.direction === 'both' ||
+      this.config.direction === 'soroban-to-evm';
 
     if (shouldMonitorSoroban && this.config.sorobanAccountId) {
       try {
         await this._startSorobanMonitor();
       } catch (error) {
-        this.logger.warn("Failed to start Soroban monitor", {
+        this.logger.warn('Failed to start Soroban monitor', {
           error: error.message,
         });
       }
@@ -354,18 +372,18 @@ class BridgeRelayer {
           void this._pollEvmOnce();
         }, this.config.pollIntervalMs);
 
-        this.logger.info("Bridge relayer EVM poller started", {
+        this.logger.info('Bridge relayer EVM poller started', {
           bridgeAddress: this.config.evmBridgeAddress,
           pollIntervalMs: this.config.pollIntervalMs,
         });
       } catch (error) {
-        this.logger.warn("Failed to start EVM poller", {
+        this.logger.warn('Failed to start EVM poller', {
           error: error.message,
         });
       }
     }
 
-    this.logger.info("Bridge relayer started", {
+    this.logger.info('Bridge relayer started', {
       enabled: this.enabled,
       direction: this.config.direction,
     });
@@ -389,7 +407,7 @@ class BridgeRelayer {
 
     await this.flushQueue();
 
-    this.logger.info("Bridge relayer stopped");
+    this.logger.info('Bridge relayer stopped');
 
     return this.getStatus();
   }
@@ -401,7 +419,7 @@ class BridgeRelayer {
   async _startSorobanMonitor() {
     // This would typically use Soroban's event streaming capability
     // For now, this is a placeholder that demonstrates the structure
-    this.logger.info("Soroban event monitor initialized", {
+    this.logger.info('Soroban event monitor initialized', {
       accountId: this.config.sorobanAccountId,
       rpcUrl: this.config.sorobanRpcUrl,
     });
@@ -417,13 +435,11 @@ class BridgeRelayer {
       }
 
       // Get contract logs using eth_getLogs
-      const logs = await this._evmRpcCall("eth_getLogs", [
+      const logs = await this._evmRpcCall('eth_getLogs', [
         {
           address: this.config.evmBridgeAddress,
-          fromBlock: hexFromNumber(
-            this.config.evmStartBlock || 0,
-          ),
-          toBlock: "latest",
+          fromBlock: hexFromNumber(this.config.evmStartBlock || 0),
+          toBlock: 'latest',
         },
       ]);
 
@@ -435,7 +451,7 @@ class BridgeRelayer {
         await this.ingestEvent(SOURCE_CHAINS.EVM, log, { metadata: {} });
       }
     } catch (error) {
-      this.logger.error("EVM polling failed", {
+      this.logger.error('EVM polling failed', {
         error: error.message,
       });
     }
@@ -446,10 +462,10 @@ class BridgeRelayer {
    */
   async _evmRpcCall(method, params) {
     const response = await fetch(this.config.evmRpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         method,
         params,
         id: Date.now(),
@@ -463,9 +479,7 @@ class BridgeRelayer {
     const payload = await response.json();
 
     if (payload.error) {
-      throw new Error(
-        payload.error.message || "Unknown EVM RPC error",
-      );
+      throw new Error(payload.error.message || 'Unknown EVM RPC error');
     }
 
     return payload.result;
@@ -513,7 +527,7 @@ class BridgeRelayer {
           if (relayResult?.dispatched) {
             this.stats.relayed += 1;
             this.stats.lastRelayedAt = new Date().toISOString();
-            this.logger.info("Bridge command relayed", {
+            this.logger.info('Bridge command relayed', {
               bridgeId: command.bridgeId,
               sourceChain: command.sourceChain,
               targetChain: command.targetChain,
@@ -524,7 +538,7 @@ class BridgeRelayer {
         } catch (error) {
           this.stats.failed += 1;
           this.stats.lastError = error.message;
-          this.logger.error("Bridge command relay failed", {
+          this.logger.error('Bridge command relay failed', {
             bridgeId: command.bridgeId,
             error: error.message,
             targetChain: command.targetChain,
@@ -557,11 +571,11 @@ class BridgeRelayer {
       },
       config: {
         sorobanAccountId: this.config.sorobanAccountId
-          ? this.config.sorobanAccountId.substring(0, 6) + "..."
-          : "not set",
+          ? this.config.sorobanAccountId.substring(0, 6) + '...'
+          : 'not set',
         evmBridgeAddress: this.config.evmBridgeAddress
-          ? this.config.evmBridgeAddress.substring(0, 6) + "..."
-          : "not set",
+          ? this.config.evmBridgeAddress.substring(0, 6) + '...'
+          : 'not set',
       },
     };
   }
@@ -578,23 +592,23 @@ class BridgeRelayer {
     if (!targetUrl) {
       return {
         dispatched: false,
-        reason: "No relay endpoint configured",
+        reason: 'No relay endpoint configured',
         targetChain: command.targetChain,
       };
     }
 
     const response = await fetch(targetUrl, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-SoroMint-Bridge-Id": command.bridgeId,
+        'Content-Type': 'application/json',
+        'X-SoroMint-Bridge-Id': command.bridgeId,
       },
       body: JSON.stringify(command),
     });
 
     if (!response.ok) {
       throw new Error(
-        `Bridge relay endpoint responded with HTTP ${response.status}`,
+        `Bridge relay endpoint responded with HTTP ${response.status}`
       );
     }
 

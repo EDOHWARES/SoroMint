@@ -17,24 +17,26 @@
  *      no external .wasm fixtures are required.
  */
 
-const request     = require('supertest');
-const express     = require('express');
-const mongoose    = require('mongoose');
+const request = require('supertest');
+const express = require('express');
+const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
-const User        = require('../../models/User');
-const ScanResult  = require('../../models/ScanResult');
-const { generateToken }       = require('../../middleware/auth');
-const { errorHandler }        = require('../../middleware/error-handler');
-const { createRateLimiter }   = require('../../middleware/rate-limiter');
+const User = require('../../models/User');
+const ScanResult = require('../../models/ScanResult');
+const { generateToken } = require('../../middleware/auth');
+const { errorHandler } = require('../../middleware/error-handler');
+const { createRateLimiter } = require('../../middleware/rate-limiter');
 const { createSecurityRouter } = require('../../routes/security-routes');
-const { RULES, SCAN_STATUS }  = require('../../services/wasm-scanner');
+const { RULES, SCAN_STATUS } = require('../../services/wasm-scanner');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Binary construction helpers (duplicated from wasm-scanner tests for isolation)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const WASM_HEADER = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+const WASM_HEADER = Buffer.from([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+]);
 
 function leb128U(n) {
   const bytes = [];
@@ -77,7 +79,12 @@ function memorySection(min, max = null) {
 }
 
 function functionSection(count) {
-  return section(3, [...leb128U(count), ...Array(count).fill(0).flatMap(() => leb128U(0))]);
+  return section(3, [
+    ...leb128U(count),
+    ...Array(count)
+      .fill(0)
+      .flatMap(() => leb128U(0)),
+  ]);
 }
 
 /** Build a minimal valid Soroban-like WASM that passes most rules. */
@@ -96,7 +103,7 @@ function buildCleanWasm(importCount = 5) {
 
 /** Build a clearly malicious WASM (invalid magic). */
 function buildBadMagicWasm() {
-  return Buffer.from([0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x00, 0x00]);
+  return Buffer.from([0xff, 0xff, 0xff, 0xff, 0x01, 0x00, 0x00, 0x00]);
 }
 
 /** Encode a buffer as base64. */
@@ -107,7 +114,7 @@ const toBase64 = (buf) => buf.toString('base64');
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ALICE_PK = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
-const BOB_PK   = 'GA2DQGWZTIICWQ7MZ5VZ6CKKXQOGCDHUUFIFO7YUG6SGX63BVG433GZD';
+const BOB_PK = 'GA2DQGWZTIICWQ7MZ5VZ6CKKXQOGCDHUUFIFO7YUG6SGX63BVG433GZD';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test state
@@ -128,17 +135,23 @@ beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
   await mongoose.connect(mongoServer.getUri());
 
-  process.env.JWT_SECRET      = 'test-security-routes-secret-xyz';
-  process.env.JWT_EXPIRES_IN  = '1h';
+  process.env.JWT_SECRET = 'test-security-routes-secret-xyz';
+  process.env.JWT_EXPIRES_IN = '1h';
   process.env.WASM_MAX_SIZE_BYTES = String(5 * 1024 * 1024);
 
   // Permissive rate limiter so tests are never throttled
-  const permissiveRateLimiter = createRateLimiter({ windowMs: 60_000, max: 10_000 });
+  const permissiveRateLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: 10_000,
+  });
 
   // Build app — inject the permissive limiter via the router factory
   app = express();
   app.use(express.json({ limit: '20mb' }));
-  app.use((_req, _res, next) => { _req.correlationId = 'test-cid'; next(); });
+  app.use((_req, _res, next) => {
+    _req.correlationId = 'test-cid';
+    next();
+  });
 
   // We need to override the module-level scanRateLimiter used inside
   // createSecurityRouter.  The simplest approach: mock the rate-limiter module
@@ -150,10 +163,10 @@ beforeAll(async () => {
 
   // Seed users
   aliceUser = await User.create({ publicKey: ALICE_PK, username: 'alice' });
-  bobUser   = await User.create({ publicKey: BOB_PK,   username: 'bob'   });
+  bobUser = await User.create({ publicKey: BOB_PK, username: 'bob' });
 
   aliceJwt = generateToken(ALICE_PK, 'alice');
-  bobJwt   = generateToken(BOB_PK,   'bob');
+  bobJwt = generateToken(BOB_PK, 'bob');
 });
 
 beforeEach(async () => {
@@ -181,20 +194,28 @@ const postScan = (body, jwt = aliceJwt) =>
 
 /** Seed a ScanResult directly for a user without going through the API. */
 const seedScan = async (userId, overrides = {}) => {
-  const wasm   = buildCleanWasm();
+  const wasm = buildCleanWasm();
   const crypto = require('crypto');
-  const hash   = crypto.createHash('sha256').update(wasm).digest('hex');
+  const hash = crypto.createHash('sha256').update(wasm).digest('hex');
 
   return ScanResult.create({
     userId,
-    wasmHash:         hash,
-    wasmSize:         wasm.length,
-    status:           'clean',
-    findings:         [],
-    summary:          { critical: 0, high: 0, medium: 0, low: 0, info: 0, passedChecks: 20, totalChecks: 20 },
-    duration:         50,
+    wasmHash: hash,
+    wasmSize: wasm.length,
+    status: 'clean',
+    findings: [],
+    summary: {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+      passedChecks: 20,
+      totalChecks: 20,
+    },
+    duration: 50,
     deploymentBlocked: false,
-    scannerVersion:   '1.0.0',
+    scannerVersion: '1.0.0',
     ...overrides,
   });
 };
@@ -252,15 +273,19 @@ describe('POST /api/security/scan', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe(SCAN_STATUS.ERROR);
     expect(res.body.data.deploymentBlocked).toBe(true);
-    expect(res.body.data.findings.some((f) => f.ruleId === 'SM-001')).toBe(true);
+    expect(res.body.data.findings.some((f) => f.ruleId === 'SM-001')).toBe(
+      true
+    );
   });
 
   it('returns status "failed" and deploymentBlocked=true for a WASM with high-severity findings', async () => {
     // A WASM with a start section fires SM-011 (HIGH severity)
-    const startSection  = section(8, leb128U(0));
+    const startSection = section(8, leb128U(0));
     const badWasm = Buffer.from([
       ...WASM_HEADER,
-      ...importSection(...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`))),
+      ...importSection(
+        ...Array.from({ length: 5 }, (_, i) => importEntry('_', `fn${i}`))
+      ),
       ...functionSection(2),
       ...memorySection(1, 16),
       ...exportSection('__invoke'),
@@ -276,9 +301,9 @@ describe('POST /api/security/scan', () => {
 
   it('stores contractName and notes when provided', async () => {
     const res = await postScan({
-      wasm:         toBase64(buildCleanWasm()),
+      wasm: toBase64(buildCleanWasm()),
       contractName: 'My Token v1',
-      notes:        'Pre-production scan',
+      notes: 'Pre-production scan',
     });
 
     expect(res.status).toBe(201);
@@ -365,7 +390,7 @@ describe('POST /api/security/scan', () => {
 
   it('returns 400 if contractName exceeds 100 characters', async () => {
     const res = await postScan({
-      wasm:         toBase64(buildCleanWasm()),
+      wasm: toBase64(buildCleanWasm()),
       contractName: 'A'.repeat(101),
     });
 
@@ -375,7 +400,7 @@ describe('POST /api/security/scan', () => {
 
   it('returns 400 if notes exceeds 500 characters', async () => {
     const res = await postScan({
-      wasm:  toBase64(buildCleanWasm()),
+      wasm: toBase64(buildCleanWasm()),
       notes: 'N'.repeat(501),
     });
 
@@ -410,9 +435,9 @@ describe('GET /api/security/scans', () => {
     expect(res.body.metadata.totalCount).toBe(0);
   });
 
-  it('returns only the authenticated user\'s scans', async () => {
+  it("returns only the authenticated user's scans", async () => {
     await seedScan(aliceUser._id, { contractName: 'AliceToken' });
-    await seedScan(bobUser._id,   { contractName: 'BobToken'   });
+    await seedScan(bobUser._id, { contractName: 'BobToken' });
 
     const res = await request(app)
       .get('/api/security/scans')
@@ -447,9 +472,15 @@ describe('GET /api/security/scans', () => {
   });
 
   it('filters by status when status query param is provided', async () => {
-    await seedScan(aliceUser._id, { status: 'clean',  deploymentBlocked: false });
-    await seedScan(aliceUser._id, { status: 'failed', deploymentBlocked: true  });
-    await seedScan(aliceUser._id, { status: 'error',  deploymentBlocked: true  });
+    await seedScan(aliceUser._id, {
+      status: 'clean',
+      deploymentBlocked: false,
+    });
+    await seedScan(aliceUser._id, {
+      status: 'failed',
+      deploymentBlocked: true,
+    });
+    await seedScan(aliceUser._id, { status: 'error', deploymentBlocked: true });
 
     const res = await request(app)
       .get('/api/security/scans?status=clean')
@@ -470,9 +501,9 @@ describe('GET /api/security/scans', () => {
     expect(res.status).toBe(200);
     expect(res.body.metadata).toMatchObject({
       totalCount: 1,
-      page:       1,
+      page: 1,
       totalPages: 1,
-      limit:      20,
+      limit: 20,
     });
   });
 
@@ -579,15 +610,17 @@ describe('GET /api/security/scans/:scanId', () => {
   it('returns 401 without a token', async () => {
     const seed = await seedScan(aliceUser._id);
 
-    const res = await request(app)
-      .get(`/api/security/scans/${seed.scanId}`);
+    const res = await request(app).get(`/api/security/scans/${seed.scanId}`);
 
     expect(res.status).toBe(401);
   });
 
   it('allows a user to access their own scan immediately after scanning', async () => {
     // Full round-trip: scan via API then retrieve by scanId
-    const scanRes = await postScan({ wasm: toBase64(buildCleanWasm()), contractName: 'RoundTrip' });
+    const scanRes = await postScan({
+      wasm: toBase64(buildCleanWasm()),
+      contractName: 'RoundTrip',
+    });
     expect(scanRes.status).toBe(201);
 
     const { scanId } = scanRes.body.data;
@@ -672,15 +705,14 @@ describe('DELETE /api/security/scans/:scanId', () => {
   it('returns 401 without a token', async () => {
     const seed = await seedScan(aliceUser._id);
 
-    const res = await request(app)
-      .delete(`/api/security/scans/${seed.scanId}`);
+    const res = await request(app).delete(`/api/security/scans/${seed.scanId}`);
 
     expect(res.status).toBe(401);
   });
 
-  it('user can only delete their own scans, not other users\'', async () => {
+  it("user can only delete their own scans, not other users'", async () => {
     const aliceScan = await seedScan(aliceUser._id);
-    const bobScan   = await seedScan(bobUser._id);
+    const bobScan = await seedScan(bobUser._id);
 
     // Alice deletes her own — succeeds
     const aliceDelete = await request(app)
@@ -723,7 +755,13 @@ describe('GET /api/security/rules', () => {
   it('each rule has the required fields', async () => {
     const res = await request(app).get('/api/security/rules');
 
-    const validSeverities = new Set(['critical', 'high', 'medium', 'low', 'info']);
+    const validSeverities = new Set([
+      'critical',
+      'high',
+      'medium',
+      'low',
+      'info',
+    ]);
 
     for (const rule of res.body.data) {
       expect(rule).toHaveProperty('id');
@@ -805,9 +843,15 @@ describe('GET /api/security/stats', () => {
   });
 
   it('counts blocked deployments correctly', async () => {
-    await seedScan(aliceUser._id, { status: 'clean',  deploymentBlocked: false });
-    await seedScan(aliceUser._id, { status: 'failed', deploymentBlocked: true  });
-    await seedScan(aliceUser._id, { status: 'error',  deploymentBlocked: true  });
+    await seedScan(aliceUser._id, {
+      status: 'clean',
+      deploymentBlocked: false,
+    });
+    await seedScan(aliceUser._id, {
+      status: 'failed',
+      deploymentBlocked: true,
+    });
+    await seedScan(aliceUser._id, { status: 'error', deploymentBlocked: true });
 
     const res = await request(app)
       .get('/api/security/stats')
@@ -818,9 +862,12 @@ describe('GET /api/security/stats', () => {
   });
 
   it('returns correct byStatus breakdown', async () => {
-    await seedScan(aliceUser._id, { status: 'clean'   });
-    await seedScan(aliceUser._id, { status: 'clean'   });
-    await seedScan(aliceUser._id, { status: 'failed', deploymentBlocked: true });
+    await seedScan(aliceUser._id, { status: 'clean' });
+    await seedScan(aliceUser._id, { status: 'clean' });
+    await seedScan(aliceUser._id, {
+      status: 'failed',
+      deploymentBlocked: true,
+    });
     await seedScan(aliceUser._id, { status: 'warning' });
 
     const res = await request(app)
@@ -868,7 +915,7 @@ describe('GET /api/security/stats', () => {
 
   it('avgDuration is a non-negative number', async () => {
     await seedScan(aliceUser._id, { duration: 120 });
-    await seedScan(aliceUser._id, { duration: 80  });
+    await seedScan(aliceUser._id, { duration: 80 });
 
     const res = await request(app)
       .get('/api/security/stats')
@@ -879,7 +926,7 @@ describe('GET /api/security/stats', () => {
     expect(typeof res.body.data.avgDuration).toBe('number');
   });
 
-  it('stats are isolated per user — alice\'s stats do not include bob\'s scans', async () => {
+  it("stats are isolated per user — alice's stats do not include bob's scans", async () => {
     await seedScan(aliceUser._id);
     await seedScan(aliceUser._id);
     await seedScan(bobUser._id);
@@ -912,7 +959,7 @@ describe('Integration Tests', () => {
   it('full scan lifecycle: POST scan → GET by ID → appears in list → DELETE', async () => {
     // 1. Submit a scan
     const scanRes = await postScan({
-      wasm:         toBase64(buildCleanWasm()),
+      wasm: toBase64(buildCleanWasm()),
       contractName: 'LifecycleToken',
     });
     expect(scanRes.status).toBe(201);
@@ -953,7 +1000,10 @@ describe('Integration Tests', () => {
 
   it('blocked WASM scan is correctly flagged and persisted', async () => {
     const badWasm = buildBadMagicWasm();
-    const res = await postScan({ wasm: toBase64(badWasm), contractName: 'MaliciousContract' });
+    const res = await postScan({
+      wasm: toBase64(badWasm),
+      contractName: 'MaliciousContract',
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.data.deploymentBlocked).toBe(true);
@@ -997,7 +1047,9 @@ describe('Integration Tests', () => {
     const r2 = await request(app).get('/api/security/rules');
 
     expect(r1.body.data.length).toBe(r2.body.data.length);
-    expect(r1.body.data.map((r) => r.id)).toEqual(r2.body.data.map((r) => r.id));
+    expect(r1.body.data.map((r) => r.id)).toEqual(
+      r2.body.data.map((r) => r.id)
+    );
   });
 
   it('scan report findings include ruleId, severity, title, description, recommendation', async () => {

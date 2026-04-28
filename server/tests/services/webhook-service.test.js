@@ -53,6 +53,11 @@ describe('dispatch()', () => {
     const webhook = {
       _id: 'webhook-123',
       url: 'http://example.com/hook',
+  it('skips inactive webhooks', async () => {
+    await Webhook.create({
+      ownerPublicKey:
+        'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP',
+      url: 'https://example.com/hook',
       secret: 'supersecretvalue1234',
       events: ['stream.created'],
       active: true,
@@ -118,5 +123,9 @@ describe('dispatch()', () => {
 
     timeoutSpy.mockRestore();
     requestSpy.mockRestore();
+    // dispatch should resolve without attempting delivery
+    await expect(
+      dispatch('token.minted', { tokenId: 'abc' })
+    ).resolves.toBeUndefined();
   });
 });

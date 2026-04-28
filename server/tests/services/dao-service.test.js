@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { createProposal, castVote, getProposal, getProposalsByToken } = require('../../services/dao-service');
+const {
+  createProposal,
+  castVote,
+  getProposal,
+  getProposalsByToken,
+} = require('../../services/dao-service');
 const Proposal = require('../../models/Proposal');
 const Vote = require('../../models/Vote');
 const Token = require('../../models/Token');
@@ -8,10 +13,12 @@ const { AppError } = require('../../middleware/error-handler');
 
 jest.mock('../../services/stellar-service', () => ({
   getRpcServer: jest.fn(() => ({
-    execute: jest.fn((fn) => fn({
-      getAccount: jest.fn(() => Promise.resolve({ sequence: '123' })),
-      simulateTransaction: jest.fn(() => Promise.resolve({ success: true })),
-    })),
+    execute: jest.fn((fn) =>
+      fn({
+        getAccount: jest.fn(() => Promise.resolve({ sequence: '123' })),
+        simulateTransaction: jest.fn(() => Promise.resolve({ success: true })),
+      })
+    ),
   })),
 }));
 
@@ -150,7 +157,9 @@ describe('DAO Service', () => {
     });
 
     it('should throw error for non-existent proposal', async () => {
-      await expect(getProposal(new mongoose.Types.ObjectId())).rejects.toThrow(AppError);
+      await expect(getProposal(new mongoose.Types.ObjectId())).rejects.toThrow(
+        AppError
+      );
     });
   });
 
@@ -200,7 +209,10 @@ describe('DAO Service', () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
 
-      const activeProposals = await getProposalsByToken(testToken._id, 'ACTIVE');
+      const activeProposals = await getProposalsByToken(
+        testToken._id,
+        'ACTIVE'
+      );
 
       expect(activeProposals).toHaveLength(1);
       expect(activeProposals[0].status).toBe('ACTIVE');

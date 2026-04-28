@@ -16,8 +16,12 @@ class DelegationService {
       });
 
       // Track delegation off-chain
-      const delegation = await Delegation.findByTokenOwnerDelegate(tokenContractId, owner, delegate);
-      
+      const delegation = await Delegation.findByTokenOwnerDelegate(
+        tokenContractId,
+        owner,
+        delegate
+      );
+
       if (delegation) {
         // Update existing delegation
         delegation.limit = limit.toString();
@@ -60,7 +64,11 @@ class DelegationService {
       });
 
       // Update delegation off-chain
-      const delegation = await Delegation.findByTokenOwnerDelegate(tokenContractId, owner, delegate);
+      const delegation = await Delegation.findByTokenOwnerDelegate(
+        tokenContractId,
+        owner,
+        delegate
+      );
       if (delegation) {
         await delegation.revoke();
       }
@@ -89,9 +97,15 @@ class DelegationService {
       });
 
       // Update delegation off-chain
-      const delegation = await Delegation.findByTokenOwnerDelegate(tokenContractId, owner, delegate);
+      const delegation = await Delegation.findByTokenOwnerDelegate(
+        tokenContractId,
+        owner,
+        delegate
+      );
       if (delegation) {
-        const newMinted = (BigInt(delegation.minted) + BigInt(amount)).toString();
+        const newMinted = (
+          BigInt(delegation.minted) + BigInt(amount)
+        ).toString();
         await delegation.updateMinted(newMinted);
       }
 
@@ -150,7 +164,9 @@ class DelegationService {
     try {
       return await Delegation.findByTokenAndDelegate(tokenContractId, delegate);
     } catch (error) {
-      throw new Error(`Failed to get delegations by delegate: ${error.message}`);
+      throw new Error(
+        `Failed to get delegations by delegate: ${error.message}`
+      );
     }
   }
 
@@ -194,15 +210,17 @@ class DelegationService {
         },
       ]);
 
-      return stats[0] || {
-        totalDelegations: 0,
-        activeDelegations: 0,
-        revokedDelegations: 0,
-        exhaustedDelegations: 0,
-        totalLimitBN: 0,
-        totalMintedBN: 0,
-        delegationsWithSponsor: 0,
-      };
+      return (
+        stats[0] || {
+          totalDelegations: 0,
+          activeDelegations: 0,
+          revokedDelegations: 0,
+          exhaustedDelegations: 0,
+          totalLimitBN: 0,
+          totalMintedBN: 0,
+          delegationsWithSponsor: 0,
+        }
+      );
     } catch (error) {
       throw new Error(`Failed to get delegation stats: ${error.message}`);
     }

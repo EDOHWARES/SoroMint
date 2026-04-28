@@ -12,7 +12,7 @@ const {
   logStartupInfo,
   logShutdownInfo,
   logDatabaseConnection,
-  logRouteRegistration
+  logRouteRegistration,
 } = require('../../utils/logger');
 
 // Mock logger methods for testing
@@ -44,10 +44,11 @@ describe('Logger Utility', () => {
   describe('generateCorrelationId', () => {
     it('should generate a valid UUID v4', () => {
       const correlationId = generateCorrelationId();
-      
+
       // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
       expect(correlationId).toMatch(uuidRegex);
     });
 
@@ -74,7 +75,7 @@ describe('Logger Utility', () => {
     it('should have correct UUID v4 version nibble', () => {
       const correlationId = generateCorrelationId();
       const parts = correlationId.split('-');
-      
+
       // Version should be 4 (the first character of the third segment)
       expect(parts[2].charAt(0)).toBe('4');
     });
@@ -82,7 +83,7 @@ describe('Logger Utility', () => {
     it('should have correct UUID variant bits', () => {
       const correlationId = generateCorrelationId();
       const parts = correlationId.split('-');
-      
+
       // Variant should be 8, 9, a, or b (the first character of the fourth segment)
       const variant = parts[3].charAt(0).toLowerCase();
       expect(['8', '9', 'a', 'b']).toContain(variant);
@@ -96,10 +97,10 @@ describe('Logger Utility', () => {
 
     beforeEach(() => {
       mockReq = {
-        headers: {}
+        headers: {},
       };
       mockRes = {
-        setHeader: jest.fn()
+        setHeader: jest.fn(),
       };
       mockNext = jest.fn();
     });
@@ -164,7 +165,7 @@ describe('Logger Utility', () => {
           if (header === 'user-agent') return 'Mozilla/5.0';
           return null;
         }),
-        correlationId: 'test-correlation-id'
+        correlationId: 'test-correlation-id',
       };
 
       mockRes = {
@@ -174,7 +175,7 @@ describe('Logger Utility', () => {
             // Simulate finish event
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       mockNext = jest.fn();
@@ -183,7 +184,7 @@ describe('Logger Utility', () => {
         warn: jest.fn(),
         error: jest.fn(),
         info: jest.fn(),
-        debug: jest.fn()
+        debug: jest.fn(),
       };
 
       logger.http = mockLogger.http;
@@ -215,7 +216,7 @@ describe('Logger Utility', () => {
             correlationId: 'test-correlation-id',
             method: 'GET',
             url: '/api/tokens',
-            statusCode: 200
+            statusCode: 200,
           })
         );
         done();
@@ -231,7 +232,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.warn).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 404
+            statusCode: 404,
           })
         );
         done();
@@ -247,7 +248,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.error).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 500
+            statusCode: 500,
           })
         );
         done();
@@ -261,7 +262,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.http).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            durationMs: expect.any(Number)
+            durationMs: expect.any(Number),
           })
         );
         done();
@@ -297,7 +298,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.http).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            correlationId: undefined
+            correlationId: undefined,
           })
         );
         done();
@@ -310,7 +311,7 @@ describe('Logger Utility', () => {
 
     beforeEach(() => {
       mockLogger = {
-        info: jest.fn()
+        info: jest.fn(),
       };
       logger.info = mockLogger.info;
     });
@@ -322,7 +323,7 @@ describe('Logger Utility', () => {
         'Server starting',
         expect.objectContaining({
           port: 5000,
-          network: 'Futurenet'
+          network: 'Futurenet',
         })
       );
     });
@@ -334,7 +335,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Server starting',
         expect.objectContaining({
-          nodeEnv: 'test'
+          nodeEnv: 'test',
         })
       );
     });
@@ -346,7 +347,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Server starting',
         expect.objectContaining({
-          nodeEnv: 'development'
+          nodeEnv: 'development',
         })
       );
     });
@@ -365,7 +366,7 @@ describe('Logger Utility', () => {
 
     beforeEach(() => {
       mockLogger = {
-        warn: jest.fn()
+        warn: jest.fn(),
       };
       logger.warn = mockLogger.warn;
     });
@@ -376,7 +377,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Server shutting down',
         expect.objectContaining({
-          reason: 'SIGTERM'
+          reason: 'SIGTERM',
         })
       );
     });
@@ -387,7 +388,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Server shutting down',
         expect.objectContaining({
-          reason: 'manual'
+          reason: 'manual',
         })
       );
     });
@@ -406,7 +407,7 @@ describe('Logger Utility', () => {
     beforeEach(() => {
       mockLogger = {
         info: jest.fn(),
-        error: jest.fn()
+        error: jest.fn(),
       };
       logger.info = mockLogger.info;
       logger.error = mockLogger.error;
@@ -418,7 +419,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'MongoDB Connected',
         expect.objectContaining({
-          timestamp: expect.any(String)
+          timestamp: expect.any(String),
         })
       );
     });
@@ -430,7 +431,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         'MongoDB Connection Error',
         expect.objectContaining({
-          error: 'Connection failed'
+          error: 'Connection failed',
         })
       );
     });
@@ -441,7 +442,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         'MongoDB Connection Error',
         expect.objectContaining({
-          error: 'Unknown error'
+          error: 'Unknown error',
         })
       );
     });
@@ -452,7 +453,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         'MongoDB Connection Error',
         expect.objectContaining({
-          error: 'Unknown error'
+          error: 'Unknown error',
         })
       );
     });
@@ -477,7 +478,7 @@ describe('Logger Utility', () => {
 
     beforeEach(() => {
       mockLogger = {
-        debug: jest.fn()
+        debug: jest.fn(),
       };
       logger.debug = mockLogger.debug;
     });
@@ -489,7 +490,7 @@ describe('Logger Utility', () => {
         'Route registered',
         expect.objectContaining({
           method: 'GET',
-          path: '/api/tokens'
+          path: '/api/tokens',
         })
       );
     });
@@ -501,7 +502,7 @@ describe('Logger Utility', () => {
         'Route registered',
         expect.objectContaining({
           method: 'POST',
-          path: '/api/tokens'
+          path: '/api/tokens',
         })
       );
     });
@@ -513,7 +514,7 @@ describe('Logger Utility', () => {
         'Route registered',
         expect.objectContaining({
           method: 'PUT',
-          path: '/api/tokens/:id'
+          path: '/api/tokens/:id',
         })
       );
     });
@@ -525,7 +526,7 @@ describe('Logger Utility', () => {
         'Route registered',
         expect.objectContaining({
           method: 'DELETE',
-          path: '/api/tokens/:id'
+          path: '/api/tokens/:id',
         })
       );
     });
@@ -553,7 +554,7 @@ describe('Logger Utility', () => {
         ip: '127.0.0.1',
         connection: { remoteAddress: '127.0.0.1' },
         get: jest.fn(() => 'TestAgent'),
-        headers: { 'x-correlation-id': 'integration-test-id' }
+        headers: { 'x-correlation-id': 'integration-test-id' },
       };
 
       const mockRes = {
@@ -563,7 +564,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockNext = jest.fn();
@@ -572,7 +573,7 @@ describe('Logger Utility', () => {
         info: jest.fn(),
         warn: jest.fn(),
         error: jest.fn(),
-        debug: jest.fn()
+        debug: jest.fn(),
       };
 
       logger.http = mockLogger.http;
@@ -581,7 +582,7 @@ describe('Logger Utility', () => {
       correlationIdMiddleware(mockReq, mockRes, () => {
         // Verify correlation ID was set from header
         expect(mockReq.correlationId).toBe('integration-test-id');
-        
+
         // Then HTTP logger middleware
         httpLoggerMiddleware(mockReq, mockRes, mockNext);
 
@@ -592,7 +593,7 @@ describe('Logger Utility', () => {
               correlationId: 'integration-test-id',
               method: 'GET',
               url: '/api/status',
-              statusCode: 200
+              statusCode: 200,
             })
           );
           done();
@@ -604,7 +605,7 @@ describe('Logger Utility', () => {
       const mockLogger = {
         error: jest.fn(),
         warn: jest.fn(),
-        info: jest.fn()
+        info: jest.fn(),
       };
 
       logger.error = mockLogger.error;
@@ -621,7 +622,7 @@ describe('Logger Utility', () => {
         statusCode: error.statusCode,
         path: '/api/test',
         method: 'POST',
-        correlationId: 'error-test-id'
+        correlationId: 'error-test-id',
       };
 
       logger.error('Internal Server Error', logData);
@@ -631,7 +632,7 @@ describe('Logger Utility', () => {
         expect.objectContaining({
           message: 'Test error',
           code: 'TEST_ERROR',
-          statusCode: 500
+          statusCode: 500,
         })
       );
     });
@@ -656,7 +657,7 @@ describe('Logger Utility', () => {
         ip: '127.0.0.1',
         connection: { remoteAddress: '127.0.0.1' },
         get: jest.fn(() => undefined),
-        correlationId: 'test-id'
+        correlationId: 'test-id',
       };
 
       const mockRes = {
@@ -665,7 +666,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -682,7 +683,7 @@ describe('Logger Utility', () => {
     it('should handle very long URLs', () => {
       const mockReq = {
         headers: {},
-        originalUrl: '/api/' + 'a'.repeat(1000)
+        originalUrl: '/api/' + 'a'.repeat(1000),
       };
       const mockRes = { setHeader: jest.fn() };
       const mockNext = jest.fn();
@@ -699,7 +700,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/test',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Mozilla/5.0 (special chars: <>&"\' 🚀)'),
-        correlationId: 'test-id'
+        correlationId: 'test-id',
       };
 
       const mockRes = {
@@ -708,7 +709,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -728,7 +729,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/data',
         ip: '192.168.1.1',
         get: jest.fn(() => 'CustomAgent'),
-        correlationId: 'ip-test-id'
+        correlationId: 'ip-test-id',
       };
 
       const mockRes = {
@@ -737,7 +738,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -758,7 +759,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/data',
         connection: { remoteAddress: '10.0.0.1' },
         get: jest.fn(() => 'CustomAgent'),
-        correlationId: 'conn-ip-test-id'
+        correlationId: 'conn-ip-test-id',
       };
 
       const mockRes = {
@@ -767,7 +768,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -788,7 +789,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/cached',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'redirect-test-id'
+        correlationId: 'redirect-test-id',
       };
 
       const mockRes = {
@@ -797,7 +798,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -809,7 +810,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.http).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 304
+            statusCode: 304,
           })
         );
         done();
@@ -822,7 +823,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/protected',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'unauth-test-id'
+        correlationId: 'unauth-test-id',
       };
 
       const mockRes = {
@@ -831,7 +832,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { warn: jest.fn() };
@@ -843,7 +844,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.warn).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 401
+            statusCode: 401,
           })
         );
         done();
@@ -856,7 +857,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/admin',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'forbidden-test-id'
+        correlationId: 'forbidden-test-id',
       };
 
       const mockRes = {
@@ -865,7 +866,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { warn: jest.fn() };
@@ -877,7 +878,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.warn).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 403
+            statusCode: 403,
           })
         );
         done();
@@ -890,7 +891,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/proxy',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'badgateway-test-id'
+        correlationId: 'badgateway-test-id',
       };
 
       const mockRes = {
@@ -899,7 +900,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { error: jest.fn() };
@@ -911,7 +912,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.error).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 502
+            statusCode: 502,
           })
         );
         done();
@@ -924,7 +925,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/maintenance',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'unavail-test-id'
+        correlationId: 'unavail-test-id',
       };
 
       const mockRes = {
@@ -933,7 +934,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { error: jest.fn() };
@@ -945,7 +946,7 @@ describe('Logger Utility', () => {
         expect(mockLogger.error).toHaveBeenCalledWith(
           'HTTP Request',
           expect.objectContaining({
-            statusCode: 503
+            statusCode: 503,
           })
         );
         done();
@@ -954,7 +955,7 @@ describe('Logger Utility', () => {
 
     it('should handle correlation ID with special characters from header', () => {
       const mockReq = {
-        headers: { 'x-correlation-id': 'custom-id-with-special-chars-12345' }
+        headers: { 'x-correlation-id': 'custom-id-with-special-chars-12345' },
       };
       const mockRes = { setHeader: jest.fn() };
       const mockNext = jest.fn();
@@ -975,7 +976,7 @@ describe('Logger Utility', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         'MongoDB Connection Error',
         expect.objectContaining({
-          error: 'Connection timeout'
+          error: 'Connection timeout',
         })
       );
     });
@@ -990,7 +991,7 @@ describe('Logger Utility', () => {
         'Server starting',
         expect.objectContaining({
           port: 3000,
-          network: undefined
+          network: undefined,
         })
       );
     });
@@ -1005,7 +1006,7 @@ describe('Logger Utility', () => {
         'Route registered',
         expect.objectContaining({
           method: 'PATCH',
-          path: '/api/v1/users/:userId/posts/:postId'
+          path: '/api/v1/users/:userId/posts/:postId',
         })
       );
     });
@@ -1016,7 +1017,7 @@ describe('Logger Utility', () => {
         originalUrl: '/api/cors-preflight',
         ip: '127.0.0.1',
         get: jest.fn(() => 'Browser'),
-        correlationId: 'options-test-id'
+        correlationId: 'options-test-id',
       };
 
       const mockRes = {
@@ -1025,7 +1026,7 @@ describe('Logger Utility', () => {
           if (event === 'finish') {
             setTimeout(() => callback(), 10);
           }
-        })
+        }),
       };
 
       const mockLogger = { http: jest.fn() };
@@ -1038,7 +1039,7 @@ describe('Logger Utility', () => {
           'HTTP Request',
           expect.objectContaining({
             method: 'OPTIONS',
-            statusCode: 204
+            statusCode: 204,
           })
         );
         done();

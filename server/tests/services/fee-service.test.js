@@ -20,12 +20,21 @@ describe('Fee Service', () => {
 
       const result = computeFeeSuggestions(feeStats, 2);
 
-      expect(result.perOperationFee).toEqual({ low: 100, medium: 120, high: 180 });
+      expect(result.perOperationFee).toEqual({
+        low: 100,
+        medium: 120,
+        high: 180,
+      });
       expect(result.totalFee).toEqual({ low: 200, medium: 240, high: 360 });
       expect(result.baseFee).toBe(100);
       expect(result.surging).toBe(false);
       expect(result.operationCount).toBe(2);
-      expect(result.percentiles).toEqual({ p10: 100, p50: 120, p90: 180, p99: 250 });
+      expect(result.percentiles).toEqual({
+        p10: 100,
+        p50: 120,
+        p90: 180,
+        p99: 250,
+      });
     });
 
     it('should clamp suggestions to at least base fee', () => {

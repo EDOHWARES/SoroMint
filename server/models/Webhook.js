@@ -15,6 +15,7 @@ const WebhookSchema = new mongoose.Schema(
         'stream.withdrawn',
         'stream.canceled',
       ],
+      enum: ['token.minted', 'token.transferred', 'token.burned'],
       default: ['token.minted'],
     },
     active: { type: Boolean, default: true },

@@ -11,12 +11,18 @@ const { logger } = require('../utils/logger');
 const stellarPublicKey = z
   .string()
   .length(56, 'Must be exactly 56 characters')
-  .regex(/^G[A-Z2-7]{55}$/, 'Must be a valid Stellar G-address (starts with G)');
+  .regex(
+    /^G[A-Z2-7]{55}$/,
+    'Must be a valid Stellar G-address (starts with G)'
+  );
 
 const stellarContractId = z
   .string()
   .length(56, 'Must be exactly 56 characters')
-  .regex(/^C[A-Z2-7]{55}$/, 'Must be a valid Stellar C-address (starts with C)');
+  .regex(
+    /^C[A-Z2-7]{55}$/,
+    'Must be a valid Stellar C-address (starts with C)'
+  );
 
 // ---------------------------------------------------------------------------
 // Proposal creation schema
@@ -55,18 +61,19 @@ const createProposalSchema = z
 
     startTime: z
       .string({ required_error: 'startTime is required' })
-      .datetime({ message: 'startTime must be a valid ISO 8601 date-time string' })
+      .datetime({
+        message: 'startTime must be a valid ISO 8601 date-time string',
+      })
       .transform((v) => new Date(v)),
 
     endTime: z
       .string({ required_error: 'endTime is required' })
-      .datetime({ message: 'endTime must be a valid ISO 8601 date-time string' })
+      .datetime({
+        message: 'endTime must be a valid ISO 8601 date-time string',
+      })
       .transform((v) => new Date(v)),
 
-    contractId: stellarContractId
-      .nullable()
-      .optional()
-      .default(null),
+    contractId: stellarContractId.nullable().optional().default(null),
 
     tags: z
       .array(
@@ -181,13 +188,17 @@ const updateProposalSchema = z
 
     startTime: z
       .string()
-      .datetime({ message: 'startTime must be a valid ISO 8601 date-time string' })
+      .datetime({
+        message: 'startTime must be a valid ISO 8601 date-time string',
+      })
       .transform((v) => new Date(v))
       .optional(),
 
     endTime: z
       .string()
-      .datetime({ message: 'endTime must be a valid ISO 8601 date-time string' })
+      .datetime({
+        message: 'endTime must be a valid ISO 8601 date-time string',
+      })
       .transform((v) => new Date(v))
       .optional(),
 
@@ -209,10 +220,9 @@ const updateProposalSchema = z
       .nullable()
       .optional(),
   })
-  .refine(
-    (data) => Object.keys(data).length > 0,
-    { message: 'At least one field must be provided for update' }
-  )
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update',
+  })
   .superRefine((data, ctx) => {
     if (data.startTime && data.endTime) {
       const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -266,7 +276,10 @@ const updateProposalSchema = z
  */
 const castVoteSchema = z.object({
   choice: z
-    .number({ required_error: 'choice is required', invalid_type_error: 'choice must be a number' })
+    .number({
+      required_error: 'choice is required',
+      invalid_type_error: 'choice must be a number',
+    })
     .int('choice must be an integer')
     .min(0, 'choice must be a non-negative integer'),
 
@@ -289,7 +302,7 @@ const castVoteSchema = z.object({
 const listProposalsQuerySchema = z.object({
   status: z
     .enum(['pending', 'active', 'closed', 'cancelled', 'all'], {
-      message: "status must be one of: pending, active, closed, cancelled, all",
+      message: 'status must be one of: pending, active, closed, cancelled, all',
     })
     .optional()
     .default('all'),
@@ -314,9 +327,13 @@ const listProposalsQuerySchema = z.object({
     .default(20),
 
   sortBy: z
-    .enum(['createdAt', 'startTime', 'endTime', 'voteCount', 'totalVotingPower'], {
-      message: 'sortBy must be one of: createdAt, startTime, endTime, voteCount, totalVotingPower',
-    })
+    .enum(
+      ['createdAt', 'startTime', 'endTime', 'voteCount', 'totalVotingPower'],
+      {
+        message:
+          'sortBy must be one of: createdAt, startTime, endTime, voteCount, totalVotingPower',
+      }
+    )
     .optional()
     .default('createdAt'),
 
@@ -336,7 +353,14 @@ const listProposalsQuerySchema = z.object({
     .string()
     .trim()
     .optional()
-    .transform((v) => (v ? v.split(',').map((t) => t.trim()).filter(Boolean) : undefined)),
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : undefined
+    ),
 });
 
 // ---------------------------------------------------------------------------
@@ -347,26 +371,11 @@ const listProposalsQuerySchema = z.object({
  * @notice Schema for GET /api/proposals/:id/votes query params
  */
 const listVotesQuerySchema = z.object({
-  page: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .optional()
-    .default(1),
+  page: z.coerce.number().int().min(1).optional().default(1),
 
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .default(20),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 
-  choice: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .optional(),
+  choice: z.coerce.number().int().min(0).optional(),
 });
 
 // ---------------------------------------------------------------------------

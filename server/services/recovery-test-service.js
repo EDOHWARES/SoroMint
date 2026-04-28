@@ -4,15 +4,19 @@
  * @dev Downloads, decrypts, and verifies backup integrity without affecting production data
  */
 
-const fs = require("fs");
-const path = require("path");
-const { S3Client, GetObjectCommand, ListObjectsV2Command } = require("@aws-sdk/client-s3");
-const { execSync } = require("child_process");
-const cron = require("node-cron");
-const { logger } = require("../utils/logger");
-const { decryptFile } = require("../utils/backup-encryption");
+const fs = require('fs');
+const path = require('path');
+const {
+  S3Client,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} = require('@aws-sdk/client-s3');
+const { execSync } = require('child_process');
+const cron = require('node-cron');
+const { logger } = require('../utils/logger');
+const { decryptFile } = require('../utils/backup-encryption');
 
-const TEST_RESTORE_DIR = path.join(__dirname, "../.backups/test-restore");
+const TEST_RESTORE_DIR = path.join(__dirname, '../.backups/test-restore');
 const RETENTION_DAYS = 30;
 
 /**
@@ -20,7 +24,7 @@ const RETENTION_DAYS = 30;
  */
 function buildS3Client() {
   return new S3Client({
-    region: process.env.AWS_REGION || "us-east-1",
+    region: process.env.AWS_REGION || 'us-east-1',
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -34,7 +38,9 @@ function buildS3Client() {
 function getEncryptionPassword() {
   const password = process.env.BACKUP_ENCRYPTION_PASSWORD;
   if (!password) {
-    throw new Error("BACKUP_ENCRYPTION_PASSWORD not configured - cannot perform recovery test");
+    throw new Error(
+      'BACKUP_ENCRYPTION_PASSWORD not configured - cannot perform recovery test'
+    );
   }
   return password;
 }
@@ -47,9 +53,9 @@ function getEncryptionPassword() {
  */
 async function getLatestBackup(s3, bucket) {
   const listed = await s3.send(
-    new ListObjectsV2Command({ 
-      Bucket: bucket, 
-      Prefix: "backups/encrypted-",
+    new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: 'backups/encrypted-',
       MaxKeys: 1,
     })
   );
@@ -59,8 +65,8 @@ async function getLatestBackup(s3, bucket) {
   }
 
   // Sort by LastModified to get the most recent
-  const sorted = listed.Contents.sort((a, b) => 
-    new Date(b.LastModified) - new Date(a.LastModified)
+  const sorted = listed.Contents.sort(
+    (a, b) => new Date(b.LastModified) - new Date(a.LastModified)
   );
 
   return sorted[0];
@@ -75,7 +81,7 @@ async function getLatestBackup(s3, bucket) {
  */
 async function getBackupMetadata(s3, bucket, backupKey) {
   const metadataKey = `backups/metadata/${path.basename(backupKey)}.json`;
-  
+
   try {
     const response = await s3.send(
       new GetObjectCommand({
@@ -87,8 +93,11 @@ async function getBackupMetadata(s3, bucket, backupKey) {
     const bodyString = await response.Body.transformToString();
     return JSON.parse(bodyString);
   } catch (err) {
-    logger.warn("Metadata not found, attempting to get from S3 object metadata", { error: err.message });
-    
+    logger.warn(
+      'Metadata not found, attempting to get from S3 object metadata',
+      { error: err.message }
+    );
+
     // Fallback: try to get from S3 object metadata
     const response = await s3.send(
       new GetObjectCommand({
@@ -96,11 +105,11 @@ async function getBackupMetadata(s3, bucket, backupKey) {
         Key: backupKey,
       })
     );
-    
+
     return {
       encryption: {
-        iv: response.Metadata?.["encryption-iv"],
-        salt: response.Metadata?.["encryption-salt"],
+        iv: response.Metadata?.['encryption-iv'],
+        salt: response.Metadata?.['encryption-salt'],
       },
     };
   }
@@ -123,24 +132,24 @@ async function downloadBackup(s3, bucket, key, localPath) {
   );
 
   const stream = response.Body;
-  
+
   return new Promise((resolve, reject) => {
     const writeStream = fs.createWriteStream(localPath);
-    
+
     stream.pipe(writeStream);
-    
-    writeStream.on("finish", () => {
-      logger.info("Backup downloaded from S3", { key, localPath });
+
+    writeStream.on('finish', () => {
+      logger.info('Backup downloaded from S3', { key, localPath });
       resolve(localPath);
     });
-    
-    writeStream.on("error", (err) => {
-      logger.error("Failed to write downloaded backup", { error: err.message });
+
+    writeStream.on('error', (err) => {
+      logger.error('Failed to write downloaded backup', { error: err.message });
       reject(err);
     });
-    
-    stream.on("error", (err) => {
-      logger.error("Failed to download backup from S3", { error: err.message });
+
+    stream.on('error', (err) => {
+      logger.error('Failed to download backup from S3', { error: err.message });
       reject(err);
     });
   });
@@ -155,11 +164,11 @@ async function downloadBackup(s3, bucket, key, localPath) {
  * @returns {Promise<string>} Path to decrypted file
  */
 async function decryptBackup(encryptedPath, password, iv, salt) {
-  const decryptedPath = encryptedPath.replace(".enc", ".decrypted.gz");
-  
+  const decryptedPath = encryptedPath.replace('.enc', '.decrypted.gz');
+
   await decryptFile(encryptedPath, decryptedPath, password, iv, salt);
-  
-  logger.info("Backup decrypted", { decryptedPath });
+
+  logger.info('Backup decrypted', { decryptedPath });
   return decryptedPath;
 }
 
@@ -172,21 +181,24 @@ async function decryptBackup(encryptedPath, password, iv, salt) {
 function testRestore(backupPath, testMongoUri) {
   try {
     // Test mongorestore with --dryRun flag first
-    logger.info("Testing backup restore (dry run)", { backupPath });
-    
-    execSync(`mongorestore --uri="${testMongoUri}" --dryRun --archive="${backupPath}" --gzip`, {
-      stdio: "pipe",
-    });
-    
-    logger.info("Backup restore validation passed (dry run)");
-    
+    logger.info('Testing backup restore (dry run)', { backupPath });
+
+    execSync(
+      `mongorestore --uri="${testMongoUri}" --dryRun --archive="${backupPath}" --gzip`,
+      {
+        stdio: 'pipe',
+      }
+    );
+
+    logger.info('Backup restore validation passed (dry run)');
+
     return {
       success: true,
       validated: true,
-      message: "Backup restore validation passed",
+      message: 'Backup restore validation passed',
     };
   } catch (err) {
-    logger.error("Backup restore validation failed", { error: err.message });
+    logger.error('Backup restore validation failed', { error: err.message });
     return {
       success: false,
       validated: false,
@@ -204,21 +216,24 @@ function verifyBackupIntegrity(backupPath) {
   try {
     // Test that the gzip file is valid
     execSync(`gunzip -t "${backupPath}"`, {
-      stdio: "pipe",
+      stdio: 'pipe',
     });
-    
+
     // Check that mongodump can list contents
-    execSync(`mongorestore --uri="mongodb://localhost:27017" --dryRun --archive="${backupPath}" --gzip 2>&1 | head -20`, {
-      stdio: "pipe",
-    });
-    
+    execSync(
+      `mongorestore --uri="mongodb://localhost:27017" --dryRun --archive="${backupPath}" --gzip 2>&1 | head -20`,
+      {
+        stdio: 'pipe',
+      }
+    );
+
     return {
       success: true,
       valid: true,
-      message: "Backup archive is valid and readable",
+      message: 'Backup archive is valid and readable',
     };
   } catch (err) {
-    logger.error("Backup integrity check failed", { error: err.message });
+    logger.error('Backup integrity check failed', { error: err.message });
     return {
       success: false,
       valid: false,
@@ -236,11 +251,11 @@ function verifyBackupIntegrity(backupPath) {
 async function runRecoveryTest(options = {}) {
   const bucket = process.env.AWS_S3_BACKUP_BUCKET;
   const testMongoUri = options.testMongoUri || process.env.TEST_MONGO_URI;
-  
+
   if (!bucket) {
-    return { 
-      success: false, 
-      error: "AWS_S3_BACKUP_BUCKET not configured" 
+    return {
+      success: false,
+      error: 'AWS_S3_BACKUP_BUCKET not configured',
     };
   }
 
@@ -252,54 +267,59 @@ async function runRecoveryTest(options = {}) {
   let s3;
   let downloadedPath = null;
   let decryptedPath = null;
-  
+
   try {
-    logger.info("Starting recovery test");
+    logger.info('Starting recovery test');
     s3 = buildS3Client();
-    
+
     // Step 1: Get the latest backup
     const latestBackup = await getLatestBackup(s3, bucket);
     if (!latestBackup) {
-      return { 
-        success: false, 
-        error: "No backups found in S3" 
+      return {
+        success: false,
+        error: 'No backups found in S3',
       };
     }
-    
-    logger.info("Found latest backup", { 
-      key: latestBackup.Key, 
+
+    logger.info('Found latest backup', {
+      key: latestBackup.Key,
       size: latestBackup.Size,
-      lastModified: latestBackup.LastModified 
+      lastModified: latestBackup.LastModified,
     });
-    
+
     // Step 2: Get encryption metadata
     const metadata = await getBackupMetadata(s3, bucket, latestBackup.Key);
     if (!metadata.encryption?.iv || !metadata.encryption?.salt) {
-      return { 
-        success: false, 
-        error: "Encryption metadata not found for backup" 
+      return {
+        success: false,
+        error: 'Encryption metadata not found for backup',
       };
     }
-    
+
     // Step 3: Download the backup
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     downloadedPath = path.join(TEST_RESTORE_DIR, `test-${timestamp}.enc`);
     await downloadBackup(s3, bucket, latestBackup.Key, downloadedPath);
-    
+
     // Step 4: Decrypt the backup
     const password = getEncryptionPassword();
-    decryptedPath = await decryptBackup(downloadedPath, password, metadata.encryption.iv, metadata.encryption.salt);
-    
+    decryptedPath = await decryptBackup(
+      downloadedPath,
+      password,
+      metadata.encryption.iv,
+      metadata.encryption.salt
+    );
+
     // Step 5: Verify backup integrity
     const integrityResult = verifyBackupIntegrity(decryptedPath);
     if (!integrityResult.valid) {
       return {
         success: false,
-        stage: "integrity-check",
+        stage: 'integrity-check',
         error: integrityResult.error,
       };
     }
-    
+
     // Step 6: Test restore (if test Mongo URI provided)
     let restoreResult = null;
     if (testMongoUri) {
@@ -307,13 +327,13 @@ async function runRecoveryTest(options = {}) {
       if (!restoreResult.success) {
         return {
           success: false,
-          stage: "restore-test",
+          stage: 'restore-test',
           error: restoreResult.error,
         };
       }
     }
-    
-    logger.info("Recovery test completed successfully");
+
+    logger.info('Recovery test completed successfully');
     return {
       success: true,
       backup: {
@@ -326,9 +346,11 @@ async function runRecoveryTest(options = {}) {
       restoreResult,
       timestamp: new Date().toISOString(),
     };
-    
   } catch (err) {
-    logger.error("Recovery test failed", { error: err.message, stack: err.stack });
+    logger.error('Recovery test failed', {
+      error: err.message,
+      stack: err.stack,
+    });
     return {
       success: false,
       error: err.message,
@@ -350,16 +372,16 @@ async function runRecoveryTest(options = {}) {
  */
 async function listBackupMetadata() {
   const bucket = process.env.AWS_S3_BACKUP_BUCKET;
-  
+
   if (!bucket) {
-    return { success: false, error: "AWS_S3_BACKUP_BUCKET not configured" };
+    return { success: false, error: 'AWS_S3_BACKUP_BUCKET not configured' };
   }
 
   try {
     const s3 = buildS3Client();
-    
+
     const listed = await s3.send(
-      new ListObjectsV2Command({ Bucket: bucket, Prefix: "backups/metadata/" })
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: 'backups/metadata/' })
     );
 
     if (!listed.Contents || listed.Contents.length === 0) {
@@ -378,13 +400,16 @@ async function listBackupMetadata() {
         const bodyString = await response.Body.transformToString();
         metadataFiles.push(JSON.parse(bodyString));
       } catch (err) {
-        logger.warn("Failed to read metadata file", { key: obj.Key, error: err.message });
+        logger.warn('Failed to read metadata file', {
+          key: obj.Key,
+          error: err.message,
+        });
       }
     }
 
     return { success: true, metadata: metadataFiles };
   } catch (err) {
-    logger.error("Failed to list backup metadata", { error: err.message });
+    logger.error('Failed to list backup metadata', { error: err.message });
     return { success: false, error: err.message };
   }
 }
@@ -395,24 +420,27 @@ async function listBackupMetadata() {
  * Override via RECOVERY_TEST_CRON_SCHEDULE env var
  */
 function scheduleRecoveryTests() {
-  const schedule = process.env.RECOVERY_TEST_CRON_SCHEDULE || "0 3 * * *";
+  const schedule = process.env.RECOVERY_TEST_CRON_SCHEDULE || '0 3 * * *';
 
   if (!cron.validate(schedule)) {
-    logger.error("Invalid RECOVERY_TEST_CRON_SCHEDULE — recovery tests not scheduled", { schedule });
+    logger.error(
+      'Invalid RECOVERY_TEST_CRON_SCHEDULE — recovery tests not scheduled',
+      { schedule }
+    );
     return;
   }
 
   cron.schedule(schedule, () => {
     runRecoveryTest().then((result) => {
       if (result.success) {
-        logger.info("Scheduled recovery test passed", { result });
+        logger.info('Scheduled recovery test passed', { result });
       } else {
-        logger.error("Scheduled recovery test failed", { error: result.error });
+        logger.error('Scheduled recovery test failed', { error: result.error });
       }
     });
   });
 
-  logger.info("Recovery test job scheduled", { schedule });
+  logger.info('Recovery test job scheduled', { schedule });
 }
 
 module.exports = {
