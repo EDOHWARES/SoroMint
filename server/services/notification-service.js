@@ -21,7 +21,7 @@ const initNotificationService = () => {
     webPush.setVapidDetails(
       env.VAPID_SUBJECT || 'mailto:admin@soromint.io',
       env.VAPID_PUBLIC_KEY,
-      env.VAPID_PRIVATE_KEY,
+      env.VAPID_PRIVATE_KEY
     );
     logger.info('Web Push VAPID keys configured');
   } else {
@@ -49,7 +49,11 @@ const sendEmail = async (to, subject, text, html) => {
     logger.info('Email notification sent', { to, subject });
     return { sent: true };
   } catch (error) {
-    logger.error('Failed to send email notification', { to, subject, error: error.message });
+    logger.error('Failed to send email notification', {
+      to,
+      subject,
+      error: error.message,
+    });
     return { sent: false, reason: error.message };
   }
 };
@@ -118,21 +122,40 @@ const notifyUser = async (userId, eventType, contentBuilder) => {
     const prefs = await NotificationPreferences.findByUserId(userId);
 
     if (!prefs.events[eventType]) {
-      logger.info('Notification skipped — user disabled event', { userId, eventType });
+      logger.info('Notification skipped — user disabled event', {
+        userId,
+        eventType,
+      });
       return;
     }
 
     const content = contentBuilder();
 
     if (prefs.email.enabled && prefs.email.address) {
-      await sendEmail(prefs.email.address, content.subject, content.text, content.html);
+      await sendEmail(
+        prefs.email.address,
+        content.subject,
+        content.text,
+        content.html
+      );
     }
 
-    if (prefs.webPush.enabled && prefs.webPush.subscription && prefs.webPush.subscription.endpoint) {
-      await sendPushNotification(prefs.webPush.subscription, content.pushPayload);
+    if (
+      prefs.webPush.enabled &&
+      prefs.webPush.subscription &&
+      prefs.webPush.subscription.endpoint
+    ) {
+      await sendPushNotification(
+        prefs.webPush.subscription,
+        content.pushPayload
+      );
     }
   } catch (error) {
-    logger.error('Notification dispatch failed', { userId, eventType, error: error.message });
+    logger.error('Notification dispatch failed', {
+      userId,
+      eventType,
+      error: error.message,
+    });
   }
 };
 

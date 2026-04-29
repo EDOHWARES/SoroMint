@@ -33,12 +33,15 @@ describe('sign()', () => {
 
 describe('dispatch()', () => {
   it('does not throw when no webhooks are registered', async () => {
-    await expect(dispatch('token.minted', { tokenId: 'abc' })).resolves.toBeUndefined();
+    await expect(
+      dispatch('token.minted', { tokenId: 'abc' })
+    ).resolves.toBeUndefined();
   });
 
   it('skips inactive webhooks', async () => {
     await Webhook.create({
-      ownerPublicKey: 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP',
+      ownerPublicKey:
+        'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP',
       url: 'https://example.com/hook',
       secret: 'supersecretvalue1234',
       events: ['token.minted'],
@@ -46,6 +49,8 @@ describe('dispatch()', () => {
     });
 
     // dispatch should resolve without attempting delivery
-    await expect(dispatch('token.minted', { tokenId: 'abc' })).resolves.toBeUndefined();
+    await expect(
+      dispatch('token.minted', { tokenId: 'abc' })
+    ).resolves.toBeUndefined();
   });
 });

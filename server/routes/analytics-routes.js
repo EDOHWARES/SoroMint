@@ -5,18 +5,18 @@
  *   All responses are privacy-compliant — no PII is returned.
  */
 
-const express = require("express");
-const { asyncHandler } = require("../middleware/error-handler");
-const { authenticate } = require("../middleware/auth");
-const { 
-  syncAnalytics, 
+const express = require('express');
+const { asyncHandler } = require('../middleware/error-handler');
+const { authenticate } = require('../middleware/auth');
+const {
+  syncAnalytics,
   buildAnalyticsPayload,
   getTransferAggregation,
   getHolderDistribution,
   getVolumeMetrics,
   getTokensMetrics,
-} = require("../services/analytics-service");
-const { logger } = require("../utils/logger");
+} = require('../services/analytics-service');
+const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -28,10 +28,12 @@ const router = express.Router();
  * @returns {Object} 200 - Analytics payload
  */
 router.get(
-  "/analytics/export",
+  '/analytics/export',
   authenticate,
   asyncHandler(async (req, res) => {
-    logger.info("Analytics export requested", { correlationId: req.correlationId });
+    logger.info('Analytics export requested', {
+      correlationId: req.correlationId,
+    });
     const payload = await buildAnalyticsPayload();
     res.json({ success: true, data: payload });
   })
@@ -45,10 +47,12 @@ router.get(
  * @returns {Object} 200 - Sync result per platform
  */
 router.post(
-  "/analytics/sync",
+  '/analytics/sync',
   authenticate,
   asyncHandler(async (req, res) => {
-    logger.info("Analytics sync triggered", { correlationId: req.correlationId });
+    logger.info('Analytics sync triggered', {
+      correlationId: req.correlationId,
+    });
     const result = await syncAnalytics();
     res.json({ success: true, data: result });
   })
@@ -62,10 +66,12 @@ router.post(
  * @returns {Object} 200 - Transfer aggregation data
  */
 router.get(
-  "/analytics/transfers",
+  '/analytics/transfers',
   authenticate,
   asyncHandler(async (req, res) => {
-    logger.info("Transfer aggregation requested", { correlationId: req.correlationId });
+    logger.info('Transfer aggregation requested', {
+      correlationId: req.correlationId,
+    });
     const data = await getTransferAggregation();
     res.json({ success: true, data });
   })
@@ -79,10 +85,12 @@ router.get(
  * @returns {Object} 200 - Holder distribution data
  */
 router.get(
-  "/analytics/holders",
+  '/analytics/holders',
   authenticate,
   asyncHandler(async (req, res) => {
-    logger.info("Holder distribution requested", { correlationId: req.correlationId });
+    logger.info('Holder distribution requested', {
+      correlationId: req.correlationId,
+    });
     const data = await getHolderDistribution();
     res.json({ success: true, data });
   })
@@ -97,12 +105,12 @@ router.get(
  * @returns {Object} 200 - Volume metrics data
  */
 router.get(
-  "/analytics/volume",
+  '/analytics/volume',
   authenticate,
   asyncHandler(async (req, res) => {
     const { days = 30 } = req.query;
     const daysNum = Math.max(1, Math.min(365, parseInt(days, 10) || 30));
-    logger.info("Volume metrics requested", { 
+    logger.info('Volume metrics requested', {
       correlationId: req.correlationId,
       days: daysNum,
     });
@@ -121,12 +129,12 @@ router.get(
  * @returns {Object} 200 - Comprehensive token metrics
  */
 router.get(
-  "/analytics/metrics",
+  '/analytics/metrics',
   authenticate,
   asyncHandler(async (req, res) => {
     const { days = 30 } = req.query;
     const daysNum = Math.max(1, Math.min(365, parseInt(days, 10) || 30));
-    logger.info("Comprehensive metrics requested", { 
+    logger.info('Comprehensive metrics requested', {
       correlationId: req.correlationId,
       days: daysNum,
     });

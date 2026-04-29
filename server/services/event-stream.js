@@ -97,7 +97,9 @@ class HorizonEventStream {
       // Reset backoff on successful connection
       this._reconnectDelay = RECONNECT_BASE_MS;
     } catch (err) {
-      logger.error('HorizonEventStream failed to connect', { error: err.message });
+      logger.error('HorizonEventStream failed to connect', {
+        error: err.message,
+      });
       this._scheduleReconnect();
     }
   }
@@ -125,7 +127,9 @@ class HorizonEventStream {
     try {
       this.onEvent(record);
     } catch (err) {
-      logger.error('HorizonEventStream onEvent handler threw', { error: err.message });
+      logger.error('HorizonEventStream onEvent handler threw', {
+        error: err.message,
+      });
     }
   }
 
@@ -148,7 +152,9 @@ class HorizonEventStream {
 
   _closeStream() {
     if (typeof this._stopFn === 'function') {
-      try { this._stopFn(); } catch (_) {}
+      try {
+        this._stopFn();
+      } catch (_) {}
       this._stopFn = null;
     }
   }

@@ -22,13 +22,13 @@ const getReferralStats = async (userId) => {
     User.countDocuments({ referredBy: userId }),
     Referral.aggregate([
       { $match: { referrerId: userId } },
-      { $group: { _id: null, total: { $sum: '$rewardAmount' } } }
-    ])
+      { $group: { _id: null, total: { $sum: '$rewardAmount' } } },
+    ]),
   ]);
 
   return {
     referralCount,
-    totalRewards: totalRewards.length > 0 ? totalRewards[0].total : 0
+    totalRewards: totalRewards.length > 0 ? totalRewards[0].total : 0,
   };
 };
 
@@ -46,5 +46,5 @@ const getReferralHistory = async (userId) => {
 module.exports = {
   calculateReward,
   getReferralStats,
-  getReferralHistory
+  getReferralHistory,
 };

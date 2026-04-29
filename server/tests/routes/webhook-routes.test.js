@@ -13,7 +13,8 @@ let app;
 let validToken;
 let testUser;
 
-const TEST_PUBLIC_KEY = 'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
+const TEST_PUBLIC_KEY =
+  'GDZYF2MVD4MMJIDNVTVCKRWP7F55N56CGKUCLH7SZ7KJQLGMMFMNVOVP';
 
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
@@ -24,11 +25,17 @@ beforeAll(async () => {
 
   app = express();
   app.use(express.json());
-  app.use((req, _res, next) => { req.correlationId = 'test-id'; next(); });
+  app.use((req, _res, next) => {
+    req.correlationId = 'test-id';
+    next();
+  });
   app.use('/api', webhookRoutes);
   app.use(errorHandler);
 
-  testUser = await User.create({ publicKey: TEST_PUBLIC_KEY, username: 'tester' });
+  testUser = await User.create({
+    publicKey: TEST_PUBLIC_KEY,
+    username: 'tester',
+  });
   validToken = generateToken(TEST_PUBLIC_KEY, 'tester');
 });
 
@@ -46,7 +53,11 @@ describe('POST /api/webhooks', () => {
     const res = await request(app)
       .post('/api/webhooks')
       .set('Authorization', `Bearer ${validToken}`)
-      .send({ url: 'https://example.com/hook', secret: 'supersecretvalue1234', events: ['token.minted'] });
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'supersecretvalue1234',
+        events: ['token.minted'],
+      });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -57,7 +68,11 @@ describe('POST /api/webhooks', () => {
     const res = await request(app)
       .post('/api/webhooks')
       .set('Authorization', `Bearer ${validToken}`)
-      .send({ url: 'not-a-url', secret: 'supersecretvalue1234', events: ['token.minted'] });
+      .send({
+        url: 'not-a-url',
+        secret: 'supersecretvalue1234',
+        events: ['token.minted'],
+      });
 
     expect(res.status).toBe(400);
   });
@@ -66,7 +81,11 @@ describe('POST /api/webhooks', () => {
     const res = await request(app)
       .post('/api/webhooks')
       .set('Authorization', `Bearer ${validToken}`)
-      .send({ url: 'https://example.com/hook', secret: 'short', events: ['token.minted'] });
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'short',
+        events: ['token.minted'],
+      });
 
     expect(res.status).toBe(400);
   });
@@ -74,7 +93,10 @@ describe('POST /api/webhooks', () => {
   it('requires authentication', async () => {
     const res = await request(app)
       .post('/api/webhooks')
-      .send({ url: 'https://example.com/hook', secret: 'supersecretvalue1234' });
+      .send({
+        url: 'https://example.com/hook',
+        secret: 'supersecretvalue1234',
+      });
 
     expect(res.status).toBe(401);
   });
