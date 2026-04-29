@@ -26,6 +26,20 @@ services:
       - mongodb
     restart: unless-stopped
 
+  event-indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: soromint-event-indexer
+    command: npm run indexer
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/soromint
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
   client:
     build:
       context: ./client

@@ -1,19 +1,19 @@
-import React, { useState } from "react"
-import QRCode from "qrcode.react"
-import { Doughnut } from "react-chartjs-2"
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js"
+import React, { useState } from "react";
+import QRCode from "qrcode.react";
+import { Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 
-ChartJS.register(ArcElement, Tooltip, Legend)
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function ProfilePage() {
-  const [displayName, setDisplayName] = useState("John Doe")
-  const [avatarUrl, setAvatarUrl] = useState("https://via.placeholder.com/100")
+  const [displayName, setDisplayName] = useState("John Doe");
+  const [avatarUrl, setAvatarUrl] = useState("https://via.placeholder.com/100");
 
   const balances = {
     XLM: 120,
     BTC: 0.5,
     ETH: 2,
-  }
+  };
 
   const chartData = {
     labels: Object.keys(balances),
@@ -25,7 +25,7 @@ export default function ProfilePage() {
         borderWidth: 1,
       },
     ],
-  }
+  };
 
   return (
     <div style={{ padding: "2rem" }}>
@@ -34,7 +34,16 @@ export default function ProfilePage() {
       <div>
         <img src={avatarUrl} alt="avatar" width={100} height={100} />
         <h2>{displayName}</h2>
-        <button onClick={() => alert("Edit display name/avatar")}>Edit</button>
+        <button
+          onClick={() => {
+            const name = prompt("Enter new display name:", displayName);
+            if (name && name.trim()) setDisplayName(name.trim());
+            const url = prompt("Enter new avatar URL:", avatarUrl);
+            if (url && url.trim()) setAvatarUrl(url.trim());
+          }}
+        >
+          Edit
+        </button>
       </div>
 
       <div style={{ marginTop: "2rem" }}>
@@ -47,5 +56,5 @@ export default function ProfilePage() {
         <Doughnut data={chartData} />
       </div>
     </div>
-  )
+  );
 }

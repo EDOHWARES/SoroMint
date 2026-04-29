@@ -1,6 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+};
 
 #[cfg(test)]
 mod test_ownership;
@@ -43,15 +45,14 @@ pub fn get_pending_owner(e: &Env) -> Option<Address> {
 /// @emit owner_pe(owner, new_owner)
 pub fn transfer_ownership(e: Env, new_owner: Address) {
     let instance = e.storage().instance();
-    let owner: Address = instance.get(&DataKey::Owner).expect("Owner not initialized");
+    let owner: Address = instance
+        .get(&DataKey::Owner)
+        .expect("Owner not initialized");
     owner.require_auth();
 
     instance.set(&DataKey::PendingOwner, &new_owner);
-    
-    e.events().publish(
-        (OWNER_PENDING, owner),
-        new_owner
-    );
+
+    e.events().publish((OWNER_PENDING, owner), new_owner);
 }
 
 /// @notice Accepts the transfer of ownership.
@@ -60,17 +61,17 @@ pub fn transfer_ownership(e: Env, new_owner: Address) {
 /// @emit owner_tr(old_owner, pending_owner)
 pub fn accept_ownership(e: Env) {
     let instance = e.storage().instance();
-    let pending_owner: Address = instance.get(&DataKey::PendingOwner).expect("No pending owner");
+    let pending_owner: Address = instance
+        .get(&DataKey::PendingOwner)
+        .expect("No pending owner");
     pending_owner.require_auth();
 
     let old_owner: Address = instance.get(&DataKey::Owner).expect("Owner not set");
     instance.set(&DataKey::Owner, &pending_owner);
     instance.remove(&DataKey::PendingOwner);
 
-    e.events().publish(
-        (OWNER_TRANSFERRED, old_owner),
-        pending_owner
-    );
+    e.events()
+        .publish((OWNER_TRANSFERRED, old_owner), pending_owner);
 }
 
 /// Helper to require the caller to be the current owner.

@@ -41,22 +41,34 @@ const authenticate = async (req, res, next) => {
     const token = extractTokenFromHeader(req);
 
     if (!token) {
-      throw new AppError('Authentication required. Please provide a valid JWT token.', 401, 'AUTH_REQUIRED');
+      throw new AppError(
+        'Authentication required. Please provide a valid JWT token.',
+        401,
+        'AUTH_REQUIRED'
+      );
     }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find user by public key from token payload
-    const user = await User.findByPublicKey(decoded.publicKey);
+    // Find user by ID from token payload
+    const user = await User.findById(decoded.id);
 
     if (!user) {
-      throw new AppError('User not found. Token may be invalid.', 401, 'USER_NOT_FOUND');
+      throw new AppError(
+        'User not found. Token may be invalid.',
+        401,
+        'USER_NOT_FOUND'
+      );
     }
 
     // Check if account is active
     if (!user.isActive()) {
-      throw new AppError(`Account is ${user.status}. Please contact support.`, 403, 'ACCOUNT_INACTIVE');
+      throw new AppError(
+        `Account is ${user.status}. Please contact support.`,
+        403,
+        'ACCOUNT_INACTIVE'
+      );
     }
 
     // Attach user and token to request for downstream middleware/routes
@@ -67,7 +79,13 @@ const authenticate = async (req, res, next) => {
   } catch (error) {
     // Handle JWT-specific errors
     if (error.name === 'TokenExpiredError') {
-      return next(new AppError('Token has expired. Please login again.', 401, 'TOKEN_EXPIRED'));
+      return next(
+        new AppError(
+          'Token has expired. Please login again.',
+          401,
+          'TOKEN_EXPIRED'
+        )
+      );
     }
 
     if (error.name === 'JsonWebTokenError') {
@@ -75,7 +93,9 @@ const authenticate = async (req, res, next) => {
     }
 
     if (error.name === 'NotBeforeError') {
-      return next(new AppError('Token is not yet valid.', 401, 'TOKEN_NOT_YET_VALID'));
+      return next(
+        new AppError('Token is not yet valid.', 401, 'TOKEN_NOT_YET_VALID')
+      );
     }
 
     // Pass through AppErrors
@@ -106,7 +126,7 @@ const optionalAuthenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPublicKey(decoded.publicKey);
+    const user = await User.findById(decoded.id);
 
     if (user && user.isActive()) {
       req.user = user;
@@ -134,11 +154,19 @@ const optionalAuthenticate = async (req, res, next) => {
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return next(new AppError('Authentication required.', 401, 'AUTH_REQUIRED'));
+      return next(
+        new AppError('Authentication required.', 401, 'AUTH_REQUIRED')
+      );
     }
 
     if (!roles.includes(req.user.role)) {
-      return next(new AppError('Access denied. Insufficient permissions.', 403, 'ACCESS_DENIED'));
+      return next(
+        new AppError(
+          'Access denied. Insufficient permissions.',
+          403,
+          'ACCESS_DENIED'
+        )
+      );
     }
 
     next();
@@ -147,27 +175,27 @@ const authorize = (...roles) => {
 
 /**
  * @notice Generates a JWT token for a user
- * @param {string} publicKey - User's Stellar public key
- * @param {string} [username] - Optional username to include in payload
+ * @param {Object} user - User document
  * @returns {string} Signed JWT token
  * @throws {Error} If JWT_SECRET is not configured
  */
-const generateToken = (publicKey, username = null) => {
+const generateToken = (user) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is not configured');
   }
 
   const payload = {
-    publicKey,
-    username,
-    type: 'access'
+    id: user._id,
+    publicKey: user.publicKey,
+    username: user.username,
+    type: 'access',
   };
 
   // Token expires in 24 hours by default
   const options = {
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
     issuer: 'SoroMint',
-    audience: 'SoroMint-API'
+    audience: 'SoroMint-API',
   };
 
   return jwt.sign(payload, process.env.JWT_SECRET, options);
@@ -208,5 +236,5 @@ module.exports = {
   generateToken,
   decodeToken,
   verifyToken,
-  extractTokenFromHeader
+  extractTokenFromHeader,
 };

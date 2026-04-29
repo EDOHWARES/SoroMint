@@ -10,14 +10,14 @@ Tokens often need more metadata than can be efficiently stored directly on the b
 
 ### Functions
 
-#### `set_metadata_hash(e: Env, hash: String)`
-Sets the metadata hash for the token.
+#### `set_metadata_resolver(e: Env, resolver: Address)`
+Sets the resolver address for the token.
 - **Authorization**: Only the contract administrator (admin) can call this function.
-- **Args**: `hash` is a `String` representing the IPFS/Arweave hash.
+- **Args**: `resolver` is an `Address` of a contract implementing `get_metadata_hash() -> Option<String>`.
 - **Events**: Emits a `metadata_updated` event.
 
 #### `metadata_hash(e: Env) -> Option<String>`
-Retrieves the current metadata hash.
+Retrieves the current metadata hash by querying the configured resolver.
 - **Returns**: `Some(hash)` if a hash has been set, otherwise `None`.
 
 ### Security Considerations
@@ -28,10 +28,11 @@ Retrieves the current metadata hash.
 
 ## Example Usage
 
-### Setting a Metadata Hash (IPFS)
-To link to a metadata file on IPFS with CID `QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco`:
+### Setting a Metadata Resolver
+To decouple metadata, point the token to a resolver contract:
 ```rust
-token.set_metadata_hash("QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco");
+let resolver_address = ...; // Address of your MetadataResolver contract
+token.set_metadata_resolver(resolver_address);
 ```
 
 ### Retrieving the Hash

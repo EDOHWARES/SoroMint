@@ -1,6 +1,8 @@
 // Mock @stellar/stellar-sdk
 const mockAssetInstance = { code: 'USDC', issuer: 'G...' };
-const mockAssetConstructor = jest.fn().mockImplementation(() => mockAssetInstance);
+const mockAssetConstructor = jest
+  .fn()
+  .mockImplementation(() => mockAssetInstance);
 mockAssetConstructor.native = jest.fn().mockReturnValue({ isNative: true });
 
 // Use doMock to avoid hoisting issues with variables
@@ -8,25 +10,30 @@ jest.doMock('@stellar/stellar-sdk', () => ({
   rpc: {
     Server: jest.fn().mockImplementation((url) => ({
       url,
-      getLatestLedger: jest.fn()
-    }))
+      getLatestLedger: jest.fn(),
+    })),
   },
   StrKey: {},
   Asset: mockAssetConstructor,
   Operation: {},
   TransactionBuilder: {},
   Networks: {},
-  Address: {}
+  Address: {},
 }));
 
 // Re-require the service after mocking
-const { FailoverRpcServer, getRpcServer, wrapAsset, deployStellarAssetContract } = require('../../services/stellar-service');
+const {
+  FailoverRpcServer,
+  getRpcServer,
+  wrapAsset,
+  deployStellarAssetContract,
+} = require('../../services/stellar-service');
 const { Asset } = require('@stellar/stellar-sdk');
 const { getEnv } = require('../../config/env-config');
 
 // Mock env-config
 jest.mock('../../config/env-config', () => ({
-  getEnv: jest.fn()
+  getEnv: jest.fn(),
 }));
 
 // Mock logger
@@ -34,8 +41,8 @@ jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
     warn: jest.fn(),
-    error: jest.fn()
-  }
+    error: jest.fn(),
+  },
 }));
 
 describe('FailoverRpcServer', () => {
@@ -64,7 +71,8 @@ describe('FailoverRpcServer', () => {
   });
 
   test('should failover to the next endpoint on failure', async () => {
-    const mockFn = jest.fn()
+    const mockFn = jest
+      .fn()
       .mockRejectedValueOnce(new Error('RPC 1 Failed'))
       .mockResolvedValueOnce('success');
 
@@ -83,12 +91,16 @@ describe('FailoverRpcServer', () => {
     await expect(failoverServer.execute(mockFn)).rejects.toThrow('RPC Failed');
     expect(mockFn).toHaveBeenCalledTimes(3);
     // After 3 calls, currentIndex should cycle through 0 -> 1 -> 2 -> 0
-    expect(failoverServer.currentIndex).toBe(0); 
+    expect(failoverServer.currentIndex).toBe(0);
   });
 
   test('should throw error if no URLs are provided to constructor', () => {
-    expect(() => new FailoverRpcServer([])).toThrow('No RPC URLs provided for FailoverRpcServer');
-    expect(() => new FailoverRpcServer(null)).toThrow('No RPC URLs provided for FailoverRpcServer');
+    expect(() => new FailoverRpcServer([])).toThrow(
+      'No RPC URLs provided for FailoverRpcServer'
+    );
+    expect(() => new FailoverRpcServer(null)).toThrow(
+      'No RPC URLs provided for FailoverRpcServer'
+    );
   });
 
   test('should cycle through endpoints correctly with next()', () => {
@@ -112,12 +124,12 @@ describe('getRpcServer', () => {
   test('should create a FailoverRpcServer with SOROBAN_RPC_URLS', () => {
     getEnv.mockReturnValue({
       SOROBAN_RPC_URLS: 'https://rpc1.com,https://rpc2.com',
-      SOROBAN_RPC_URL: 'https://fallback.com'
+      SOROBAN_RPC_URL: 'https://fallback.com',
     });
 
     const server = getRpcServer();
     expect(server).toBeInstanceOf(FailoverRpcServer);
-    // Since it's a singleton, it might already be initialized. 
+    // Since it's a singleton, it might already be initialized.
     // We should ideally reset it, but let's see if we can just verify the logic.
   });
 
@@ -146,4 +158,3 @@ describe('Stellar Service Boilerplate', () => {
     expect(result.contractId).toBe('C...');
   });
 });
-

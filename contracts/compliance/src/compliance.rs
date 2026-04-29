@@ -1,6 +1,8 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+};
 
 #[cfg(test)]
 mod test_compliance;
@@ -24,17 +26,19 @@ const BLACKLIST_UPDATED: Symbol = symbol_short!("bl_upd");
 /// Requires `admin` to authorize the transaction.
 pub fn set_blacklist_status(e: Env, admin: Address, addr: Address, banned: bool) {
     admin.require_auth();
-    
+
     if banned {
-        e.storage().persistent().set(&DataKey::Blacklisted(addr.clone()), &true);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Blacklisted(addr.clone()), &true);
     } else {
-        e.storage().persistent().remove(&DataKey::Blacklisted(addr.clone()));
+        e.storage()
+            .persistent()
+            .remove(&DataKey::Blacklisted(addr.clone()));
     }
 
-    e.events().publish(
-        (BLACKLIST_UPDATED, admin),
-        (addr, banned)
-    );
+    e.events()
+        .publish((BLACKLIST_UPDATED, admin), (addr, banned));
 }
 
 /// Returns whether an address is blacklisted.

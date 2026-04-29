@@ -2,7 +2,31 @@
 resolver = "2"
 
 members = [
-    "contracts/*",
+    "contracts/access",
+    "contracts/ai_metadata_validator",
+    "contracts/amm_factory",
+    "contracts/amm_pool",
+    "contracts/backstop",
+    "contracts/compliance",
+    "contracts/dividend",
+    "contracts/factory",
+    "contracts/flash_loan",
+    "contracts/lending_pool",
+    "contracts/lifecycle",
+    "contracts/lottery",
+    "contracts/metadata_validator",
+    "contracts/merkle_whitelist",
+    "contracts/multisig",
+    "contracts/oracle",
+    "contracts/otc_escrow",
+    "contracts/ownership",
+    "contracts/streaming",
+    "contracts/timelock",
+    "contracts/token",
+    "contracts/upgradeable",
+    "contracts/vault",
+    "contracts/vesting",
+    "contracts/wrapper",
 ]
 
 

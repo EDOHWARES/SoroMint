@@ -1,7 +1,11 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{contract, contractimpl, testutils::{Address as _, Events as _}, Address, Env, IntoVal};
+use soroban_sdk::{
+    contract, contractimpl,
+    testutils::{Address as _, Events as _},
+    Address, Env, IntoVal,
+};
 
 #[contract]
 pub struct LifecycleTestContract;
@@ -59,7 +63,7 @@ fn test_action_fails_when_paused() {
     let admin = Address::generate(&e);
 
     client.do_pause(&admin);
-    
+
     // This should panic
     client.do_action();
 }
@@ -74,13 +78,13 @@ fn test_events_emitted() {
     let admin = Address::generate(&e);
 
     client.do_pause(&admin);
-    
+
     let events = e.events().all();
     let last_event = events.last().expect("Event should be emitted");
-    
+
     let t0: Symbol = last_event.1.get(0).unwrap().into_val(&e);
     let val: Address = last_event.2.into_val(&e);
-    
+
     assert_eq!(t0, SYS_PAUSE);
     assert_eq!(val, admin);
 }

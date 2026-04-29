@@ -41,8 +41,15 @@ Ensure your `.env` file in the `/server` directory contains:
 - `NETWORK_PASSPHRASE`: The passphrase for the target network.
 - `MONGO_URI`: Connection string for MongoDB.
 - `CORS_ALLOWED_ORIGINS`: Comma-separated frontend origin whitelist for browser access to the API.
+- `BRIDGE_RELAYER_ENABLED`: Enables the cross-chain bridge relayer.
+- `BRIDGE_RELAYER_DIRECTION`: Controls whether the relayer watches `both`, `soroban-to-evm`, or `evm-to-soroban`.
+- `BRIDGE_SOROBAN_ACCOUNT_ID`: Soroban account or bridge contract to watch for events.
+- `BRIDGE_EVM_RPC_URL`: JSON-RPC endpoint for the EVM-compatible chain.
+- `BRIDGE_EVM_BRIDGE_ADDRESS`: Bridge contract address for EVM log polling.
+- `BRIDGE_RELAY_ENDPOINT_URL`: HTTP endpoint that receives normalized relay commands.
 
 ## Features
 - **Connect Wallet**: Integrated placeholder for Stellar wallets.
 - **Mint Tokens**: Wrap Stellar Assets or deploy custom contracts.
 - **Asset Dashboard**: Track your deployed tokens stored in MongoDB.
+- **Bridge Relayer**: Monitor cross-chain bridge events and forward normalized relay commands to an execution endpoint.

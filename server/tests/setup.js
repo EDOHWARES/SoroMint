@@ -7,3 +7,7 @@ process.env.JWT_SECRET = 'super-secret-test-key';
 process.env.JWT_EXPIRES_IN = '24h';
 process.env.SOROBAN_RPC_URL = 'https://soroban-testnet.stellar.org';
 process.env.NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
+// SEP-10 challenge-response auth.
+// Leave empty so sep10-challenge-service auto-generates a stable ephemeral
+// keypair for the lifetime of the test process (safe for tests only).
+process.env.SERVER_SIGNING_SECRET = '';

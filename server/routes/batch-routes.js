@@ -6,6 +6,10 @@ const { validateBatch } = require('../validators/token-validator');
 const { submitBatchOperations } = require('../services/stellar-service');
 const DeploymentAudit = require('../models/DeploymentAudit');
 const { logger } = require('../utils/logger');
+const lockService = require('../services/lock-service');
+const referralService = require('../services/referral-service');
+const User = require('../models/User');
+const Referral = require('../models/Referral');
 
 const router = express.Router();
 
@@ -35,17 +39,109 @@ router.post(
     });
 
     let batchResult;
+    let lockValue = null;
+
     try {
-      batchResult = await submitBatchOperations(operations, sourcePublicKey);
+      // Acquire distributed lock for the source account
+      // 30 seconds TTL, 5 retries, 2000ms base delay
+      lockValue = await lockService.acquireLock(
+        sourcePublicKey,
+        30000,
+        5,
+        2000
+      );
+
+      if (!lockValue) {
+        throw new AppError(
+          'Account is currently busy processing another transaction. Please try again later.',
+          409,
+          'LOCK_ACQUISITION_FAILED'
+        );
+      }
+
+      // Referral Reward Logic
+      const processedOperations = [...operations];
+      const rewardInfos = [];
+
+      for (let i = 0; i < operations.length; i++) {
+        const op = operations[i];
+        if (op.type === 'mint') {
+          const user = await User.findOne({
+            publicKey: sourcePublicKey,
+          }).populate('referredBy');
+          if (user && user.referredBy && user.referredBy.publicKey) {
+            const rewardAmount = referralService.calculateReward(op.amount);
+            if (rewardAmount > 0) {
+              const rewardOp = {
+                type: 'mint',
+                contractId: op.contractId,
+                amount: rewardAmount,
+                to: user.referredBy.publicKey,
+                isReward: true,
+                originalOpIndex: i,
+                referrerId: user.referredBy._id,
+                referredUserId: user._id,
+              };
+              rewardInfos.push({
+                indexInBatch: processedOperations.length,
+                rewardOp,
+              });
+              processedOperations.push(rewardOp);
+
+              logger.info('Added referral reward operation to batch', {
+                referrer: user.referredBy.publicKey,
+                referred: sourcePublicKey,
+                rewardAmount,
+              });
+            }
+          }
+        }
+      }
+
+      batchResult = await submitBatchOperations(
+        processedOperations,
+        sourcePublicKey
+      );
+
+      // If successful, save referral records for reward operations
+      if (batchResult.success && rewardInfos.length > 0) {
+        const referralRecords = rewardInfos
+          .filter(
+            (info) =>
+              batchResult.results[info.indexInBatch].status === 'SUBMITTED'
+          )
+          .map((info) => ({
+            referrerId: info.rewardOp.referrerId,
+            referredUserId: info.rewardOp.referredUserId,
+            rewardAmount: info.rewardOp.amount,
+            contractId: info.rewardOp.contractId,
+            txHash: batchResult.txHash,
+            operationType: 'mint',
+          }));
+
+        if (referralRecords.length > 0) {
+          await Referral.insertMany(referralRecords);
+          logger.info('Saved referral reward records', {
+            count: referralRecords.length,
+            txHash: batchResult.txHash,
+          });
+        }
+      }
     } catch (err) {
-      // Record audit for the whole batch failure
-      await DeploymentAudit.create({
-        userId,
-        tokenName: `batch(${operations.length})`,
-        status: 'FAIL',
-        errorMessage: err.message,
-      });
+      if (err.code !== 'LOCK_ACQUISITION_FAILED') {
+        // Record audit for the whole batch failure
+        await DeploymentAudit.create({
+          userId,
+          tokenName: `batch(${operations.length})`,
+          status: 'FAIL',
+          errorMessage: err.message,
+        });
+      }
       throw err;
+    } finally {
+      if (lockValue) {
+        await lockService.releaseLock(sourcePublicKey, lockValue);
+      }
     }
 
     // Audit each operation individually for traceability

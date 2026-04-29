@@ -1,0 +1,25 @@
+diff --cc contracts/token/src/lib.rs
+index eef308c,32046c4..0000000
+--- a/contracts/token/src/lib.rs
++++ b/contracts/token/src/lib.rs
+@@@ -10,14 -10,11 +10,19 @@@ mod events
+  mod test_transfer;
+  #[cfg(test)]
+  mod test_minting_limits;
+ +<<<<<<< HEAD
+++<<<<<<< HEAD
+  #[cfg(test)]
+  mod test_snapshots;
+ +=======
+ +>>>>>>> origin/pr/236
+++=======
+++#[cfg(test)]
+++mod test_snapshots;
+++>>>>>>> origin/pr/239
+  
+  use soroban_sdk::token::TokenInterface;
+ -use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
+ +use soroban_sdk::{contract, contractimpl, contracttype, Address, Bytes, Env, String};
+  
+  #[contracttype]
+  #[derive(Clone)]
