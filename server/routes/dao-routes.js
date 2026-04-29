@@ -23,7 +23,8 @@ router.post(
   authenticate,
   validateProposal,
   asyncHandler(async (req, res) => {
-    const { tokenId, contractId, proposer, changes, quorum, durationDays } = req.body;
+    const { tokenId, contractId, proposer, changes, quorum, durationDays } =
+      req.body;
 
     logger.info('Creating proposal', {
       correlationId: req.correlationId,

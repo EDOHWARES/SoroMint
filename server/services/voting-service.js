@@ -194,14 +194,16 @@ const listProposals = async ({
       await Proposal.syncAllStatuses();
     } catch (err) {
       // Non-fatal — continue even if sync fails
-      logger.warn('[Voting] Status sync failed during list', { error: err.message });
+      logger.warn('[Voting] Status sync failed during list', {
+        error: err.message,
+      });
     }
   }
 
   const filter = {};
-  if (status)     filter.status     = status;
+  if (status) filter.status = status;
   if (contractId) filter.contractId = contractId;
-  if (creator)    filter.creator    = creator.toUpperCase();
+  if (creator) filter.creator = creator.toUpperCase();
 
   const skip = (page - 1) * limit;
 
@@ -249,7 +251,13 @@ const updateProposal = async (proposalId, editorKey, updates) => {
     throw err;
   }
 
-  const allowedFields = ['title', 'description', 'endTime', 'tags', 'discussionUrl'];
+  const allowedFields = [
+    'title',
+    'description',
+    'endTime',
+    'tags',
+    'discussionUrl',
+  ];
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
       proposal[field] = updates[field];
@@ -327,7 +335,12 @@ const cancelProposal = async (proposalId, cancellerKey) => {
  *
  * @returns {Promise<{ vote: Vote, proposal: Proposal, votingPower: number }>}
  */
-const castVote = async ({ proposalId, voter, choice, signedMessage = null }) => {
+const castVote = async ({
+  proposalId,
+  voter,
+  choice,
+  signedMessage = null,
+}) => {
   const voterKey = voter.toUpperCase();
 
   // ── 1. Load & sync proposal ────────────────────────────────────────────────
@@ -376,7 +389,7 @@ const castVote = async ({ proposalId, voter, choice, signedMessage = null }) => 
       : 'any token on SoroMint';
     const err = new Error(
       `You have no voting power for this proposal. ` +
-      `You must own ${scope} to participate.`
+        `You must own ${scope} to participate.`
     );
     err.statusCode = 403;
     err.code = 'INSUFFICIENT_VOTING_POWER';
@@ -471,7 +484,7 @@ const getResults = async (proposalId) => {
   }
 
   const totalVotingPower = tallies.reduce((sum, t) => sum + t.totalPower, 0);
-  const totalVoteCount   = tallies.reduce((sum, t) => sum + t.voteCount, 0);
+  const totalVoteCount = tallies.reduce((sum, t) => sum + t.voteCount, 0);
 
   const results = proposal.choices.map((label, index) => {
     const t = tallyMap[index] || { voteCount: 0, totalPower: 0 };

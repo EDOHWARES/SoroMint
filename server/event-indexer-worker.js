@@ -30,7 +30,6 @@ async function startIndexer() {
       mongoose.connection.close();
       process.exit(0);
     });
-
   } catch (error) {
     logger.error('Event indexer failed to start', { error: error.message });
     process.exit(1);

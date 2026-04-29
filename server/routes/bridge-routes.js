@@ -4,15 +4,15 @@
  * @notice Handles bridge status, event simulation, relayer start/stop
  */
 
-const express = require("express");
-const { authenticate } = require("../middleware/auth");
-const { asyncHandler } = require("../middleware/error-handler");
-const { getBridgeRelayer } = require("../services/bridge-relayer");
+const express = require('express');
+const { authenticate } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/error-handler');
+const { getBridgeRelayer } = require('../services/bridge-relayer');
 const {
   validateBridgeEvent,
   validateBridgeStatus,
-} = require("../validators/bridge-validator");
-const { logger } = require("../utils/logger");
+} = require('../validators/bridge-validator');
+const { logger } = require('../utils/logger');
 
 const router = express.Router();
 
@@ -22,12 +22,13 @@ const router = express.Router();
  * @access Private (JWT)
  */
 router.get(
-  "/bridge/relayer/status",
+  '/bridge/relayer/status',
   authenticate,
   validateBridgeStatus,
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
-    const detailed = req.query.detailed === true || req.query.detailed === "true";
+    const detailed =
+      req.query.detailed === true || req.query.detailed === 'true';
 
     let status = relayer.getStatus();
 
@@ -35,7 +36,7 @@ router.get(
       delete status.originalEvent;
     }
 
-    logger.info("Bridge relayer status retrieved", {
+    logger.info('Bridge relayer status retrieved', {
       correlationId: req.correlationId,
       userId: req.user?._id,
       enabled: status.enabled,
@@ -43,7 +44,7 @@ router.get(
     });
 
     res.json({ success: true, data: status });
-  }),
+  })
 );
 
 /**
@@ -52,7 +53,7 @@ router.get(
  * @access Private (JWT)
  */
 router.post(
-  "/bridge/relayer/start",
+  '/bridge/relayer/start',
   authenticate,
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
@@ -60,15 +61,15 @@ router.post(
     if (!relayer.isConfigured()) {
       return res.status(400).json({
         success: false,
-        error: "Bridge relayer is not properly configured",
-        details: "Missing required environment variables",
+        error: 'Bridge relayer is not properly configured',
+        details: 'Missing required environment variables',
       });
     }
 
     try {
       const status = await relayer.start();
 
-      logger.info("Bridge relayer started", {
+      logger.info('Bridge relayer started', {
         correlationId: req.correlationId,
         userId: req.user?._id,
         direction: status.direction,
@@ -76,7 +77,7 @@ router.post(
 
       res.status(202).json({ success: true, data: status });
     } catch (error) {
-      logger.error("Failed to start bridge relayer", {
+      logger.error('Failed to start bridge relayer', {
         correlationId: req.correlationId,
         error: error.message,
         userId: req.user?._id,
@@ -84,11 +85,11 @@ router.post(
 
       res.status(500).json({
         success: false,
-        error: "Failed to start bridge relayer",
+        error: 'Failed to start bridge relayer',
         details: error.message,
       });
     }
-  }),
+  })
 );
 
 /**
@@ -97,7 +98,7 @@ router.post(
  * @access Private (JWT)
  */
 router.post(
-  "/bridge/relayer/stop",
+  '/bridge/relayer/stop',
   authenticate,
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
@@ -105,14 +106,14 @@ router.post(
     try {
       const status = await relayer.stop();
 
-      logger.info("Bridge relayer stopped", {
+      logger.info('Bridge relayer stopped', {
         correlationId: req.correlationId,
         userId: req.user?._id,
       });
 
       res.json({ success: true, data: status });
     } catch (error) {
-      logger.error("Failed to stop bridge relayer", {
+      logger.error('Failed to stop bridge relayer', {
         correlationId: req.correlationId,
         error: error.message,
         userId: req.user?._id,
@@ -120,11 +121,11 @@ router.post(
 
       res.status(500).json({
         success: false,
-        error: "Failed to stop bridge relayer",
+        error: 'Failed to stop bridge relayer',
         details: error.message,
       });
     }
-  }),
+  })
 );
 
 /**
@@ -133,7 +134,7 @@ router.post(
  * @access Private (JWT)
  */
 router.post(
-  "/bridge/relayer/simulate",
+  '/bridge/relayer/simulate',
   authenticate,
   validateBridgeEvent,
   asyncHandler(async (req, res) => {
@@ -142,7 +143,7 @@ router.post(
     if (!relayer.enabled) {
       return res.status(400).json({
         success: false,
-        error: "Bridge relayer is not enabled",
+        error: 'Bridge relayer is not enabled',
       });
     }
 
@@ -153,10 +154,10 @@ router.post(
         {
           metadata: req.body.metadata,
           actor: req.user?.publicKey || null,
-        },
+        }
       );
 
-      logger.info("Bridge event simulated", {
+      logger.info('Bridge event simulated', {
         correlationId: req.correlationId,
         userId: req.user?._id,
         sourceChain: req.body.sourceChain,
@@ -171,7 +172,7 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error("Failed to simulate bridge event", {
+      logger.error('Failed to simulate bridge event', {
         correlationId: req.correlationId,
         error: error.message,
         userId: req.user?._id,
@@ -179,11 +180,11 @@ router.post(
 
       res.status(500).json({
         success: false,
-        error: "Failed to simulate bridge event",
+        error: 'Failed to simulate bridge event',
         details: error.message,
       });
     }
-  }),
+  })
 );
 
 /**
@@ -193,7 +194,7 @@ router.post(
  * @access Private (JWT)
  */
 router.post(
-  "/bridge/relayer/ingest",
+  '/bridge/relayer/ingest',
   authenticate,
   validateBridgeEvent,
   asyncHandler(async (req, res) => {
@@ -202,9 +203,9 @@ router.post(
     if (!relayer.enabled) {
       return res.status(202).json({
         success: true,
-        data: { 
-          command: null, 
-          reason: "Relayer disabled" 
+        data: {
+          command: null,
+          reason: 'Relayer disabled',
         },
       });
     }
@@ -216,18 +217,18 @@ router.post(
         {
           metadata: req.body.metadata,
           actor: req.user?.publicKey || null,
-        },
+        }
       );
 
       if (command) {
-        logger.debug("Bridge event ingested and queued", {
+        logger.debug('Bridge event ingested and queued', {
           correlationId: req.correlationId,
           bridgeId: command.bridgeId,
           sourceChain: command.sourceChain,
           targetChain: command.targetChain,
         });
       } else {
-        logger.debug("Bridge event skipped during normalization", {
+        logger.debug('Bridge event skipped during normalization', {
           correlationId: req.correlationId,
           sourceChain: req.body.sourceChain,
         });
@@ -241,7 +242,7 @@ router.post(
         },
       });
     } catch (error) {
-      logger.error("Failed to ingest bridge event", {
+      logger.error('Failed to ingest bridge event', {
         correlationId: req.correlationId,
         error: error.message,
         userId: req.user?._id,
@@ -250,11 +251,11 @@ router.post(
       // Still return 202 to prevent event replay issues
       res.status(202).json({
         success: false,
-        error: "Failed to ingest bridge event",
+        error: 'Failed to ingest bridge event',
         details: error.message,
       });
     }
-  }),
+  })
 );
 
 /**
@@ -263,18 +264,18 @@ router.post(
  * @access Private (JWT) - Admin only
  */
 router.post(
-  "/bridge/relayer/reset",
+  '/bridge/relayer/reset',
   authenticate,
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
 
     // Simple admin check - in production, use role-based access control
-    const isAdmin = req.user?.role === "admin" || req.user?.isAdmin;
+    const isAdmin = req.user?.role === 'admin' || req.user?.isAdmin;
 
     if (!isAdmin) {
       return res.status(403).json({
         success: false,
-        error: "Only administrators can reset the bridge relayer",
+        error: 'Only administrators can reset the bridge relayer',
       });
     }
 
@@ -290,7 +291,7 @@ router.post(
         lastError: null,
       };
 
-      logger.warn("Bridge relayer reset by admin", {
+      logger.warn('Bridge relayer reset by admin', {
         correlationId: req.correlationId,
         userId: req.user?._id,
       });
@@ -300,7 +301,7 @@ router.post(
         data: relayer.getStatus(),
       });
     } catch (error) {
-      logger.error("Failed to reset bridge relayer", {
+      logger.error('Failed to reset bridge relayer', {
         correlationId: req.correlationId,
         error: error.message,
         userId: req.user?._id,
@@ -308,11 +309,11 @@ router.post(
 
       res.status(500).json({
         success: false,
-        error: "Failed to reset bridge relayer",
+        error: 'Failed to reset bridge relayer',
         details: error.message,
       });
     }
-  }),
+  })
 );
 
 module.exports = router;

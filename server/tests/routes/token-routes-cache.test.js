@@ -20,270 +20,272 @@ let app;
 let cacheService;
 
 const mockUser = {
-    _id: new mongoose.Types.ObjectId(),
-    username: 'testuser',
+  _id: new mongoose.Types.ObjectId(),
+  username: 'testuser',
 };
 
 const mockAuth = (req, res, next) => {
-    req.user = mockUser;
-    req.correlationId = 'test-correlation-id';
-    next();
+  req.user = mockUser;
+  req.correlationId = 'test-correlation-id';
+  next();
 };
 
 describe('Token Routes with Cache Integration', () => {
-    beforeAll(async () => {
-        mongoServer = await MongoMemoryServer.create();
-        const mongoUri = mongoServer.getUri();
-        await mongoose.connect(mongoUri);
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    await mongoose.connect(mongoUri);
+  });
+
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
+
+  beforeEach(async () => {
+    // Clear collections
+    await Token.deleteMany({});
+    await DeploymentAudit.deleteMany({});
+
+    // Setup mock cache service
+    cacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      delete: jest.fn(),
+      deleteByPattern: jest.fn(),
+      isHealthy: jest.fn(() => true),
+    };
+
+    getCacheService.mockReturnValue(cacheService);
+
+    // Create test app
+    app = express();
+    app.use(express.json());
+    app.use(mockAuth);
+    app.use('/api', createTokenRouter());
+  });
+
+  describe('GET /api/tokens/:owner - Cache Layer', () => {
+    it('should return cached data on cache hit', async () => {
+      const cachedTokens = [
+        {
+          _id: new mongoose.Types.ObjectId(),
+          name: 'Cached Token',
+          symbol: 'CTK',
+          contractId: 'CA123',
+          ownerPublicKey: 'GUSER123',
+          decimals: 7,
+        },
+      ];
+
+      const cachedResult = {
+        data: cachedTokens,
+        metadata: {
+          totalCount: 1,
+          page: 1,
+          totalPages: 1,
+          limit: 20,
+          search: null,
+        },
+      };
+
+      cacheService.get.mockResolvedValueOnce(cachedResult);
+
+      const response = await request(app)
+        .get('/api/tokens/GUSER123')
+        .query({ page: 1, limit: 20 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.cached).toBe(true);
+      expect(response.body.data).toEqual(cachedTokens);
+      expect(cacheService.get).toHaveBeenCalledWith(
+        'tokens:owner:GUSER123:page:1:limit:20:search:none'
+      );
     });
 
-    afterAll(async () => {
-        await mongoose.disconnect();
-        await mongoServer.stop();
+    it('should fetch from database and cache on cache miss', async () => {
+      const token = new Token({
+        name: 'Test Token',
+        symbol: 'TST',
+        contractId: 'CA456',
+        ownerPublicKey: 'GUSER456',
+        decimals: 7,
+      });
+      await token.save();
+
+      cacheService.get.mockResolvedValueOnce(null);
+      cacheService.set.mockResolvedValueOnce(undefined);
+
+      const response = await request(app)
+        .get('/api/tokens/GUSER456')
+        .query({ page: 1, limit: 20 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.cached).toBe(false);
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].name).toBe('Test Token');
+      expect(cacheService.set).toHaveBeenCalled();
     });
 
-    beforeEach(async () => {
-        // Clear collections
-        await Token.deleteMany({});
-        await DeploymentAudit.deleteMany({});
+    it('should handle cache service failure gracefully', async () => {
+      const token = new Token({
+        name: 'Test Token',
+        symbol: 'TST',
+        contractId: 'CA789',
+        ownerPublicKey: 'GUSER789',
+        decimals: 7,
+      });
+      await token.save();
 
-        // Setup mock cache service
-        cacheService = {
-            get: jest.fn(),
-            set: jest.fn(),
-            delete: jest.fn(),
-            deleteByPattern: jest.fn(),
-            isHealthy: jest.fn(() => true),
-        };
+      cacheService.get.mockRejectedValueOnce(new Error('Cache error'));
 
-        getCacheService.mockReturnValue(cacheService);
+      const response = await request(app)
+        .get('/api/tokens/GUSER789')
+        .query({ page: 1, limit: 20 });
 
-        // Create test app
-        app = express();
-        app.use(express.json());
-        app.use(mockAuth);
-        app.use('/api', createTokenRouter());
+      expect(response.status).toBe(200);
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].name).toBe('Test Token');
     });
 
-    describe('GET /api/tokens/:owner - Cache Layer', () => {
-        it('should return cached data on cache hit', async () => {
-            const cachedTokens = [
-                {
-                    _id: new mongoose.Types.ObjectId(),
-                    name: 'Cached Token',
-                    symbol: 'CTK',
-                    contractId: 'CA123',
-                    ownerPublicKey: 'GUSER123',
-                    decimals: 7,
-                },
-            ];
+    it('should cache different search queries separately', async () => {
+      const token1 = new Token({
+        name: 'Gold Token',
+        symbol: 'GLD',
+        contractId: 'CA100',
+        ownerPublicKey: 'GOWNER',
+        decimals: 7,
+      });
 
-            const cachedResult = {
-                data: cachedTokens,
-                metadata: {
-                    totalCount: 1,
-                    page: 1,
-                    totalPages: 1,
-                    limit: 20,
-                    search: null,
-                },
-            };
+      const token2 = new Token({
+        name: 'Silver Token',
+        symbol: 'SLV',
+        contractId: 'CA101',
+        ownerPublicKey: 'GOWNER',
+        decimals: 7,
+      });
 
-            cacheService.get.mockResolvedValueOnce(cachedResult);
+      await Promise.all([token1.save(), token2.save()]);
 
-            const response = await request(app)
-                .get('/api/tokens/GUSER123')
-                .query({ page: 1, limit: 20 });
+      cacheService.get.mockResolvedValueOnce(null);
+      cacheService.set.mockResolvedValueOnce(undefined);
 
-            expect(response.status).toBe(200);
-            expect(response.body.cached).toBe(true);
-            expect(response.body.data).toEqual(cachedTokens);
-            expect(cacheService.get).toHaveBeenCalledWith('tokens:owner:GUSER123:page:1:limit:20:search:none');
-        });
+      // First query without search
+      const response1 = await request(app)
+        .get('/api/tokens/GOWNER')
+        .query({ page: 1, limit: 20 });
 
-        it('should fetch from database and cache on cache miss', async () => {
-            const token = new Token({
-                name: 'Test Token',
-                symbol: 'TST',
-                contractId: 'CA456',
-                ownerPublicKey: 'GUSER456',
-                decimals: 7,
-            });
-            await token.save();
+      expect(response1.body.data).toHaveLength(2);
 
-            cacheService.get.mockResolvedValueOnce(null);
-            cacheService.set.mockResolvedValueOnce(undefined);
+      // Second query with search
+      cacheService.get.mockResolvedValueOnce(null);
+      cacheService.set.mockResolvedValueOnce(undefined);
 
-            const response = await request(app)
-                .get('/api/tokens/GUSER456')
-                .query({ page: 1, limit: 20 });
+      const response2 = await request(app)
+        .get('/api/tokens/GOWNER')
+        .query({ page: 1, limit: 20, search: 'Gold' });
 
-            expect(response.status).toBe(200);
-            expect(response.body.cached).toBe(false);
-            expect(response.body.data).toHaveLength(1);
-            expect(response.body.data[0].name).toBe('Test Token');
-            expect(cacheService.set).toHaveBeenCalled();
-        });
+      expect(response2.body.data).toHaveLength(1);
 
-        it('should handle cache service failure gracefully', async () => {
-            const token = new Token({
-                name: 'Test Token',
-                symbol: 'TST',
-                contractId: 'CA789',
-                ownerPublicKey: 'GUSER789',
-                decimals: 7,
-            });
-            await token.save();
+      // Verify separate cache keys were used
+      expect(cacheService.set).toHaveBeenNthCalledWith(
+        1,
+        'tokens:owner:GOWNER:page:1:limit:20:search:none',
+        expect.any(Object)
+      );
 
-            cacheService.get.mockRejectedValueOnce(new Error('Cache error'));
+      expect(cacheService.set).toHaveBeenNthCalledWith(
+        2,
+        'tokens:owner:GOWNER:page:1:limit:20:search:Gold',
+        expect.any(Object)
+      );
+    });
+  });
 
-            const response = await request(app)
-                .get('/api/tokens/GUSER789')
-                .query({ page: 1, limit: 20 });
+  describe('POST /api/tokens - Cache Invalidation', () => {
+    it('should invalidate cache when creating a new token', async () => {
+      cacheService.deleteByPattern.mockResolvedValueOnce(3);
 
-            expect(response.status).toBe(200);
-            expect(response.body.data).toHaveLength(1);
-            expect(response.body.data[0].name).toBe('Test Token');
-        });
+      const response = await request(app).post('/api/tokens').send({
+        name: 'New Token',
+        symbol: 'NEW',
+        decimals: 7,
+        contractId: 'CA_NEW_123',
+        ownerPublicKey: 'GOWNER_NEW',
+      });
 
-        it('should cache different search queries separately', async () => {
-            const token1 = new Token({
-                name: 'Gold Token',
-                symbol: 'GLD',
-                contractId: 'CA100',
-                ownerPublicKey: 'GOWNER',
-                decimals: 7,
-            });
+      expect(response.status).toBe(201);
+      expect(response.body.name).toBe('New Token');
 
-            const token2 = new Token({
-                name: 'Silver Token',
-                symbol: 'SLV',
-                contractId: 'CA101',
-                ownerPublicKey: 'GOWNER',
-                decimals: 7,
-            });
-
-            await Promise.all([token1.save(), token2.save()]);
-
-            cacheService.get.mockResolvedValueOnce(null);
-            cacheService.set.mockResolvedValueOnce(undefined);
-
-            // First query without search
-            const response1 = await request(app)
-                .get('/api/tokens/GOWNER')
-                .query({ page: 1, limit: 20 });
-
-            expect(response1.body.data).toHaveLength(2);
-
-            // Second query with search
-            cacheService.get.mockResolvedValueOnce(null);
-            cacheService.set.mockResolvedValueOnce(undefined);
-
-            const response2 = await request(app)
-                .get('/api/tokens/GOWNER')
-                .query({ page: 1, limit: 20, search: 'Gold' });
-
-            expect(response2.body.data).toHaveLength(1);
-
-            // Verify separate cache keys were used
-            expect(cacheService.set).toHaveBeenNthCalledWith(
-                1,
-                'tokens:owner:GOWNER:page:1:limit:20:search:none',
-                expect.any(Object)
-            );
-
-            expect(cacheService.set).toHaveBeenNthCalledWith(
-                2,
-                'tokens:owner:GOWNER:page:1:limit:20:search:Gold',
-                expect.any(Object)
-            );
-        });
+      // Verify cache invalidation
+      expect(cacheService.deleteByPattern).toHaveBeenCalledWith(
+        'tokens:owner:GOWNER_NEW:*'
+      );
     });
 
-    describe('POST /api/tokens - Cache Invalidation', () => {
-        it('should invalidate cache when creating a new token', async () => {
-            cacheService.deleteByPattern.mockResolvedValueOnce(3);
+    it('should handle cache invalidation failure gracefully', async () => {
+      cacheService.deleteByPattern.mockRejectedValueOnce(
+        new Error('Cache error')
+      );
 
-            const response = await request(app)
-                .post('/api/tokens')
-                .send({
-                    name: 'New Token',
-                    symbol: 'NEW',
-                    decimals: 7,
-                    contractId: 'CA_NEW_123',
-                    ownerPublicKey: 'GOWNER_NEW',
-                });
+      const response = await request(app).post('/api/tokens').send({
+        name: 'Another Token',
+        symbol: 'ANTH',
+        decimals: 7,
+        contractId: 'CA_ANTH_456',
+        ownerPublicKey: 'GOWNER_ANTH',
+      });
 
-            expect(response.status).toBe(201);
-            expect(response.body.name).toBe('New Token');
-
-            // Verify cache invalidation
-            expect(cacheService.deleteByPattern).toHaveBeenCalledWith('tokens:owner:GOWNER_NEW:*');
-        });
-
-        it('should handle cache invalidation failure gracefully', async () => {
-            cacheService.deleteByPattern.mockRejectedValueOnce(new Error('Cache error'));
-
-            const response = await request(app)
-                .post('/api/tokens')
-                .send({
-                    name: 'Another Token',
-                    symbol: 'ANTH',
-                    decimals: 7,
-                    contractId: 'CA_ANTH_456',
-                    ownerPublicKey: 'GOWNER_ANTH',
-                });
-
-            expect(response.status).toBe(201);
-            expect(response.body.name).toBe('Another Token');
-            // Should still succeed despite cache error
-        });
-
-        it('should create audit record even if cache fails', async () => {
-            cacheService.deleteByPattern.mockRejectedValueOnce(new Error('Cache error'));
-
-            await request(app)
-                .post('/api/tokens')
-                .send({
-                    name: 'Test Token',
-                    symbol: 'TEST',
-                    decimals: 7,
-                    contractId: 'CA_TEST_789',
-                    ownerPublicKey: 'GOWNER_TEST',
-                });
-
-            const audit = await DeploymentAudit.findOne({
-                tokenName: 'Test Token',
-            });
-
-            expect(audit).toBeDefined();
-            expect(audit.status).toBe('SUCCESS');
-        });
+      expect(response.status).toBe(201);
+      expect(response.body.name).toBe('Another Token');
+      // Should still succeed despite cache error
     });
 
-    describe('Cache Key Generation', () => {
-        it('should generate correct cache keys for paginated queries', async () => {
-            cacheService.get.mockResolvedValueOnce(null);
-            cacheService.set.mockResolvedValueOnce(undefined);
+    it('should create audit record even if cache fails', async () => {
+      cacheService.deleteByPattern.mockRejectedValueOnce(
+        new Error('Cache error')
+      );
 
-            await request(app)
-                .get('/api/tokens/GUSER')
-                .query({ page: 2, limit: 50 });
+      await request(app).post('/api/tokens').send({
+        name: 'Test Token',
+        symbol: 'TEST',
+        decimals: 7,
+        contractId: 'CA_TEST_789',
+        ownerPublicKey: 'GOWNER_TEST',
+      });
 
-            const setCalls = cacheService.set.mock.calls;
-            expect(setCalls[0][0]).toBe('tokens:owner:GUSER:page:2:limit:50:search:none');
-        });
+      const audit = await DeploymentAudit.findOne({
+        tokenName: 'Test Token',
+      });
 
-        it('should generate correct cache keys with special characters in search', async () => {
-            cacheService.get.mockResolvedValueOnce(null);
-            cacheService.set.mockResolvedValueOnce(undefined);
-
-            await request(app)
-                .get('/api/tokens/GUSER')
-                .query({ page: 1, limit: 20, search: 'Special Token' });
-
-            const setCalls = cacheService.set.mock.calls;
-            expect(setCalls[0][0]).toContain('search:Special Token');
-        });
+      expect(audit).toBeDefined();
+      expect(audit.status).toBe('SUCCESS');
     });
+  });
+
+  describe('Cache Key Generation', () => {
+    it('should generate correct cache keys for paginated queries', async () => {
+      cacheService.get.mockResolvedValueOnce(null);
+      cacheService.set.mockResolvedValueOnce(undefined);
+
+      await request(app).get('/api/tokens/GUSER').query({ page: 2, limit: 50 });
+
+      const setCalls = cacheService.set.mock.calls;
+      expect(setCalls[0][0]).toBe(
+        'tokens:owner:GUSER:page:2:limit:50:search:none'
+      );
+    });
+
+    it('should generate correct cache keys with special characters in search', async () => {
+      cacheService.get.mockResolvedValueOnce(null);
+      cacheService.set.mockResolvedValueOnce(undefined);
+
+      await request(app)
+        .get('/api/tokens/GUSER')
+        .query({ page: 1, limit: 20, search: 'Special Token' });
+
+      const setCalls = cacheService.set.mock.calls;
+      expect(setCalls[0][0]).toContain('search:Special Token');
+    });
+  });
 });

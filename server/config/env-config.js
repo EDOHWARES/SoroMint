@@ -141,9 +141,15 @@ function validateEnv() {
         default: false,
         desc: 'When true, token deployment requires a passing security scan result (scanId must be provided and must not be blocked)',
       }),
-      INDEXER_START_LEDGER: envalid.num({
-        default: 0,
-        desc: 'Start ledger for historical event indexer recovery',
+      DISCORD_WEBHOOK_URL: envalid.str({
+        default: '',
+        desc: 'Discord webhook URL for fraud detection alerts (optional)',
+        example: 'https://discordapp.com/api/webhooks/...',
+      }),
+      SLACK_WEBHOOK_URL: envalid.str({
+        default: '',
+        desc: 'Slack webhook URL for fraud detection alerts (optional)',
+        example: 'https://hooks.slack.com/services/...',
       }),
     },
     {
