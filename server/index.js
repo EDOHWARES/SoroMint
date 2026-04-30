@@ -10,7 +10,7 @@ const { initEnv, getEnv } = require('./config/env-config');
 initEnv();
 
 const { scheduleBackups } = require('./services/backup-service');
-const { scheduleRecoveryTests } = require('./services/recovery-test-service');
+const { startFeeMonitor } = require('./services/fee-monitor-service');
 const { getCacheService } = require('./services/cache-service');
 const { startReconciliationWorker } = require('./services/reconciliation-service');
 
@@ -158,7 +158,7 @@ const startServer = async () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
     sampler.start();
     scheduleBackups();
-    scheduleRecoveryTests();
+    startFeeMonitor();
   });
 
   initSocket(server);
