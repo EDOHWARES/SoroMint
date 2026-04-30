@@ -25,13 +25,15 @@ pub struct Stream {
 pub enum DataKey {
     Stream(u64),
     NextStreamId,
-    MaxAmount,
     Admin,
+    IsPaused,
+    IsDestroyed,
 }
 
 #[contract]
 pub struct StreamingPayments;
 
+/// Initialize the contract with an admin.
 pub fn initialize(e: Env, admin: Address) {
     if e.storage().instance().has(&DataKey::Admin) {
         panic!("already initialized");
@@ -61,23 +63,54 @@ fn require_not_destroyed(e: &Env) {
 
 pub fn pause(e: Env) {
     require_not_destroyed(&e);
-    let admin = require_admin_auth(&e);
+    let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+    admin.require_auth();
     e.storage().persistent().set(&DataKey::IsPaused, &true);
 }
 
 pub fn unpause(e: Env) {
     require_not_destroyed(&e);
-    let admin = require_admin_auth(&e);
+    let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+    admin.require_auth();
     e.storage().persistent().set(&DataKey::IsPaused, &false);
 }
 
 pub fn self_destruct(e: Env) {
     require_not_destroyed(&e);
+    
     if !is_paused(&e) {
         panic!("must be paused before self-destruct");
     }
-    let _admin = require_admin_auth(&e);
+    
+    let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+    admin.require_auth();
+    
+    let next_id: u64 = e.storage().instance().get(&DataKey::NextStreamId).unwrap_or(0);
+    
+    for i in 0..next_id {
+        if let Some(stream) = e.storage().persistent().get::<_, Stream>(&DataKey::Stream(i)) {
+            let streamed = Self::calculate_streamed(&e, &stream);
+            let available = streamed - stream.withdrawn;
+            
+            if available > 0 {
+                let token_client = token::Client::new(&e, &stream.token);
+                token_client.transfer(&e.current_contract_address(), &stream.recipient, &available);
+            }
+            
+            let duration = (stream.stop_ledger - stream.start_ledger) as i128;
+            let total_deposited = stream.rate_per_ledger * duration;
+            let refund = total_deposited - streamed;
+            if refund > 0 {
+                let token_client = token::Client::new(&e, &stream.token);
+                token_client.transfer(&e.current_contract_address(), &stream.sender, &refund);
+            }
+            
+            e.storage().persistent().remove(&DataKey::Stream(i));
+        }
+    }
+    
     e.storage().persistent().set(&DataKey::IsDestroyed, &true);
+    e.events().publish((soroban_sdk::symbol_short!("selfdestruct"),), admin);
 }
 
 #[contractimpl]
@@ -236,9 +269,9 @@ impl StreamingPayments {
 
     /// Cancel a stream and refund remaining balance
     pub fn cancel_stream(e: Env, stream_id: u64) {
-        let stream: Stream = e
-            .storage()
-            .persistent()
+        require_not_destroyed(&e);
+        require_not_paused(&e);
+        let stream: Stream = e.storage().persistent()
             .get(&DataKey::Stream(stream_id))
             .unwrap_or_else(|| panic!("stream not found"));
 
@@ -315,31 +348,43 @@ impl StreamingPayments {
 
         stream.rate_per_ledger * (elapsed as i128)
     }
-
-    fn refresh_stream_ttl(e: &Env, stream_id: u64, stream: &Stream) {
-        let duration = stream.stop_ledger.saturating_sub(stream.start_ledger);
+    
+    /// Extend an active stream by adding more funds.
+    pub fn extend_stream(e: Env, stream_id: u64, additional_amount: i128) {
+        require_not_destroyed(&e);
+        require_not_paused(&e);
+        if additional_amount <= 0 {
+            panic!("additional amount must be positive");
+        }
+        
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(stream_id))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
+        stream.sender.require_auth();
+        
         let current_ledger = e.ledger().sequence();
-        let remaining_until_stop = stream.stop_ledger.saturating_sub(current_ledger);
-        let max_ttl = e.storage().max_ttl();
-
-        let target_ttl = duration
-            .saturating_add(remaining_until_stop)
-            .saturating_add(STREAM_TTL_EXTENSION_BUFFER)
-            .min(max_ttl);
-
-        if target_ttl == 0 {
-            return;
+        if current_ledger >= stream.stop_ledger {
+            panic!("stream already ended");
         }
-
-        let threshold = (target_ttl / 2)
-            .max(STREAM_TTL_EXTENSION_THRESHOLD)
-            .min(target_ttl.saturating_sub(1));
-
-        if threshold < target_ttl {
-            e.storage()
-                .persistent()
-                .extend_ttl(&DataKey::Stream(stream_id), threshold, target_ttl);
+        
+        if additional_amount % stream.rate_per_ledger != 0 {
+            panic!("additional amount must be multiple of rate per ledger");
         }
+        
+        let additional_ledgers = additional_amount / stream.rate_per_ledger;
+        stream.stop_ledger = stream.stop_ledger.checked_add(additional_ledgers as u32)
+            .unwrap_or_else(|| panic!("stop ledger overflow"));
+        
+        let token_client = token::Client::new(&e, &stream.token);
+        token_client.transfer(&stream.sender, &e.current_contract_address(), &additional_amount);
+        
+        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+        
+        e.events().publish(
+            (soroban_sdk::symbol_short!("extended"), stream_id),
+            (additional_amount, stream.stop_ledger)
+        );
     }
 }
 
@@ -557,6 +602,78 @@ mod test {
                 .get_ttl(&DataKey::Stream(stream_id));
             assert_eq!(ttl_after, 1_100);
         });
+    }
+
+    #[test]
+    fn test_self_destruct() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, token_client, token_admin) = create_token_contract(&e, &admin);
+        token_admin.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        client.initialize(&admin);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        e.ledger().set_sequence_number(150);
+        client.pause();
+        client.self_destruct();
+        
+        assert_eq!(token_client.balance(&recipient), 500);
+        assert_eq!(token_client.balance(&sender), 9500);
+    }
+
+    #[test]
+    #[should_panic(expected = "must be paused before self-destruct")]
+    fn test_self_destruct_requires_pause() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, _, _) = create_token_contract(&e, &admin);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        client.initialize(&admin);
+        
+        e.ledger().set_sequence_number(100);
+        let _stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        client.self_destruct();
+    }
+
+    #[test]
+    #[should_panic(expected = "Contract is destroyed")]
+    fn test_operations_blocked_after_destruct() {
+        let e = Env::default();
+        e.mock_all_auths();
+        
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+        
+        let (token_addr, _, _) = create_token_contract(&e, &admin);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+        client.initialize(&admin);
+        
+        e.ledger().set_sequence_number(100);
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
+        
+        client.pause();
+        client.self_destruct();
+        client.withdraw(&stream_id, &500);
     }
 }
 
