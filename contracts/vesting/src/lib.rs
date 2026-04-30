@@ -117,7 +117,9 @@ impl Vesting {
         let mut total: i128 = 0;
         let mut ms: Vec<Milestone> = Vec::new(&e);
         for amt in milestones.iter() {
-            total += amt;
+            total = total
+                .checked_add(amt)
+                .expect("milestone total addition overflow");
             ms.push_back(Milestone { amount: amt, released: false });
         }
 
@@ -170,9 +172,12 @@ impl Vesting {
         }
 
         let claimed: i128 = e.storage().instance().get(&DataKey::Claimed).unwrap();
+        let new_claimed = claimed
+            .checked_add(claimable)
+            .expect("claimed amount addition overflow");
         e.storage()
             .instance()
-            .set(&DataKey::Claimed, &(claimed + claimable));
+            .set(&DataKey::Claimed, &new_claimed);
 
         let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
         token::Client::new(&e, &tok).transfer(
@@ -218,8 +223,15 @@ impl Vesting {
                 }
                 let elapsed = (now.min(end) - start) as i128;
                 let duration = (end - start) as i128;
-                let vested = total * elapsed / duration;
-                (vested - claimed).max(0)
+                let vested = total
+                    .checked_mul(elapsed)
+                    .expect("linear vesting multiplication overflow")
+                    .checked_div(duration)
+                    .expect("linear vesting division failed");
+                vested
+                    .checked_sub(claimed)
+                    .expect("linear vesting underflow")
+                    .max(0)
             }
             VestingKind::Milestone => {
                 let ms: Vec<Milestone> = e
@@ -230,10 +242,15 @@ impl Vesting {
                 let mut unlocked: i128 = 0;
                 for m in ms.iter() {
                     if m.released {
-                        unlocked += m.amount;
+                        unlocked = unlocked
+                            .checked_add(m.amount)
+                            .expect("milestone unlocked addition overflow");
                     }
                 }
-                (unlocked - claimed).max(0)
+                unlocked
+                    .checked_sub(claimed)
+                    .expect("milestone claim calculation underflow")
+                    .max(0)
             }
         }
     }

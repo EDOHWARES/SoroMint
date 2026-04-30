@@ -123,7 +123,7 @@ impl Lottery {
             .instance()
             .get(&DataKey::VrfCommit)
             .expect("no commitment");
-        let digest = e.crypto().sha256(&secret.into());
+        let digest = e.crypto().sha256(&secret.clone().into()).to_bytes();
         if digest != committed {
             panic!("vrf secret mismatch");
         }
@@ -148,7 +148,11 @@ impl Lottery {
         // Transfer entire prize pool to winner
         let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
         let price: i128 = e.storage().instance().get(&DataKey::TicketPrice).unwrap();
-        let prize = price * participants.len() as i128;
+        let participant_count =
+            i128::try_from(participants.len()).expect("participant count conversion overflow");
+        let prize = price
+            .checked_mul(participant_count)
+            .expect("lottery prize multiplication overflow");
         token::Client::new(&e, &tok).transfer(&e.current_contract_address(), &winner, &prize);
 
         e.storage().instance().set(&DataKey::Winner, &winner);

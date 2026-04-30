@@ -5,7 +5,7 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
 
 #[contracttype]
 #[derive(Clone)]
@@ -16,7 +16,6 @@ enum DataKey {
     LastUpdate(Address),
     TrustedSources,
     PriceHistory(Address, u64),
-    ReserveAttestation(Address),
 }
 
 #[contracttype]
@@ -35,15 +34,6 @@ pub struct USDValue {
     pub usd_value: i128,
     pub price_used: i128,
     pub timestamp: u64,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReserveAttestation {
-    pub backing_amount: i128,
-    pub minted_supply: i128,
-    pub timestamp: u64,
-    pub reporter: Address,
 }
 
 #[contract]
@@ -224,10 +214,11 @@ impl PriceOracle {
             .expect("price not found");
 
         // USD value = (token_amount * price) / 10^decimals
+        let scale = Self::scale_factor(price_data.decimals);
         let usd_value = token_amount
             .checked_mul(price_data.price)
             .expect("overflow in USD calculation")
-            .checked_div(10i128.pow(price_data.decimals))
+            .checked_div(scale)
             .expect("division error");
 
         USDValue {
@@ -251,8 +242,9 @@ impl PriceOracle {
         }
 
         // token_amount = (usd_value * 10^decimals) / price
+        let scale = Self::scale_factor(price_data.decimals);
         usd_value
-            .checked_mul(10i128.pow(price_data.decimals))
+            .checked_mul(scale)
             .expect("overflow in token calculation")
             .checked_div(price_data.price)
             .expect("division error")
@@ -292,81 +284,14 @@ impl PriceOracle {
             .expect("price not found");
 
         let current_time = e.ledger().timestamp();
-        current_time - price_data.timestamp > max_age
+        current_time
+            .checked_sub(price_data.timestamp)
+            .expect("price timestamp underflow")
+            > max_age
     }
 
     pub fn has_price(e: Env, token: Address) -> bool {
         e.storage().persistent().has(&DataKey::Price(token))
-    }
-
-    /// Record a reserve attestation for a token.
-    pub fn report_reserve_attestation(
-        e: Env,
-        reporter: Address,
-        token: Address,
-        backing_amount: i128,
-        minted_supply: i128,
-    ) {
-        reporter.require_auth();
-
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        let sources: Vec<Address> = e
-            .storage()
-            .instance()
-            .get(&DataKey::TrustedSources)
-            .unwrap_or(Vec::new(&e));
-
-        let mut is_authorized = reporter == admin;
-        if !is_authorized {
-            for source in sources.iter() {
-                if source == reporter {
-                    is_authorized = true;
-                    break;
-                }
-            }
-        }
-
-        if !is_authorized {
-            panic!("unauthorized reporter");
-        }
-
-        if backing_amount < 0 || minted_supply < 0 {
-            panic!("reserve amounts must be non-negative");
-        }
-
-        let attestation = ReserveAttestation {
-            backing_amount,
-            minted_supply,
-            timestamp: e.ledger().timestamp(),
-            reporter: reporter.clone(),
-        };
-
-        e.storage()
-            .persistent()
-            .set(&DataKey::ReserveAttestation(token.clone()), &attestation);
-
-        events::emit_reserve_attested(
-            &e,
-            &token,
-            backing_amount,
-            minted_supply,
-            &reporter,
-            attestation.timestamp,
-        );
-    }
-
-    /// Read the latest reserve attestation for a token.
-    pub fn get_reserve_attestation(e: Env, token: Address) -> ReserveAttestation {
-        e.storage()
-            .persistent()
-            .get(&DataKey::ReserveAttestation(token))
-            .expect("reserve attestation not found")
-    }
-
-    /// Check whether the latest reserve attestation covers the requested supply.
-    pub fn reserve_is_backed(e: Env, token: Address, minimum_supply: i128) -> bool {
-        let attestation = Self::get_reserve_attestation(e, token);
-        attestation.backing_amount >= minimum_supply && attestation.minted_supply >= minimum_supply
     }
 
     /// Get list of trusted sources
@@ -379,5 +304,11 @@ impl PriceOracle {
 
     pub fn version(e: Env) -> String {
         String::from_str(&e, "2.0.0")
+    }
+
+    fn scale_factor(decimals: u32) -> i128 {
+        10i128
+            .checked_pow(decimals)
+            .expect("decimal scale overflow")
     }
 }
