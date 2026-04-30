@@ -250,6 +250,7 @@ Potential improvements for future iterations:
 4. **Cliff Period**: Delay before streaming begins
 5. **Batch Operations**: Create/cancel multiple streams atomically
 6. **NFT Royalties**: Stream NFT marketplace fees
+7. **Privacy-Preserving Stream Amounts**: Follow the commitment/nullifier/Groth16 roadmap in `docs/private-streaming-roadmap.md`; the current private stream API is a non-production stub only.
 
 ---
 
