@@ -1,0 +1,82 @@
+name: Contracts Build & WASM Size Check
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths:
+      - 'contracts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Makefile'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install wasm-opt
+        run: |
+          curl -sSL https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz \
+            | tar -xz -C /usr/local --strip-components=1
+
+      - name: Build (unoptimized baseline)
+        run: cargo build --release --target wasm32-unknown-unknown -p soromint-streaming
+
+      - name: Record baseline size
+        id: baseline
+        run: |
+          SIZE=$(wc -c < target/wasm32-unknown-unknown/release/soromint_streaming.wasm)
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "Baseline WASM size: ${SIZE} bytes"
+
+      - name: Run wasm-opt -Oz
+        run: |
+          wasm-opt -Oz --strip-debug --strip-producers \
+            target/wasm32-unknown-unknown/release/soromint_streaming.wasm \
+            -o target/wasm32-unknown-unknown/release/soromint_streaming.wasm
+
+      - name: Report size delta
+        run: |
+          PRE=${{ steps.baseline.outputs.size }}
+          POST=$(wc -c < target/wasm32-unknown-unknown/release/soromint_streaming.wasm)
+          SAVED=$(( PRE - POST ))
+          PCT=$(awk "BEGIN{printf \"%.1f\", $SAVED * 100 / $PRE}")
+          echo "### WASM Size Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | Bytes |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Before wasm-opt | $PRE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| After wasm-opt  | $POST |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Saved           | $SAVED (-${PCT}%) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "WASM: ${PRE} → ${POST} bytes  (-${SAVED} bytes, -${PCT}%)"
+          # Fail if reduction is less than 15% (acceptance criteria)
+          awk "BEGIN{exit ($SAVED * 100 / $PRE < 15) ? 1 : 0}" \
+            || { echo "::warning::wasm-opt reduction ${PCT}% is below the 15% target"; }
+
+      - name: Upload optimized WASM
+        uses: actions/upload-artifact@v4
+        with:
+          name: soromint_streaming.wasm
+          path: target/wasm32-unknown-unknown/release/soromint_streaming.wasm
+          retention-days: 7
