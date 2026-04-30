@@ -27,9 +27,14 @@ const DELAY: u64 = 48 * 60 * 60;
 
 #[contracttype]
 #[derive(Clone)]
-enum DataKey {
-    /// The address that can queue and cancel operations.
+#[contracttype]
+pub enum ConfigKey {
     Admin,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     /// Stores the scheduled execution timestamp for a given operation id.
     /// Value: u64 (ledger timestamp after which execution is allowed)
     Op(BytesN<32>),
@@ -108,10 +113,10 @@ impl TimelockContract {
     /// # Panics
     /// Panics if the contract has already been initialised.
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
     }
 
     // -----------------------------------------------------------------------
@@ -133,7 +138,7 @@ impl TimelockContract {
     /// # Events
     /// Emits `op_queue` with `(operation_id, eta)`.
     pub fn queue_operation(e: Env, operation: FactoryOperation) -> BytesN<32> {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized");
         admin.require_auth();
 
         let now = e.ledger().timestamp();
@@ -215,7 +220,7 @@ impl TimelockContract {
     /// # Events
     /// Emits `op_cancel` with `operation_id`.
     pub fn cancel_operation(e: Env, operation: FactoryOperation, eta: u64) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("not initialized");
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized");
         admin.require_auth();
 
         let op_id = operation_id(&e, &operation, eta);
@@ -249,7 +254,7 @@ impl TimelockContract {
 
     /// Returns the current timelock admin address.
     pub fn get_admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Admin).expect("not initialized")
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized")
     }
 
     /// Returns the minimum delay in seconds (48 hours).

@@ -6,12 +6,16 @@ const BPS_DENOMINATOR: i128 = 10_000;
 const MAX_FEE_BPS: u32 = 1_000;
 
 #[contracttype]
-#[derive(Clone)]
-enum DataKey {
+pub enum ConfigKey {
     Factory,
     Token,
     QuoteToken,
     FeeBps,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     ReserveToken,
     ReserveQuote,
     TotalShares,
@@ -74,7 +78,7 @@ impl AmmPool {
         quote_token: Address,
         fee_bps: u32,
     ) {
-        if e.storage().instance().has(&DataKey::Factory) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Factory)) {
             panic!("already initialized");
         }
         if token == quote_token {
@@ -84,12 +88,12 @@ impl AmmPool {
             panic!("fee too high");
         }
 
-        e.storage().instance().set(&DataKey::Factory, &factory);
-        e.storage().instance().set(&DataKey::Token, &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Factory), &factory);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
-            .set(&DataKey::QuoteToken, &quote_token);
-        e.storage().instance().set(&DataKey::FeeBps, &fee_bps);
+            .set(&DataKey::Config(ConfigKey::QuoteToken), &quote_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
         e.storage().instance().set(&DataKey::ReserveToken, &0i128);
         e.storage().instance().set(&DataKey::ReserveQuote, &0i128);
         e.storage().instance().set(&DataKey::TotalShares, &0i128);
@@ -163,7 +167,7 @@ impl AmmPool {
             .expect("total shares addition overflow");
         let new_provider_shares = Self::read_share_balance(&e, &provider)
             .checked_add(position.shares)
-            .expect("provider shares addition overflow");
+            .unwrap();
 
         e.storage()
             .instance()
@@ -214,16 +218,8 @@ impl AmmPool {
 
         let token_reserve = Self::read_reserve_token(&e);
         let quote_reserve = Self::read_reserve_quote(&e);
-        let token_amount = token_reserve
-            .checked_mul(shares)
-            .expect("token withdrawal multiplication overflow")
-            .checked_div(total_shares)
-            .expect("token withdrawal division failed");
-        let quote_amount = quote_reserve
-            .checked_mul(shares)
-            .expect("quote withdrawal multiplication overflow")
-            .checked_div(total_shares)
-            .expect("quote withdrawal division failed");
+        let token_amount = token_reserve.checked_mul(shares).unwrap() / total_shares;
+        let quote_amount = quote_reserve.checked_mul(shares).unwrap() / total_shares;
 
         if token_amount <= 0 || quote_amount <= 0 {
             panic!("withdrawal too small");
@@ -232,18 +228,10 @@ impl AmmPool {
             panic!("slippage exceeded");
         }
 
-        let new_token_reserve = token_reserve
-            .checked_sub(token_amount)
-            .expect("token reserve subtraction underflow");
-        let new_quote_reserve = quote_reserve
-            .checked_sub(quote_amount)
-            .expect("quote reserve subtraction underflow");
-        let new_total_shares = total_shares
-            .checked_sub(shares)
-            .expect("total shares subtraction underflow");
-        let new_provider_shares = provider_shares
-            .checked_sub(shares)
-            .expect("provider shares subtraction underflow");
+        let new_token_reserve = token_reserve.checked_sub(token_amount).unwrap();
+        let new_quote_reserve = quote_reserve.checked_sub(quote_amount).unwrap();
+        let new_total_shares = total_shares.checked_sub(shares).unwrap();
+        let new_provider_shares = provider_shares.checked_sub(shares).unwrap();
 
         e.storage()
             .instance()
@@ -347,26 +335,26 @@ impl AmmPool {
     fn read_factory(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::Factory)
+            .get(&DataKey::Config(ConfigKey::Factory))
             .expect("not initialized")
     }
 
     fn read_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::Token)
+            .get(&DataKey::Config(ConfigKey::Token))
             .expect("not initialized")
     }
 
     fn read_quote_token(e: &Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::QuoteToken)
+            .get(&DataKey::Config(ConfigKey::QuoteToken))
             .expect("not initialized")
     }
 
     fn read_fee_bps(e: &Env) -> u32 {
-        e.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap_or(0)
     }
 
     fn read_reserve_token(e: &Env) -> i128 {

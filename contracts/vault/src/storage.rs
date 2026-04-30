@@ -1,16 +1,19 @@
 use soroban_sdk::{contracttype, Address, Map, Symbol};
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     SmtToken,
     Oracle,
-    VaultCounter,
+    Counter,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
     Vault(u64),
     UserVaults(Address),
-    CollateralConfig(Address),
-    Reentrancy(Symbol),
+    Collateral(Address),
 }
 
 #[contracttype]

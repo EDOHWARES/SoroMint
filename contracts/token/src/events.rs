@@ -18,9 +18,9 @@ pub fn emit_transfer(
         .publish(topics, (amount, new_from_balance, new_to_balance));
 }
 
-pub fn emit_approve(e: &Env, from: &Address, spender: &Address, amount: i128) {
+pub fn emit_approve(e: &Env, from: &Address, spender: &Address, amount: i128, expiration_ledger: u32) {
     let topics = (Symbol::new(e, "approve"), from.clone(), spender.clone());
-    e.events().publish(topics, amount);
+    e.events().publish(topics, (amount, expiration_ledger));
 }
 
 pub fn emit_mint(

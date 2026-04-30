@@ -35,17 +35,14 @@ pub enum Schedule {
 }
 
 #[contracttype]
+pub enum StreamKey {
+    Record(u64),
+    Counter,
+}
+
+#[contracttype]
 pub enum DataKey {
-    Admin,
-    Treasury,
-    FeeBasisPoints,
-    Stream(u64),
-    Schedule(u64),
-    NextStreamId,
-    PrivateStream(u64),
-    NextPrivateStreamId,
-    MaxAmount,
-    Admin,
+    Stream(StreamKey),
 }
 
 #[contract]
@@ -132,22 +129,15 @@ impl StreamingPayments {
         
         let duration = (stop_ledger - start_ledger) as i128;
         let rate_per_ledger = total_amount / duration;
-
-        if rate_per_ledger == 0 {
-            panic!("amount too small for duration");
-        }
-
-        token::Client::new(&e, &token).transfer(
-            &sender,
-            &e.current_contract_address(),
-            &total_amount,
-        );
-
-        let stream_id = e
-            .storage()
-            .instance()
-            .get(&DataKey::NextStreamId)
-            .unwrap_or(0u64);
+        
+        if rate_per_ledger == 0 { panic!("amount too small for duration"); }
+        
+        // Transfer tokens to contract
+        let client = token::Client::new(&e, &token);
+        client.transfer(&sender, &e.current_contract_address(), &total_amount);
+        
+        let stream_id: u64 = e.storage().instance().get(&DataKey::Stream(StreamKey::Counter)).unwrap_or(0);
+        
         let stream = Stream {
             sender: sender.clone(),
             recipient: recipient.clone(),
@@ -158,13 +148,13 @@ impl StreamingPayments {
             withdrawn: 0,
             is_public,
         };
-
-        e.storage()
-            .persistent()
-            .set(&DataKey::Stream(stream_id), &stream);
-        e.storage().persistent().set(
-            &DataKey::Schedule(stream_id),
-            &Schedule::Linear(total_amount),
+        
+        e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
+        e.storage().instance().set(&DataKey::Stream(StreamKey::Counter), &(stream_id + 1));
+        
+        e.events().publish(
+            (soroban_sdk::symbol_short!("created"), stream_id),
+            (sender, recipient, total_amount)
         );
         e.storage()
             .instance()
@@ -177,79 +167,24 @@ impl StreamingPayments {
 
         stream_id
     }
-
-    pub fn create_milestone_stream(
-        e: Env,
-        sender: Address,
-        recipient: Address,
-        token: Address,
-        milestones: Vec<Milestone>,
-    ) -> u64 {
-        sender.require_auth();
-
-        if milestones.is_empty() {
-            panic!("milestones required");
-        }
-
-        let mut total_amount = 0i128;
-        let mut start_ledger = 0u32;
-        let mut stop_ledger = 0u32;
-        let mut previous_ledger = 0u32;
-        let mut is_first = true;
-
-        for milestone in milestones.iter() {
-            if milestone.amount <= 0 {
-                panic!("milestone amount must be positive");
-            }
-            if is_first {
-                start_ledger = milestone.ledger;
-                previous_ledger = milestone.ledger;
-                is_first = false;
-            } else if milestone.ledger <= previous_ledger {
-                panic!("milestone ledgers must be strictly increasing");
-            } else {
-                previous_ledger = milestone.ledger;
-            }
-            stop_ledger = milestone.ledger;
-            total_amount += milestone.amount;
-        }
-
-        if total_amount <= 0 {
-            panic!("amount must be positive");
-        }
-
-        token::Client::new(&e, &token).transfer(
-            &sender,
-            &e.current_contract_address(),
-            &total_amount,
-        );
-
-        let stream_id = e
-            .storage()
-            .instance()
-            .get(&DataKey::NextStreamId)
-            .unwrap_or(0u64);
-        let stream = Stream {
-            sender: sender.clone(),
-            recipient: recipient.clone(),
-            token: token.clone(),
-            rate_per_ledger: 0,
-            start_ledger,
-            stop_ledger,
-            withdrawn: 0,
-        };
-
-        e.storage()
-            .persistent()
-            .set(&DataKey::Stream(stream_id), &stream);
-        e.storage().persistent().set(
-            &DataKey::Schedule(stream_id),
-            &Schedule::Milestone(milestones.clone()),
-        );
-        e.storage()
-            .instance()
-            .set(&DataKey::NextStreamId, &(stream_id + 1));
-
+    
+    /// Withdraw available funds from a stream
+    pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
+        let mut stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
+        stream.recipient.require_auth();
+        
+        let available = Self::balance_of(e.clone(), stream_id);
+        if amount > available { panic!("insufficient balance"); }
+        
+        stream.withdrawn += amount;
+        e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
+        
+        let client = token::Client::new(&e, &stream.token);
+        client.transfer(&e.current_contract_address(), &stream.recipient, &amount);
+        
         e.events().publish(
             (symbol_short!("created"), stream_id),
             (sender, recipient, total_amount),
@@ -290,7 +225,10 @@ impl StreamingPayments {
     }
 
     pub fn cancel_stream(e: Env, stream_id: u64) {
-        let stream = Self::get_stream_record(&e, stream_id);
+        let stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
         stream.sender.require_auth();
 
         let schedule = Self::get_schedule_record(&e, stream_id, &stream);
@@ -309,12 +247,9 @@ impl StreamingPayments {
         if refund > 0 {
             client.transfer(&e.current_contract_address(), &stream.sender, &refund);
         }
-
-        e.storage().persistent().remove(&DataKey::Stream(stream_id));
-        e.storage()
-            .persistent()
-            .remove(&DataKey::Schedule(stream_id));
-
+        
+        e.storage().persistent().remove(&DataKey::Stream(StreamKey::Record(stream_id)));
+        
         e.events().publish(
             (symbol_short!("canceled"), stream_id),
             (recipient_balance, refund),
@@ -322,31 +257,17 @@ impl StreamingPayments {
     }
 
     pub fn balance_of(e: Env, stream_id: u64) -> i128 {
-        let stream = Self::get_stream_record(&e, stream_id);
-        let schedule = Self::get_schedule_record(&e, stream_id, &stream);
-        Self::available_balance(&e, &stream, &schedule)
+        let stream: Stream = e.storage().persistent()
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
+            .unwrap_or_else(|| panic!("stream not found"));
+        
+        let streamed = Self::calculate_streamed(&e, &stream);
+        streamed - stream.withdrawn
     }
 
     pub fn get_stream(e: Env, stream_id: u64) -> Stream {
-        Self::get_stream_record(&e, stream_id)
-    }
-
-    pub fn get_schedule(e: Env, stream_id: u64) -> Schedule {
-        let stream = Self::get_stream_record(&e, stream_id);
-        Self::get_schedule_record(&e, stream_id, &stream)
-    }
-
-    pub fn get_milestones(e: Env, stream_id: u64) -> Vec<Milestone> {
-        match Self::get_schedule(e.clone(), stream_id) {
-            Schedule::Linear(_) => Vec::new(&e),
-            Schedule::Milestone(milestones) => milestones,
-        }
-    }
-
-    fn get_stream_record(e: &Env, stream_id: u64) -> Stream {
-        e.storage()
-            .persistent()
-            .get(&DataKey::Stream(stream_id))
+        e.storage().persistent()
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"))
     }
 

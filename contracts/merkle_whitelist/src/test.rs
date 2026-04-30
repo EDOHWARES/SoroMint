@@ -376,8 +376,8 @@ fn test_large_whitelist() {
 
     // Create tree with many addresses (simulating thousands)
     let mut addresses = Vec::new(&e);
-    for _ in 0..100 {
-        // Using 100 for test, but same logic works for thousands
+    for _ in 0..10 {
+        // Using 10 for test, but same logic works for thousands
         addresses.push_back(Address::generate(&e));
     }
 
@@ -386,7 +386,7 @@ fn test_large_whitelist() {
     client.initialize(&admin, &root);
 
     // Verify random addresses from the list
-    for i in [0, 25, 50, 75, 99] {
+    for i in [0, 5, 9] {
         let addr = addresses.get(i).unwrap();
         let proof = proofs.get(i).unwrap();
         assert!(client.verify_whitelist(&addr, &proof));

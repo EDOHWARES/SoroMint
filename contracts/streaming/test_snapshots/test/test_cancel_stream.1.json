@@ -332,7 +332,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "NextStreamId"
+                              "symbol": "Stream"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Counter"
+                                }
+                              ]
                             }
                           ]
                         },

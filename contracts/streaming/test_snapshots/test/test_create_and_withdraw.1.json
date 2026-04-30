@@ -322,7 +322,14 @@
                   "symbol": "Stream"
                 },
                 {
-                  "u64": 0
+                  "vec": [
+                    {
+                      "symbol": "Record"
+                    },
+                    {
+                      "u64": 0
+                    }
+                  ]
                 }
               ]
             },
@@ -342,7 +349,14 @@
                       "symbol": "Stream"
                     },
                     {
-                      "u64": 0
+                      "vec": [
+                        {
+                          "symbol": "Record"
+                        },
+                        {
+                          "u64": 0
+                        }
+                      ]
                     }
                   ]
                 },
@@ -466,19 +480,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Admin"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
+                              "symbol": "Stream"
+                            },
                             {
-                              "symbol": "NextStreamId"
+                              "vec": [
+                                {
+                                  "symbol": "Counter"
+                                }
+                              ]
                             }
                           ]
                         },

@@ -24,18 +24,22 @@ use soroban_sdk::token::{TokenClient, TokenInterface};
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     UnderlyingToken,
-    Allowance(Address, Address),
-    Balance(Address),
     Name,
     Symbol,
     Decimals,
     Supply,
     MetadataHash,
     FeeConfig,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
+    Allowance(Address, Address),
+    Balance(Address),
 }
 
 #[contracttype]
@@ -93,7 +97,7 @@ impl WrapperToken {
         }
 
         let mut amount_to_receive = amount;
-        if let Some(fee_config) = e.storage().instance().get::<_, FeeConfig>(&DataKey::FeeConfig) {
+        if let Some(fee_config) = e.storage().instance().get::<_, FeeConfig>(&DataKey::Config(ConfigKey::FeeConfig)) {
             if fee_config.enabled && fee_config.fee_bps > 0 {
                 let fee_amount = amount
                     .checked_mul(fee_config.fee_bps as i128)
@@ -114,12 +118,8 @@ impl WrapperToken {
             }
         }
 
-        let new_from = from_balance
-            .checked_sub(amount)
-            .expect("sender balance subtraction underflow");
-        let new_to = Self::read_balance(e, to)
-            .checked_add(amount_to_receive)
-            .expect("recipient balance addition overflow");
+        let new_from = from_balance - amount;
+        let new_to = Self::read_balance(e, to) + amount_to_receive;
         Self::write_balance(e, from, new_from);
         Self::write_balance(e, to, new_to);
         (new_from, new_to)
@@ -148,18 +148,18 @@ impl WrapperToken {
         name: String,
         symbol: String,
     ) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
 
-        e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
         e.storage()
             .instance()
-            .set(&DataKey::UnderlyingToken, &underlying_token);
-        e.storage().instance().set(&DataKey::Supply, &0i128);
-        e.storage().instance().set(&DataKey::Name, &name);
-        e.storage().instance().set(&DataKey::Symbol, &symbol);
-        e.storage().instance().set(&DataKey::Decimals, &decimals);
+            .set(&DataKey::Config(ConfigKey::UnderlyingToken), &underlying_token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Supply), &0i128);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Name), &name);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Symbol), &symbol);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Decimals), &decimals);
 
         events::emit_initialized(&e, &admin, &underlying_token, decimals, &name, &symbol);
     }
@@ -190,7 +190,7 @@ impl WrapperToken {
         let underlying_token: Address = e
             .storage()
             .instance()
-            .get(&DataKey::UnderlyingToken)
+            .get(&DataKey::Config(ConfigKey::UnderlyingToken))
             .unwrap();
         let token_client = TokenClient::new(&e, &underlying_token);
 
@@ -204,11 +204,9 @@ impl WrapperToken {
             .expect("wrap balance addition overflow");
         Self::write_balance(&e, &from, balance);
 
-        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply
-            .checked_add(amount)
-            .expect("wrap supply addition overflow");
-        e.storage().instance().set(&DataKey::Supply, &supply);
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::Supply)).unwrap_or(0);
+        supply = supply.checked_add(amount).unwrap();
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Supply), &supply);
 
         events::emit_wrap(&e, &from, amount, balance, supply);
     }
@@ -237,22 +235,18 @@ impl WrapperToken {
             panic!("insufficient balance");
         }
 
-        let new_balance = balance
-            .checked_sub(amount)
-            .expect("unwrap balance subtraction underflow");
+        let new_balance = balance.checked_sub(amount).unwrap();
         Self::write_balance(&e, &to, new_balance);
 
-        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply
-            .checked_sub(amount)
-            .expect("unwrap supply subtraction underflow");
-        e.storage().instance().set(&DataKey::Supply, &supply);
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::Supply)).unwrap_or(0);
+        supply = supply.checked_sub(amount).unwrap();
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Supply), &supply);
 
         // Return underlying tokens to user
         let underlying_token: Address = e
             .storage()
             .instance()
-            .get(&DataKey::UnderlyingToken)
+            .get(&DataKey::Config(ConfigKey::UnderlyingToken))
             .unwrap();
         let token_client = TokenClient::new(&e, &underlying_token);
         token_client.transfer(&e.current_contract_address(), &to, &amount);
@@ -268,12 +262,12 @@ impl WrapperToken {
     pub fn underlying_token(e: Env) -> Address {
         e.storage()
             .instance()
-            .get(&DataKey::UnderlyingToken)
+            .get(&DataKey::Config(ConfigKey::UnderlyingToken))
             .unwrap()
     }
 
     pub fn supply(e: Env) -> i128 {
-        e.storage().instance().get(&DataKey::Supply).unwrap_or(0)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::Supply)).unwrap_or(0)
     }
 
     pub fn version(e: Env) -> String {
@@ -285,11 +279,11 @@ impl WrapperToken {
     }
 
     pub fn metadata_hash(e: Env) -> Option<String> {
-        e.storage().instance().get(&DataKey::MetadataHash)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::MetadataHash))
     }
 
     pub fn fee_config(e: Env) -> Option<FeeConfig> {
-        e.storage().instance().get(&DataKey::FeeConfig)
+        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeConfig))
     }
 
     // -----------------------------------------------------------------------
@@ -298,17 +292,17 @@ impl WrapperToken {
 
     /// Transfer admin ownership to a new address.
     pub fn transfer_ownership(e: Env, new_admin: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
-        e.storage().instance().set(&DataKey::Admin, &new_admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &new_admin);
         events::emit_ownership_transfer(&e, &admin, &new_admin);
     }
 
     /// Set an IPFS or Arweave hash for external rich metadata.
     pub fn set_metadata_hash(e: Env, hash: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
-        e.storage().instance().set(&DataKey::MetadataHash, &hash);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::MetadataHash), &hash);
     }
 
     /// Configure the transfer fee.
@@ -318,7 +312,7 @@ impl WrapperToken {
     /// * `fee_bps`  - Fee in basis points (max 1000 = 10%)
     /// * `treasury` - Address that receives collected fees
     pub fn set_fee_config(e: Env, enabled: bool, fee_bps: u32, treasury: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
         if fee_bps > 1000 {
             panic!("fee percentage exceeds maximum cap of 10%");
@@ -328,32 +322,32 @@ impl WrapperToken {
             fee_bps,
             treasury: treasury.clone(),
         };
-        e.storage().instance().set(&DataKey::FeeConfig, &config);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeConfig), &config);
         events::emit_fee_config_updated(&e, &admin, enabled, fee_bps, &treasury);
     }
 
     /// Pause all state-mutating operations.
     pub fn pause(e: Env) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         soromint_lifecycle::pause(e, admin);
     }
 
     /// Unpause the contract.
     pub fn unpause(e: Env) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         soromint_lifecycle::unpause(e, admin);
     }
 
     /// Update the token name and symbol.
     pub fn update_metadata(e: Env, new_name: String, new_symbol: String) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
 
-        let old_name: String = e.storage().instance().get(&DataKey::Name).unwrap();
-        let old_symbol: String = e.storage().instance().get(&DataKey::Symbol).unwrap();
+        let old_name: String = e.storage().instance().get(&DataKey::Config(ConfigKey::Name)).unwrap();
+        let old_symbol: String = e.storage().instance().get(&DataKey::Config(ConfigKey::Symbol)).unwrap();
 
-        e.storage().instance().set(&DataKey::Name, &new_name);
-        e.storage().instance().set(&DataKey::Symbol, &new_symbol);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Name), &new_name);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Symbol), &new_symbol);
 
         events::emit_metadata_updated(&e, &admin, &old_name, &old_symbol, &new_name, &new_symbol);
     }
@@ -403,20 +397,8 @@ impl TokenInterface for WrapperToken {
             panic!("insufficient allowance");
         }
         let (nf, nt) = Self::move_balance(&e, &from, &to, amount);
-        let remaining_allowance = al
-            .checked_sub(amount)
-            .expect("allowance subtraction underflow");
-        Self::write_allowance(&e, &from, &spender, remaining_allowance);
-        events::emit_transfer_from(
-            &e,
-            &spender,
-            &from,
-            &to,
-            amount,
-            remaining_allowance,
-            nf,
-            nt,
-        );
+        Self::write_allowance(&e, &from, &spender, al - amount);
+        events::emit_transfer_from(&e, &spender, &from, &to, amount, al - amount, nf, nt);
     }
 
     fn burn(e: Env, from: Address, amount: i128) {
@@ -429,17 +411,12 @@ impl TokenInterface for WrapperToken {
         if bal < amount {
             panic!("insufficient balance");
         }
-        let new_balance = bal
-            .checked_sub(amount)
-            .expect("burn balance subtraction underflow");
-        Self::write_balance(&e, &from, new_balance);
-        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply
-            .checked_sub(amount)
-            .expect("burn supply subtraction underflow");
-        e.storage().instance().set(&DataKey::Supply, &supply);
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
+        Self::write_balance(&e, &from, bal - amount);
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::Supply)).unwrap_or(0);
+        supply -= amount;
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Supply), &supply);
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
     }
 
     fn burn_from(e: Env, spender: Address, from: Address, amount: i128) {
@@ -456,41 +433,33 @@ impl TokenInterface for WrapperToken {
         if bal < amount {
             panic!("insufficient balance");
         }
-        let remaining_allowance = al
-            .checked_sub(amount)
-            .expect("burn_from allowance subtraction underflow");
-        let new_balance = bal
-            .checked_sub(amount)
-            .expect("burn_from balance subtraction underflow");
-        Self::write_allowance(&e, &from, &spender, remaining_allowance);
-        Self::write_balance(&e, &from, new_balance);
-        let mut supply: i128 = e.storage().instance().get(&DataKey::Supply).unwrap_or(0);
-        supply = supply
-            .checked_sub(amount)
-            .expect("burn_from supply subtraction underflow");
-        e.storage().instance().set(&DataKey::Supply, &supply);
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        events::emit_burn(&e, &admin, &from, amount, new_balance, supply);
+        Self::write_allowance(&e, &from, &spender, al - amount);
+        Self::write_balance(&e, &from, bal - amount);
+        let mut supply: i128 = e.storage().instance().get(&DataKey::Config(ConfigKey::Supply)).unwrap_or(0);
+        supply -= amount;
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Supply), &supply);
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        events::emit_burn(&e, &admin, &from, amount, bal - amount, supply);
     }
 
     fn decimals(e: Env) -> u32 {
         e.storage()
             .instance()
-            .get(&DataKey::Decimals)
+            .get(&DataKey::Config(ConfigKey::Decimals))
             .unwrap_or(7)
     }
 
     fn name(e: Env) -> String {
         e.storage()
             .instance()
-            .get(&DataKey::Name)
+            .get(&DataKey::Config(ConfigKey::Name))
             .unwrap_or_else(|| String::from_str(&e, "Wrapped Token"))
     }
 
     fn symbol(e: Env) -> String {
         e.storage()
             .instance()
-            .get(&DataKey::Symbol)
+            .get(&DataKey::Config(ConfigKey::Symbol))
             .unwrap_or_else(|| String::from_str(&e, "WRAP"))
     }
 }

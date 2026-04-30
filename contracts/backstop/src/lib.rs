@@ -26,13 +26,17 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Add
 // ---------------------------------------------------------------------------
 
 #[contracttype]
-#[derive(Clone)]
-pub enum DataKey {
+pub enum ConfigKey {
     Admin,
     Token,
     FeeBps,
     TotalDeposited,
     TotalWithdrawn,
+}
+
+#[contracttype]
+pub enum DataKey {
+    Config(ConfigKey),
 }
 
 // ---------------------------------------------------------------------------
@@ -46,18 +50,18 @@ pub struct Backstop;
 impl Backstop {
     /// One-time setup.
     pub fn initialize(e: Env, admin: Address, token: Address, fee_bps: u32) {
-        if e.storage().instance().has(&DataKey::Admin) {
+        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
             panic!("already initialized");
         }
         if fee_bps > 10_000 {
             panic!("fee_bps > 10000");
         }
         admin.require_auth();
-        e.storage().instance().set(&DataKey::Admin, &admin);
-        e.storage().instance().set(&DataKey::Token, &token);
-        e.storage().instance().set(&DataKey::FeeBps, &fee_bps);
-        e.storage().instance().set(&DataKey::TotalDeposited, &0i128);
-        e.storage().instance().set(&DataKey::TotalWithdrawn, &0i128);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TotalDeposited), &0i128);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::TotalWithdrawn), &0i128);
     }
 
     /// Deposit a fee amount into the backstop reserve.
@@ -66,20 +70,20 @@ impl Backstop {
         if amount <= 0 {
             panic!("amount must be positive");
         }
-        let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(&from, &e.current_contract_address(), &amount);
 
         let total: i128 = e
             .storage()
             .instance()
-            .get(&DataKey::TotalDeposited)
+            .get(&DataKey::Config(ConfigKey::TotalDeposited))
             .unwrap();
         let new_total = total
             .checked_add(amount)
             .expect("total deposited addition overflow");
         e.storage()
             .instance()
-            .set(&DataKey::TotalDeposited, &new_total);
+            .set(&DataKey::Config(ConfigKey::TotalDeposited), &(total + amount));
 
         e.events()
             .publish((symbol_short!("fee_dep"),), (from, amount));
@@ -91,20 +95,20 @@ impl Backstop {
         if amount <= 0 {
             panic!("amount must be positive");
         }
-        let tok: Address = e.storage().instance().get(&DataKey::Token).unwrap();
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(&e.current_contract_address(), &to, &amount);
 
         let total: i128 = e
             .storage()
             .instance()
-            .get(&DataKey::TotalWithdrawn)
+            .get(&DataKey::Config(ConfigKey::TotalWithdrawn))
             .unwrap();
         let new_total = total
             .checked_add(amount)
             .expect("total withdrawn addition overflow");
         e.storage()
             .instance()
-            .set(&DataKey::TotalWithdrawn, &new_total);
+            .set(&DataKey::Config(ConfigKey::TotalWithdrawn), &(total + amount));
 
         e.events()
             .publish((symbol_short!("withdraw"),), (to, amount));
@@ -116,31 +120,27 @@ impl Backstop {
         if fee_bps > 10_000 {
             panic!("fee_bps > 10000");
         }
-        e.storage().instance().set(&DataKey::FeeBps, &fee_bps);
+        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
         e.events()
             .publish((symbol_short!("fee_set"),), fee_bps);
     }
 
     /// Calculate the fee for a given principal amount.
     pub fn calc_fee(e: Env, principal: i128) -> i128 {
-        let bps: u32 = e.storage().instance().get(&DataKey::FeeBps).unwrap();
-        principal
-            .checked_mul(bps as i128)
-            .expect("fee multiplication overflow")
-            .checked_div(10_000)
-            .expect("fee division failed")
+        let bps: u32 = e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap();
+        principal * bps as i128 / 10_000
     }
 
     pub fn get_fee_bps(e: Env) -> u32 {
-        e.storage().instance().get(&DataKey::FeeBps).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap()
     }
 
     pub fn get_total_deposited(e: Env) -> i128 {
-        e.storage().instance().get(&DataKey::TotalDeposited).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::TotalDeposited)).unwrap()
     }
 
     pub fn get_total_withdrawn(e: Env) -> i128 {
-        e.storage().instance().get(&DataKey::TotalWithdrawn).unwrap()
+        e.storage().instance().get(&DataKey::Config(ConfigKey::TotalWithdrawn)).unwrap()
     }
 
     pub fn version(_e: Env) -> String {
@@ -152,7 +152,7 @@ impl Backstop {
     // -----------------------------------------------------------------------
 
     fn require_admin(e: &Env) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
         admin.require_auth();
     }
 }
