@@ -208,8 +208,7 @@ impl SoroMintToken {
     /// * `hash` - The metadata hash as Bytes.
     pub fn set_metadata_hash(e: Env, hash: Bytes) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        events::emit_initialized(&e, &admin, decimals, &name, &symbol);
-    }
+        admin.require_auth();
 
     /// Upgrades the contract logic while preserving state.
     pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
@@ -303,17 +302,11 @@ impl SoroMintToken {
 
     pub fn take_snapshot(e: Env) -> u32 {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        e.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        admin.require_auth();
 
-        let ver: u32 = e.storage().instance().get(&DataKey::Version).unwrap_or(1);
-        e.storage().instance().set(&DataKey::Version, &(ver + 1));
-
-        events::emit_upgraded(&e, new_wasm_hash);
-    }
-
-    pub fn get_version(e: Env) -> u32 {
-        e.storage().instance().get(&DataKey::Version).unwrap_or(1)
-    }
+        let mut balance = Self::read_balance(&e, &to);
+        balance = balance.checked_add(amount).expect("balance overflow");
+        Self::write_balance(&e, &to, balance);
 
     /// Mints new tokens to a recipient address (Admin only).
     pub fn mint(e: Env, to: Address, amount: i128) {
@@ -334,11 +327,6 @@ impl SoroMintToken {
     /// Returns the total supply at a specific ledger sequence.
     pub fn get_supply_at(e: Env, sequence: u32) -> i128 {
         e.storage().persistent().get(&DataKey::SupplySnapshot(sequence)).unwrap_or(0)
-        let mut supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap_or(0);
-        supply = supply.checked_add(amount).expect("supply overflow");
-        e.storage().instance().set(&DataKey::Supply, &supply);
-
-        events::emit_mint(&e, &admin, &to, amount, balance, supply);
     }
 
     /// Set the maximum tokens a Minter role address may mint within any rolling 24-hour window.
