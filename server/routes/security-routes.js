@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-const crypto = require('crypto');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { logger } = require('../utils/logger');
@@ -15,54 +14,22 @@ const ScanResult = require('../models/ScanResult');
 const { dispatch } = require('../services/webhook-service');
 const { getEnv } = require('../config/env-config');
 
-/**
- * @title Security Routes
- * @author SoroMint Team
- * @notice REST API for the SoroMint automated WASM security scanning system.
- *
- * @dev All mutating endpoints require a valid JWT (authenticate middleware).
- *      The scan endpoint is additionally rate-limited to prevent abuse of the
- *      CPU-intensive scanning engine.
- *
- * Route map:
- *   POST   /api/security/scan          — Scan a base64-encoded WASM blob (auth + rate-limited)
- *   GET    /api/security/scans         — List authenticated user's scan history
- *   GET    /api/security/scans/:scanId — Retrieve a specific scan result
- *   DELETE /api/security/scans/:scanId — Delete a scan record (own scans only)
- *   GET    /api/security/rules         — List all 20 scanner rules (public)
- *   GET    /api/security/stats         — Aggregate stats for authenticated user
- */
 const createSecurityRouter = () => {
   const router = express.Router();
 
-  // =========================================================================
-  // POST /api/security/scan
-  // =========================================================================
-
   /**
-   * @route  POST /api/security/scan
-   * @desc   Accept a base64-encoded WASM binary, run the full 20-rule static
-   *         analysis engine against it, persist the result, and return the
-   *         structured scan report.
-   *
-   * @access Private (JWT required) + rate-limited
-   *
-   * @body {string} wasm          — Base64-encoded WASM binary (required)
-   * @body {string} [contractName] — Human-readable label for the contract
-   * @body {string} [notes]        — Optional caller notes
-   *
-   * @returns 201 {
-   *   success: true,
-   *   message: string,
-   *   data: {
-   *     scanId, status, wasmHash, wasmSize, findings, summary,
-   *     deploymentBlocked, scannerVersion, duration, contractName, notes,
-   *     createdAt
-   *   }
-   * }
-   * @returns 400 INVALID_WASM       — base64 decoding failed
-   * @returns 400 VALIDATION_ERROR   — body schema violation
-   * @returns 429 RATE_LIMIT_EXCEEDED
+   * @openapi
+   * @route POST /api/security/scan
+   * @name scanWasm
+   * @description Scan a base64-encoded WASM binary with 20-rule static analysis engine
+   * @tags Security
+   * @security BearerAuth
+   * @param {string} wasm - Base64-encoded WASM binary
+   * @param {string} contractName - Human-readable label for the contract (optional)
+   * @param {string} notes - Optional caller notes (optional)
+   * @returns {object} 201 - Scan completed with findings
+   * @returns {object} 400 - Invalid base64 WASM or validation error
+   * @returns {object} 429 - Rate limit exceeded
    */
   router.post(
     '/security/scan',
@@ -74,12 +41,9 @@ const createSecurityRouter = () => {
       const userId = req.user._id;
       const env = getEnv();
 
-      // ── Decode base64 → Buffer ─────────────────────────────────────────────
       let wasmBuffer;
       try {
         wasmBuffer = Buffer.from(wasmBase64, 'base64');
-        // Sanity check: re-encoding must round-trip (detects non-base64 input
-        // that was accepted by the lenient regex but is structurally invalid)
         if (wasmBuffer.length === 0) {
           throw new Error('Decoded buffer is empty');
         }
@@ -98,12 +62,10 @@ const createSecurityRouter = () => {
         contractName: contractName || null,
       });
 
-      // ── Run scanner ────────────────────────────────────────────────────────
       const report = scanWasm(wasmBuffer, {
         maxWasmSize: env.WASM_MAX_SIZE_BYTES,
       });
 
-      // ── Persist result ─────────────────────────────────────────────────────
       const scanResult = await ScanResult.create({
         userId,
         wasmHash: report.wasmHash,
@@ -127,7 +89,6 @@ const createSecurityRouter = () => {
         findingCount: scanResult.findings.length,
       });
 
-      // ── Fire webhook event ─────────────────────────────────────────────────
       try {
         dispatch('security.scan_complete', {
           scanId: scanResult.scanId,
@@ -138,24 +99,18 @@ const createSecurityRouter = () => {
           summary: scanResult.summary,
         });
       } catch (webhookErr) {
-        // Webhook dispatch is non-critical — log and continue
         logger.warn('[Security] Webhook dispatch failed after scan', {
           correlationId: req.correlationId,
           error: webhookErr.message,
         });
       }
 
-      // ── Compose response ───────────────────────────────────────────────────
       const statusMessages = {
         clean: 'No security issues found. Contract is safe to deploy.',
-        passed:
-          'No critical or high-severity issues found. Review warnings before deploying.',
-        warning:
-          'Medium or low-severity issues found. Review findings before deploying.',
-        failed:
-          'Critical or high-severity issues found. Deployment is blocked.',
-        error:
-          'Scanner could not parse the WASM binary. Deployment is blocked.',
+        passed: 'No critical or high-severity issues found. Review warnings before deploying.',
+        warning: 'Medium or low-severity issues found. Review findings before deploying.',
+        failed: 'Critical or high-severity issues found. Deployment is blocked.',
+        error: 'Scanner could not parse the WASM binary. Deployment is blocked.',
       };
 
       res.status(201).json({
@@ -179,20 +134,17 @@ const createSecurityRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/security/scans
-  // =========================================================================
-
   /**
-   * @route  GET /api/security/scans
-   * @desc   Paginated list of scan results for the authenticated user.
-   * @access Private (JWT required)
-   *
-   * @query {number} [page=1]
-   * @query {number} [limit=20]
-   * @query {string} [status]   — filter by scan status
-   *
-   * @returns 200 { success, data: ScanResult[], metadata }
+   * @openapi
+   * @route GET /api/security/scans
+   * @name listScans
+   * @description Paginated list of scan results for the authenticated user
+   * @tags Security
+   * @security BearerAuth
+   * @param {integer} page - Page number (optional, default: 1)
+   * @param {integer} limit - Results per page (optional, default: 20)
+   * @param {string} status - Filter by scan status (optional)
+   * @returns {object} 200 - Scan results with pagination metadata
    */
   router.get(
     '/security/scans',
@@ -221,21 +173,17 @@ const createSecurityRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/security/scans/:scanId
-  // =========================================================================
-
   /**
-   * @route  GET /api/security/scans/:scanId
-   * @desc   Retrieve a specific scan result by its public scanId (UUID).
-   *         Users may only access their own scan results.
-   * @access Private (JWT required)
-   *
-   * @param  {string} scanId — UUID of the scan (returned by POST /security/scan)
-   *
-   * @returns 200 { success, data: ScanResult }
-   * @returns 404 SCAN_NOT_FOUND
-   * @returns 403 FORBIDDEN  (scan belongs to a different user)
+   * @openapi
+   * @route GET /api/security/scans/{scanId}
+   * @name getScan
+   * @description Retrieve a specific scan result by its public scanId (UUID)
+   * @tags Security
+   * @security BearerAuth
+   * @param {string} scanId - UUID of the scan (returned by POST /security/scan)
+   * @returns {object} 200 - Scan result
+   * @returns {object} 404 - Scan not found
+   * @returns {object} 403 - Scan belongs to a different user
    */
   router.get(
     '/security/scans/:scanId',
@@ -254,7 +202,6 @@ const createSecurityRouter = () => {
         );
       }
 
-      // Ownership check — users may only view their own scans
       if (String(scan.userId) !== String(userId)) {
         throw new AppError(
           'You do not have permission to view this scan result.',
@@ -267,21 +214,17 @@ const createSecurityRouter = () => {
     })
   );
 
-  // =========================================================================
-  // DELETE /api/security/scans/:scanId
-  // =========================================================================
-
   /**
-   * @route  DELETE /api/security/scans/:scanId
-   * @desc   Permanently delete a scan record.
-   *         Users may only delete their own scans.
-   * @access Private (JWT required)
-   *
-   * @param  {string} scanId
-   *
-   * @returns 200 { success, message }
-   * @returns 404 SCAN_NOT_FOUND
-   * @returns 403 FORBIDDEN
+   * @openapi
+   * @route DELETE /api/security/scans/{scanId}
+   * @name deleteScan
+   * @description Permanently delete a scan record (own scans only)
+   * @tags Security
+   * @security BearerAuth
+   * @param {string} scanId - Scan ID to delete
+   * @returns {object} 200 - Scan deleted successfully
+   * @returns {object} 404 - Scan not found
+   * @returns {object} 403 - Not the owner
    */
   router.delete(
     '/security/scans/:scanId',
@@ -323,17 +266,13 @@ const createSecurityRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/security/rules
-  // =========================================================================
-
   /**
-   * @route  GET /api/security/rules
-   * @desc   Return the complete list of all scanner rules with their metadata.
-   *         Useful for building UI dashboards that explain each finding.
-   * @access Public (no auth required)
-   *
-   * @returns 200 { success, data: Rule[], totalRules }
+   * @openapi
+   * @route GET /api/security/rules
+   * @name getSecurityRules
+   * @description Return the complete list of all 20 scanner rules with metadata
+   * @tags Security
+   * @returns {object} 200 - List of scanner rules
    */
   router.get(
     '/security/rules',
@@ -346,7 +285,6 @@ const createSecurityRouter = () => {
         recommendation: rule.recommendation,
       }));
 
-      // Sort by rule ID so UI can display them in a predictable order
       rules.sort((a, b) => a.id.localeCompare(b.id));
 
       res.json({
@@ -357,23 +295,14 @@ const createSecurityRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/security/stats
-  // =========================================================================
-
   /**
-   * @route  GET /api/security/stats
-   * @desc   Aggregate statistics for the authenticated user's scan history.
-   *         Useful for dashboard widgets.
-   * @access Private (JWT required)
-   *
-   * @returns 200 {
-   *   success,
-   *   data: {
-   *     total, byStatus, blockedCount, avgDuration,
-   *     mostRecentScan: { scanId, status, wasmHash, createdAt } | null
-   *   }
-   * }
+   * @openapi
+   * @route GET /api/security/stats
+   * @name getSecurityStats
+   * @description Aggregate statistics for the authenticated user's scan history
+   * @tags Security
+   * @security BearerAuth
+   * @returns {object} 200 - User scan statistics
    */
   router.get(
     '/security/stats',
@@ -415,10 +344,6 @@ const createSecurityRouter = () => {
 
   return router;
 };
-
-// ---------------------------------------------------------------------------
-// Default export
-// ---------------------------------------------------------------------------
 
 const securityRouter = createSecurityRouter();
 

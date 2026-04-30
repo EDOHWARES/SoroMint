@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { z } = require('zod');
 const StreamingService = require('../services/streaming-service');
@@ -24,14 +26,22 @@ const validate = (req, res, next) => {
   next();
 };
 
-const calculateRatePerLedger = (totalAmount, startLedger, stopLedger) => {
-  const duration = stopLedger - startLedger;
-  if (duration <= 0) return '0';
-  const bigTotal = BigInt(totalAmount);
-  const rate = bigTotal / BigInt(duration);
-  return rate.toString();
-};
-
+/**
+ * @openapi
+ * @route POST /api/streaming/streams
+ * @name createStream
+ * @description Create a new streaming payment stream
+ * @tags Streaming
+ * @security BearerAuth
+ * @param {string} sender - Sender's Stellar public key
+ * @param {string} recipient - Recipient's Stellar public key
+ * @param {string} tokenAddress - Token contract address
+ * @param {string} totalAmount - Total amount to stream
+ * @param {integer} startLedger - Start ledger number
+ * @param {integer} stopLedger - Stop ledger number
+ * @returns {object} 201 - Created stream with streamId and txHash
+ * @returns {object} 400 - Validation error
+ */
 router.post(
   '/streams',
   [
@@ -47,12 +57,7 @@ router.post(
   ],
   async (req, res, next) => {
     try {
-      const {
-        sender, recipient, tokenAddress, totalAmount,
-        startLedger, stopLedger,
-        cancellationDelay = 0,
-        irrevocable = false,
-      } = req.body;
+      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger } = req.body;
 
       const service = new StreamingService(
         process.env.SOROBAN_RPC_URL,
@@ -124,6 +129,18 @@ router.post(
   }
 );
 
+/**
+ * @openapi
+ * @route POST /api/streaming/streams/{streamId}/withdraw
+ * @name withdrawFromStream
+ * @description Withdraw funds from an active streaming payment
+ * @tags Streaming
+ * @security BearerAuth
+ * @param {integer} streamId - Stream ID to withdraw from
+ * @param {string} amount - Amount to withdraw
+ * @returns {object} 200 - Withdrawal confirmation with txHash
+ * @returns {object} 400 - Validation error
+ */
 router.post(
   '/streams/:streamId/withdraw',
   [
@@ -164,6 +181,17 @@ router.post(
   }
 );
 
+/**
+ * @openapi
+ * @route DELETE /api/streaming/streams/{streamId}
+ * @name cancelStream
+ * @description Cancel an active streaming payment and refund remaining funds
+ * @tags Streaming
+ * @security BearerAuth
+ * @param {integer} streamId - Stream ID to cancel
+ * @returns {object} 200 - Cancellation confirmation with txHash
+ * @returns {object} 400 - Validation error
+ */
 router.delete(
   '/streams/:streamId',
   [param('streamId').isInt({ min: 0 }), validate],
@@ -197,6 +225,17 @@ router.delete(
   }
 );
 
+/**
+ * @openapi
+ * @route GET /api/streaming/streams/{streamId}
+ * @name getStream
+ * @description Get details of a specific streaming payment
+ * @tags Streaming
+ * @security BearerAuth
+ * @param {integer} streamId - Stream ID to retrieve
+ * @returns {object} 200 - Stream details
+ * @returns {object} 404 - Stream not found
+ */
 router.get(
   '/streams/:streamId',
   [param('streamId').isInt({ min: 0 }), validate],
@@ -225,6 +264,16 @@ router.get(
   }
 );
 
+/**
+ * @openapi
+ * @route GET /api/streaming/streams/{streamId}/balance
+ * @name getStreamBalance
+ * @description Get the current withdrawable balance of a streaming payment
+ * @tags Streaming
+ * @security BearerAuth
+ * @param {integer} streamId - Stream ID to check balance
+ * @returns {object} 200 - Current withdrawable balance
+ */
 router.get(
   '/user/:address',
   [param('address').isString().notEmpty(), validate],

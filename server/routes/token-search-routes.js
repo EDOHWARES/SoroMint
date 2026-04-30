@@ -20,8 +20,20 @@ const searchQuerySchema = z.object({
 const router = express.Router();
 
 /**
+ * @openapi
  * @route GET /api/tokens/search
- * @desc  Advanced token search with fuzzy matching, filters, and suggestions
+ * @name searchTokens
+ * @description Advanced token search with fuzzy matching, filters, and suggestions
+ * @tags Tokens
+ * @security BearerAuth
+ * @param {string} q - Search query for name/symbol (optional)
+ * @param {string} owner - Filter by owner Stellar public key (G...)
+ * @param {integer} decimals - Filter by token decimals (optional)
+ * @param {string} from - Filter tokens created after this datetime (ISO 8601)
+ * @param {string} to - Filter tokens created before this datetime (ISO 8601)
+ * @param {integer} page - Page number (optional, default: 1)
+ * @param {integer} limit - Results per page (optional, default: 20, max: 100)
+ * @returns {object} 200 - Search results with suggestions and pagination
  */
 router.get(
   '/tokens/search',
@@ -71,8 +83,14 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route GET /api/tokens/suggest
- * @desc  Auto-complete suggestions for a partial token name/symbol query
+ * @name getTokenSuggestions
+ * @description Auto-complete suggestions for a partial token name/symbol query
+ * @tags Tokens
+ * @security BearerAuth
+ * @param {string} q - Partial query (max 50 characters)
+ * @returns {object} 200 - Array of suggestions
  */
 router.get(
   '/tokens/suggest',

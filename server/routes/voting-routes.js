@@ -23,50 +23,25 @@ const {
   listVotes,
 } = require('../services/voting-service');
 
-/**
- * @title Voting Routes
- * @author SoroMint Team
- * @notice Express router for the off-chain Snapshot-style governance system.
- *
- * @dev All mutating routes (POST/PATCH/DELETE) require a valid JWT obtained
- *      via the SEP-10 challenge-response auth flow.  Read-only routes
- *      (GET) are public so anyone can browse proposals and results.
- *
- * Route map:
- *   GET    /api/proposals                     — list proposals (public)
- *   POST   /api/proposals                     — create proposal (auth)
- *   GET    /api/proposals/:id                 — get single proposal (public)
- *   PATCH  /api/proposals/:id                 — update proposal  (auth, creator)
- *   POST   /api/proposals/:id/cancel          — cancel proposal  (auth, creator)
- *   POST   /api/proposals/:id/votes           — cast a vote      (auth)
- *   GET    /api/proposals/:id/votes           — list votes       (public)
- *   GET    /api/proposals/:id/results         — tally results    (public)
- *   GET    /api/voting-power                  — my voting power  (auth)
- *   GET    /api/voting-power/:publicKey       — any key's power  (public)
- */
 const createVotingRouter = () => {
   const router = express.Router();
 
-  // =========================================================================
-  // GET /api/proposals
-  // =========================================================================
-
   /**
-   * @route  GET /api/proposals
-   * @desc   List proposals with optional filters and pagination.
-   * @access Public
-   *
-   * @query {string}  [status=all]       — pending | active | closed | cancelled | all
-   * @query {string}  [contractId]       — filter by token contract scope
-   * @query {string}  [creator]          — filter by creator G-address
-   * @query {string}  [search]           — full-text search on title/description
-   * @query {string}  [tags]             — comma-separated tag filter
-   * @query {number}  [page=1]
-   * @query {number}  [limit=20]
-   * @query {string}  [sortBy=createdAt] — createdAt | startTime | endTime | voteCount | totalVotingPower
-   * @query {string}  [sortOrder=desc]   — asc | desc
-   *
-   * @returns 200 { success, data: proposals[], metadata }
+   * @openapi
+   * @route GET /api/proposals
+   * @name listProposals
+   * @description List governance proposals with optional filters and pagination
+   * @tags Voting
+   * @param {string} status - Filter by status: pending, active, closed, cancelled, all (optional)
+   * @param {string} contractId - Filter by token contract scope (optional)
+   * @param {string} creator - Filter by creator G-address (optional)
+   * @param {string} search - Full-text search on title/description (optional)
+   * @param {string} tags - Comma-separated tag filter (optional)
+   * @param {integer} page - Page number (optional, default: 1)
+   * @param {integer} limit - Results per page (optional, default: 20)
+   * @param {string} sortBy - Sort field: createdAt, startTime, endTime, voteCount, totalVotingPower (optional)
+   * @param {string} sortOrder - Sort order: asc or desc (optional, default: desc)
+   * @returns {object} 200 - Proposals with pagination metadata
    */
   router.get(
     '/proposals',
@@ -91,7 +66,6 @@ const createVotingRouter = () => {
         limit,
       });
 
-      // Build query options — pass to service (search/tags handled below)
       const result = await listProposals({
         status: status === 'all' ? undefined : status,
         contractId,
@@ -118,37 +92,35 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // POST /api/proposals
-  // =========================================================================
-
   /**
-   * @route  POST /api/proposals
-   * @desc   Create a new governance proposal.
-   * @access Private (JWT required)
-   *
-   * @body {string}   title          — 3-200 chars
-   * @body {string}   description    — 10-10000 chars (Markdown)
-   * @body {string[]} choices        — 2-10 voting options
-   * @body {string}   startTime      — ISO 8601 datetime (future)
-   * @body {string}   endTime        — ISO 8601 datetime (after startTime, min 1h, max 90d)
-   * @body {string}   [contractId]   — Stellar C-address (scopes voting power)
-   * @body {string[]} [tags]         — up to 10 freeform tags
-   * @body {string}   [discussionUrl] — http(s) URL
-   *
-   * @returns 201 { success, data: proposal }
+   * @openapi
+   * @route POST /api/proposals
+   * @name createProposal
+   * @description Create a new governance proposal
+   * @tags Voting
+   * @security BearerAuth
+   * @param {string} title - Proposal title (3-200 chars)
+   * @param {string} description - Proposal description in Markdown (10-10000 chars)
+   * @param {string[]} choices - Voting options (2-10 choices)
+   * @param {string} startTime - ISO 8601 datetime for voting start (must be in future)
+   * @param {string} endTime - ISO 8601 datetime for voting end (min 1h after start, max 90d)
+   * @param {string} contractId - Stellar C-address for voting power scope (optional)
+   * @param {string[]} tags - Freeform tags (up to 10)
+   * @param {string} discussionUrl - Link to discussion forum (optional)
+   * @returns {object} 201 - Proposal created successfully
+   * @returns {object} 400 - Validation error
+   * @returns {object} 401 - Unauthorized
    */
   router.post(
     '/proposals',
     authenticate,
     validateCreateProposal,
     asyncHandler(async (req, res) => {
-      // Enforce that the creator in the body matches the authenticated wallet
       const authenticatedKey = req.user.publicKey;
 
       const proposal = await createProposal({
         ...req.body,
-        creator: authenticatedKey, // always use the JWT identity, not body input
+        creator: authenticatedKey,
       });
 
       logger.info('[Voting] Proposal created via API', {
@@ -165,18 +137,15 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/proposals/:id
-  // =========================================================================
-
   /**
-   * @route  GET /api/proposals/:id
-   * @desc   Fetch a single proposal document including its tally.
-   *         Status is synced against wall-clock time before responding.
-   * @access Public
-   *
-   * @returns 200 { success, data: proposal }
-   * @returns 404 PROPOSAL_NOT_FOUND
+   * @openapi
+   * @route GET /api/proposals/{id}
+   * @name getProposal
+   * @description Fetch a single proposal including its tally (status synced against wall-clock)
+   * @tags Voting
+   * @param {string} id - Proposal ID
+   * @returns {object} 200 - Proposal data
+   * @returns {object} 404 - Proposal not found
    */
   router.get(
     '/proposals/:id',
@@ -190,21 +159,24 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // PATCH /api/proposals/:id
-  // =========================================================================
-
   /**
-   * @route  PATCH /api/proposals/:id
-   * @desc   Update a pending proposal (creator only).
-   *         Allowed fields: title, description, choices, startTime, endTime,
-   *                         tags, discussionUrl.
-   *         Once voting has started (status = active) the proposal is locked.
-   * @access Private (JWT required, creator only)
-   *
-   * @returns 200 { success, data: updated proposal }
-   * @returns 403 FORBIDDEN          (not the creator)
-   * @returns 409 PROPOSAL_NOT_EDITABLE (status ≠ pending)
+   * @openapi
+   * @route PATCH /api/proposals/{id}
+   * @name updateProposal
+   * @description Update a pending proposal (creator only). Voting cannot start yet.
+   * @tags Voting
+   * @security BearerAuth
+   * @param {string} id - Proposal ID
+   * @param {string} title - New title (optional)
+   * @param {string} description - New description (optional)
+   * @param {string[]} choices - New voting options (optional)
+   * @param {string} startTime - New start datetime (optional)
+   * @param {string} endTime - New end datetime (optional)
+   * @param {string[]} tags - New tags (optional)
+   * @param {string} discussionUrl - New discussion URL (optional)
+   * @returns {object} 200 - Updated proposal
+   * @returns {object} 403 - Not the creator
+   * @returns {object} 409 - Proposal not editable (voting already started)
    */
   router.patch(
     '/proposals/:id',
@@ -225,19 +197,17 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // POST /api/proposals/:id/cancel
-  // =========================================================================
-
   /**
-   * @route  POST /api/proposals/:id/cancel
-   * @desc   Cancel a proposal (creator only).
-   *         Pending and active proposals can be cancelled; closed ones cannot.
-   * @access Private (JWT required, creator only)
-   *
-   * @returns 200 { success, data: cancelled proposal }
-   * @returns 403 FORBIDDEN
-   * @returns 409 PROPOSAL_ALREADY_CLOSED | PROPOSAL_ALREADY_CANCELLED
+   * @openapi
+   * @route POST /api/proposals/{id}/cancel
+   * @name cancelProposal
+   * @description Cancel a pending or active proposal (creator only)
+   * @tags Voting
+   * @security BearerAuth
+   * @param {string} id - Proposal ID
+   * @returns {object} 200 - Cancelled proposal
+   * @returns {object} 403 - Not the creator
+   * @returns {object} 409 - Already closed or cancelled
    */
   router.post(
     '/proposals/:id/cancel',
@@ -253,30 +223,19 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // POST /api/proposals/:id/votes
-  // =========================================================================
-
   /**
-   * @route  POST /api/proposals/:id/votes
-   * @desc   Cast a vote on an active proposal.
-   *
-   *   Voting power is determined by the number of token contracts the
-   *   authenticated wallet owns in the SoroMint Token collection:
-   *     • General proposal (contractId = null): power = total tokens owned
-   *     • Contract-scoped proposal:             power = 1 if owner, else 0
-   *
-   *   Only one vote per wallet per proposal is allowed (replay-proof via
-   *   the compound unique index on Vote.{proposalId, voter}).
-   *
-   * @access Private (JWT required)
-   *
-   * @body {number}  choice          — 0-based index into proposal.choices
-   * @body {string}  [signedMessage] — Optional Freighter-signed message for auditability
-   *
-   * @returns 201 { success, data: { vote, proposal, votingPower } }
-   * @returns 403 INSUFFICIENT_VOTING_POWER
-   * @returns 409 ALREADY_VOTED | VOTING_NOT_OPEN
+   * @openapi
+   * @route POST /api/proposals/{id}/votes
+   * @name castVote
+   * @description Cast a vote on an active proposal
+   * @tags Voting
+   * @security BearerAuth
+   * @param {string} id - Proposal ID
+   * @param {integer} choice - 0-based index into proposal choices
+   * @param {string} signedMessage - Optional Freighter-signed message for auditability
+   * @returns {object} 201 - Vote cast successfully
+   * @returns {object} 403 - Insufficient voting power
+   * @returns {object} 409 - Already voted or voting not open
    */
   router.post(
     '/proposals/:id/votes',
@@ -319,20 +278,17 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/proposals/:id/votes
-  // =========================================================================
-
   /**
-   * @route  GET /api/proposals/:id/votes
-   * @desc   List individual votes for a proposal (paginated).
-   * @access Public
-   *
-   * @query {number} [page=1]
-   * @query {number} [limit=20]
-   * @query {number} [choice]  — filter to a specific choice index
-   *
-   * @returns 200 { success, data: votes[], metadata }
+   * @openapi
+   * @route GET /api/proposals/{id}/votes
+   * @name listVotes
+   * @description List individual votes for a proposal (paginated)
+   * @tags Voting
+   * @param {string} id - Proposal ID
+   * @param {integer} page - Page number (optional, default: 1)
+   * @param {integer} limit - Results per page (optional, default: 20)
+   * @param {integer} choice - Filter by specific choice index (optional)
+   * @returns {object} 200 - Votes with pagination metadata
    */
   router.get(
     '/proposals/:id/votes',
@@ -355,26 +311,14 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/proposals/:id/results
-  // =========================================================================
-
   /**
-   * @route  GET /api/proposals/:id/results
-   * @desc   Return authoritative vote tallies aggregated from the Vote
-   *         collection.  Includes per-choice breakdown and overall winner.
-   * @access Public
-   *
-   * @returns 200 {
-   *   success,
-   *   data: {
-   *     proposal,
-   *     results: [{ index, label, voteCount, totalPower, percentage }],
-   *     totalVotingPower,
-   *     totalVoteCount,
-   *     winningChoice: { index, label } | null
-   *   }
-   * }
+   * @openapi
+   * @route GET /api/proposals/{id}/results
+   * @name getProposalResults
+   * @description Return authoritative vote tallies with per-choice breakdown and winner
+   * @tags Voting
+   * @param {string} id - Proposal ID
+   * @returns {object} 200 - Vote tallies and results
    */
   router.get(
     '/proposals/:id/results',
@@ -388,19 +332,15 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/voting-power   (authenticated user's own power)
-  // =========================================================================
-
   /**
-   * @route  GET /api/voting-power
-   * @desc   Return the voting power of the currently authenticated wallet.
-   *
-   * @access Private (JWT required)
-   *
-   * @query {string} [contractId] — optional C-address to scope the calculation
-   *
-   * @returns 200 { success, data: { publicKey, contractId, votingPower } }
+   * @openapi
+   * @route GET /api/voting-power
+   * @name getMyVotingPower
+   * @description Get the voting power of the currently authenticated wallet
+   * @tags Voting
+   * @security BearerAuth
+   * @param {string} contractId - Optional C-address to scope the calculation
+   * @returns {object} 200 - Voting power data
    */
   router.get(
     '/voting-power',
@@ -409,7 +349,6 @@ const createVotingRouter = () => {
       const publicKey = req.user.publicKey;
       const { contractId } = req.query;
 
-      // Optional contractId validation
       if (contractId && !/^C[A-Z2-7]{55}$/.test(contractId)) {
         throw new AppError(
           'contractId must be a valid Stellar C-address (56 chars, starts with C)',
@@ -431,20 +370,16 @@ const createVotingRouter = () => {
     })
   );
 
-  // =========================================================================
-  // GET /api/voting-power/:publicKey   (any wallet — public lookup)
-  // =========================================================================
-
   /**
-   * @route  GET /api/voting-power/:publicKey
-   * @desc   Return the voting power of any Stellar wallet (public lookup).
-   * @access Public
-   *
-   * @param  {string} publicKey  — Stellar G-address
-   * @query  {string} [contractId] — optional C-address scope
-   *
-   * @returns 200 { success, data: { publicKey, contractId, votingPower } }
-   * @returns 400 INVALID_PUBLIC_KEY
+   * @openapi
+   * @route GET /api/voting-power/{publicKey}
+   * @name getVotingPowerByKey
+   * @description Get the voting power of any Stellar wallet (public lookup)
+   * @tags Voting
+   * @param {string} publicKey - Stellar G-address
+   * @param {string} contractId - Optional C-address scope
+   * @returns {object} 200 - Voting power data
+   * @returns {object} 400 - Invalid public key
    */
   router.get(
     '/voting-power/:publicKey',
@@ -452,7 +387,6 @@ const createVotingRouter = () => {
       const { publicKey } = req.params;
       const { contractId } = req.query;
 
-      // Validate G-address
       if (!/^G[A-Z2-7]{55}$/.test(publicKey)) {
         throw new AppError(
           'publicKey must be a valid Stellar G-address (56 chars, starts with G)',
@@ -461,7 +395,6 @@ const createVotingRouter = () => {
         );
       }
 
-      // Optional contractId validation
       if (contractId && !/^C[A-Z2-7]{55}$/.test(contractId)) {
         throw new AppError(
           'contractId must be a valid Stellar C-address (56 chars, starts with C)',

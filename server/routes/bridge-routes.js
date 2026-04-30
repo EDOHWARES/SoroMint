@@ -1,8 +1,4 @@
-/**
- * @title Bridge API Routes
- * @description Routes for bridge relayer control and event ingestion
- * @notice Handles bridge status, event simulation, relayer start/stop
- */
+'use strict';
 
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
@@ -17,9 +13,14 @@ const { logger } = require('../utils/logger');
 const router = express.Router();
 
 /**
+ * @openapi
  * @route GET /api/bridge/relayer/status
+ * @name getBridgeRelayerStatus
  * @description Returns the current bridge relayer status and queue metrics
- * @access Private (JWT)
+ * @tags Bridge
+ * @security BearerAuth
+ * @param {boolean} detailed - Include full event details in response (optional)
+ * @returns {object} 200 - Bridge relayer status data
  */
 router.get(
   '/bridge/relayer/status',
@@ -27,8 +28,7 @@ router.get(
   validateBridgeStatus,
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
-    const detailed =
-      req.query.detailed === true || req.query.detailed === 'true';
+    const detailed = req.query.detailed === true || req.query.detailed === 'true';
 
     let status = relayer.getStatus();
 
@@ -48,9 +48,15 @@ router.get(
 );
 
 /**
+ * @openapi
  * @route POST /api/bridge/relayer/start
+ * @name startBridgeRelayer
  * @description Starts the relayer watchers and polling loops
- * @access Private (JWT)
+ * @tags Bridge
+ * @security BearerAuth
+ * @returns {object} 202 - Relayer started successfully
+ * @returns {object} 400 - Relayer not properly configured
+ * @returns {object} 500 - Failed to start relayer
  */
 router.post(
   '/bridge/relayer/start',
@@ -93,9 +99,14 @@ router.post(
 );
 
 /**
+ * @openapi
  * @route POST /api/bridge/relayer/stop
+ * @name stopBridgeRelayer
  * @description Stops all relayer watchers and polling loops
- * @access Private (JWT)
+ * @tags Bridge
+ * @security BearerAuth
+ * @returns {object} 200 - Relayer stopped successfully
+ * @returns {object} 500 - Failed to stop relayer
  */
 router.post(
   '/bridge/relayer/stop',
@@ -129,9 +140,19 @@ router.post(
 );
 
 /**
+ * @openapi
  * @route POST /api/bridge/relayer/simulate
+ * @name simulateBridgeEvent
  * @description Injects a Soroban or EVM event into the relayer for dry-run testing
- * @access Private (JWT)
+ * @tags Bridge
+ * @security BearerAuth
+ * @param {string} sourceChain - Source chain identifier (e.g., ethereum, stellar)
+ * @param {object} event - Event payload to simulate
+ * @param {object} metadata - Optional metadata for the event
+ * @returns {object} 200 - Simulation completed (no command built)
+ * @returns {object} 202 - Simulation completed with command built
+ * @returns {object} 400 - Relayer not enabled
+ * @returns {object} 500 - Simulation failed
  */
 router.post(
   '/bridge/relayer/simulate',
@@ -188,10 +209,17 @@ router.post(
 );
 
 /**
+ * @openapi
  * @route POST /api/bridge/relayer/ingest
+ * @name ingestBridgeEvent
  * @description Production endpoint for ingesting events from external sources
- * @description Should be called by actual event watchers in production
- * @access Private (JWT)
+ * @tags Bridge
+ * @security BearerAuth
+ * @param {string} sourceChain - Source chain identifier
+ * @param {object} event - Event payload to ingest
+ * @param {object} metadata - Optional metadata for the event
+ * @returns {object} 202 - Event processed (accepted even on partial failure)
+ * @returns {object} 400 - Relayer not enabled
  */
 router.post(
   '/bridge/relayer/ingest',
@@ -248,7 +276,6 @@ router.post(
         userId: req.user?._id,
       });
 
-      // Still return 202 to prevent event replay issues
       res.status(202).json({
         success: false,
         error: 'Failed to ingest bridge event',
@@ -259,9 +286,15 @@ router.post(
 );
 
 /**
+ * @openapi
  * @route POST /api/bridge/relayer/reset
+ * @name resetBridgeRelayer
  * @description Resets the relayer queue and stats (admin only)
- * @access Private (JWT) - Admin only
+ * @tags Bridge
+ * @security BearerAuth
+ * @returns {object} 200 - Relayer reset successfully
+ * @returns {object} 403 - Only administrators can reset
+ * @returns {object} 500 - Reset failed
  */
 router.post(
   '/bridge/relayer/reset',
@@ -269,7 +302,6 @@ router.post(
   asyncHandler(async (req, res) => {
     const relayer = getBridgeRelayer();
 
-    // Simple admin check - in production, use role-based access control
     const isAdmin = req.user?.role === 'admin' || req.user?.isAdmin;
 
     if (!isAdmin) {

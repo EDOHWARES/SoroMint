@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const mongoose = require('mongoose');
 const { asyncHandler } = require('../middleware/error-handler');
@@ -10,16 +12,13 @@ const { version } = require('../package.json');
 const router = express.Router();
 
 /**
- * @title Status Routes
- * @author SoroMint Team
- * @notice Handles system health checks and network metadata reporting
- * @dev Provides real-time status of server, database, and Stellar network
- */
-
-/**
+ * @openapi
  * @route GET /api/health
- * @description Simple liveness check for load balancers
- * @access Public
+ * @name getHealth
+ * @description System health check and network metadata
+ * @tags System
+ * @returns {object} 200 - Health status object
+ * @returns {object} 503 - Service unavailable (if database is down)
  */
 router.get('/health', asyncHandler(async (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1;
@@ -40,26 +39,11 @@ router.get('/health', asyncHandler(async (req, res) => {
  */
 router.get('/status', asyncHandler(async (req, res) => {
   const uptime = process.uptime();
-  const dbStatus = mongoose.connection.readyState === 1 ? 'up' : 'down';
-  const cacheService = getCacheService();
-  const cacheStatus = cacheService.isHealthy() ? 'up' : 'down';
-  
-  let rpcStatus = 'unknown';
-  try {
-    const rpcHealth = await getRpcServer().execute(s => s.getHealth());
-    rpcStatus = rpcHealth.status === 'healthy' ? 'up' : 'down';
-  } catch (error) {
-    rpcStatus = 'down';
-  }
 
-  const metrics = sampler.latest || { 
-    cpu: { usedPercent: 0, loadAvg: [0, 0, 0] }, 
-    memory: { usedPercent: 0 }, 
-    disk: { usedPercent: 0 } 
-  };
-  
-  const statusData = {
-    status: (dbStatus === 'up' && rpcStatus === 'up') ? 'healthy' : 'unhealthy',
+  const dbStatus = mongoose.connection.readyState === 1 ? 'up' : 'down';
+
+  const healthData = {
+    status: dbStatus === 'up' ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
     version: version,
     uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`,
@@ -71,27 +55,31 @@ router.get('/status', asyncHandler(async (req, res) => {
     services: {
       database: {
         status: dbStatus,
-        connection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+        connection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
       },
       cache: {
         status: cacheStatus
       },
       stellar: {
-        rpcStatus: rpcStatus,
-        network: process.env.NETWORK_PASSPHRASE || 'not configured'
-      }
-    }
+        network: process.env.NETWORK_PASSPHRASE || 'not configured',
+      },
+    },
   };
 
-  const statusCode = statusData.status === 'healthy' ? 200 : 503;
-  res.status(statusCode).json(statusData);
+  const statusCode = dbStatus === 'up' ? 200 : 503;
+
+  res.status(statusCode).json(healthData);
 }));
 
 /**
+ * @openapi
  * @route GET /api/metrics
- * @description Returns the latest sampled CPU, memory, and disk usage.
- *              Includes active alerts for any metrics exceeding configured thresholds.
- * @access Private (JWT)
+ * @name getMetrics
+ * @description Returns the latest sampled CPU, memory, and disk usage with active alerts
+ * @tags System
+ * @security BearerAuth
+ * @returns {object} 200 - Latest resource sample with alert state
+ * @returns {object} 503 - Sampler not yet initialized
  */
 router.get(
   '/metrics',

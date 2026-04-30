@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const Token = require('../models/Token');
 const DeploymentAudit = require('../models/DeploymentAudit');
@@ -16,20 +18,6 @@ const { getTokenMetadata } = require('../services/stellar-service');
 const { getCacheService } = require('../services/cache-service');
 const { getEnv } = require('../config/env-config');
 
-/**
- * @notice Enforces the optional REQUIRE_SECURITY_SCAN pre-deployment gate.
- *
- * When the REQUIRE_SECURITY_SCAN environment variable is true:
- *   1. A `scanId` field MUST be present in the request body.
- *   2. The scan result identified by that scanId must exist, belong to the
- *      authenticated user, and must NOT have deploymentBlocked = true.
- *
- * When REQUIRE_SECURITY_SCAN is false (default), this middleware is a no-op.
- *
- * @param {object} req   - Express request (req.user._id and req.body.scanId)
- * @param {object} res   - Express response
- * @param {Function} next - Express next
- */
 const securityScanGate = asyncHandler(async (req, res, next) => {
   const env = getEnv();
 
@@ -60,7 +48,6 @@ const securityScanGate = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Ownership check — the scan must belong to the authenticated user
   if (String(scan.userId) !== String(req.user._id)) {
     throw new AppError(
       'The provided scanId does not belong to your account.',
@@ -79,7 +66,6 @@ const securityScanGate = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Attach scan metadata to the request for downstream use (e.g. audit logs)
   req.securityScan = {
     scanId: scan.scanId,
     status: scan.status,
@@ -102,97 +88,17 @@ const createTokenRouter = ({
   const router = express.Router();
 
   /**
-   * @route GET /api/v1/tokens
-   * @description Get all registered tokens (dynamic registry)
-   */
-  router.get(
-    '/v1/tokens',
-    authenticate,
-    validatePagination,
-    asyncHandler(async (req, res) => {
-      const { page = 1, limit = 20 } = req.query;
-      const skip = (page - 1) * limit;
-
-      const [tokens, totalCount] = await Promise.all([
-        Token.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
-        Token.countDocuments(),
-      ]);
-
-      res.json({
-        success: true,
-        data: tokens,
-        metadata: {
-          totalCount,
-          page: Number(page),
-          totalPages: Math.ceil(totalCount / limit),
-          limit: Number(limit),
-        },
-      });
-    })
-  );
-
-  /**
-   * @route GET /api/v1/tokens/:address
-   * @description Fetch token metadata from DB or chain (and cache it)
-   */
-  router.get(
-    '/v1/tokens/:address',
-    authenticate,
-    asyncHandler(async (req, res) => {
-      const { address } = req.params;
-
-      // 1. Check DB first
-      let token = await Token.findOne({ contractId: address });
-
-      if (token) {
-        return res.json({ success: true, data: token, source: 'db' });
-      }
-
-      // 2. Not in DB, fetch from chain
-      try {
-        logger.info('Fetching token metadata from chain', {
-          correlationId: req.correlationId,
-          contractId: address,
-        });
-
-        const metadata = await getTokenMetadata(address);
-
-        // 3. Register/Cache in DB
-        const newToken = new Token({
-          contractId: address,
-          name: metadata.name,
-          symbol: metadata.symbol,
-          decimals: metadata.decimals,
-          ownerPublicKey: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', // Placeholder for unknown owner
-          description: 'Fetched from chain and registered in registry',
-        });
-
-        await newToken.save();
-
-        logger.info('Token registered successfully via dynamic fetch', {
-          correlationId: req.correlationId,
-          contractId: address,
-        });
-
-        return res.json({ success: true, data: newToken, source: 'chain' });
-      } catch (error) {
-        logger.error('Failed to fetch metadata from chain', {
-          correlationId: req.correlationId,
-          address,
-          error: error.message,
-        });
-        throw new AppError(
-          'Could not fetch token metadata from chain. Ensure the contract ID is a valid Soroban token.',
-          404,
-          'FETCH_FAILED'
-        );
-      }
-    })
-  );
-
-  /**
-   * @route GET /api/tokens/:owner
-   * @group Tokens - Token management operations
+   * @openapi
+   * @route GET /api/tokens/{owner}
+   * @name getTokensByOwner
+   * @description Get all tokens owned by a specific Stellar public key with pagination and search
+   * @tags Tokens
+   * @security BearerAuth
+   * @param {string} owner - Stellar public key (G...)
+   * @param {integer} page - Page number (optional, default: 1)
+   * @param {integer} limit - Results per page (optional, default: 20)
+   * @param {string} search - Search filter for name/symbol (optional)
+   * @returns {object} 200 - Token list with pagination metadata
    */
   router.get(
     '/tokens/:owner',
@@ -282,7 +188,21 @@ const createTokenRouter = ({
   );
 
   /**
+   * @openapi
    * @route POST /api/tokens
+   * @name createToken
+   * @description Deploy a new token contract. Requires security scan when REQUIRE_SECURITY_SCAN is enabled.
+   * @tags Tokens
+   * @security BearerAuth
+   * @param {string} name - Token name
+   * @param {string} symbol - Token symbol
+   * @param {integer} decimals - Token decimals
+   * @param {string} contractId - Stellar contract ID (C...)
+   * @param {string} ownerPublicKey - Owner Stellar public key (G...)
+   * @param {string} scanId - Security scan ID (required when REQUIRE_SECURITY_SCAN is true)
+   * @returns {object} 201 - Token created successfully
+   * @returns {object} 400 - Validation error or scan required
+   * @returns {object} 422 - Deployment blocked due to security scan findings
    */
   router.post(
     '/tokens',
@@ -306,16 +226,12 @@ const createTokenRouter = ({
         userId,
       });
 
-      emitEvent(
-        'minting_progress',
-        {
-          name,
-          symbol,
-          status: 'PENDING',
-          message: 'Initializing token deployment...',
-        },
-        ownerPublicKey
-      );
+      emitEvent('minting_progress', {
+        name,
+        symbol,
+        status: 'PENDING',
+        message: 'Initializing token deployment...',
+      }, ownerPublicKey);
 
       try {
         const newToken = new Token({
@@ -333,17 +249,13 @@ const createTokenRouter = ({
           securityScanId: scanRef ? scanRef.scanId : null,
         });
 
-        emitEvent(
-          'minting_progress',
-          {
-            tokenId: newToken._id,
-            name,
-            symbol,
-            status: 'SUCCESS',
-            message: 'Token minted successfully',
-          },
-          ownerPublicKey
-        );
+        emitEvent('minting_progress', {
+          tokenId: newToken._id,
+          name,
+          symbol,
+          status: 'SUCCESS',
+          message: 'Token minted successfully',
+        }, ownerPublicKey);
 
         try {
           await cacheService.deleteByPattern(
@@ -373,16 +285,12 @@ const createTokenRouter = ({
           error: error.message,
         });
 
-        emitEvent(
-          'minting_progress',
-          {
-            name,
-            symbol,
-            status: 'FAILED',
-            message: error.message,
-          },
-          ownerPublicKey
-        );
+        emitEvent('minting_progress', {
+          name,
+          symbol,
+          status: 'FAILED',
+          message: error.message,
+        }, ownerPublicKey);
 
         await DeploymentAudit.create({
           userId,
@@ -398,7 +306,15 @@ const createTokenRouter = ({
   );
 
   /**
-   * @route GET /api/tokens/metadata/:id
+   * @openapi
+   * @route GET /api/tokens/metadata/{id}
+   * @name getTokenMetadata
+   * @description Fetch token metadata by token ID with caching
+   * @tags Tokens
+   * @security BearerAuth
+   * @param {string} id - Token ID
+   * @returns {object} 200 - Token metadata
+   * @returns {object} 404 - Token not found
    */
   router.get(
     '/tokens/metadata/:id',
@@ -421,7 +337,17 @@ const createTokenRouter = ({
   );
 
   /**
-   * @route PUT /api/tokens/metadata/:id
+   * @openapi
+   * @route PUT /api/tokens/metadata/{id}
+   * @name updateTokenMetadata
+   * @description Update token name and symbol
+   * @tags Tokens
+   * @security BearerAuth
+   * @param {string} id - Token ID
+   * @param {string} name - New token name
+   * @param {string} symbol - New token symbol
+   * @returns {object} 200 - Updated token metadata
+   * @returns {object} 404 - Token not found
    */
   router.put(
     '/tokens/metadata/:id',

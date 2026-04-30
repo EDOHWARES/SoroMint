@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { authenticate } = require('../middleware/auth');
@@ -14,14 +16,17 @@ const Referral = require('../models/Referral');
 const router = express.Router();
 
 /**
+ * @openapi
  * @route POST /api/tokens/batch
- * @description Submit multiple token operations (mint/burn/transfer) as a single
- *              atomic Soroban transaction.
- * @body {Object[]} operations - Array of operations (max 20).
- * @body {string}   sourcePublicKey - Stellar public key of the submitting account.
- * @returns {Object} 200 - txHash, status, and per-operation results.
- * @returns {Object} 207 - Partial failure with per-operation error detail.
- * @security JWT
+ * @name submitBatchOperations
+ * @description Submit multiple token operations (mint/burn/transfer) as a single atomic Soroban transaction
+ * @tags Batch
+ * @security BearerAuth
+ * @param {array} operations - Array of operations (max 20)
+ * @param {string} sourcePublicKey - Stellar public key of the submitting account
+ * @returns {object} 200 - All operations successful with txHash
+ * @returns {object} 207 - Partial failure with per-operation error detail
+ * @returns {object} 422 - Batch submission failed
  */
 router.post(
   '/tokens/batch',
@@ -42,14 +47,7 @@ router.post(
     let lockValue = null;
 
     try {
-      // Acquire distributed lock for the source account
-      // 30 seconds TTL, 5 retries, 2000ms base delay
-      lockValue = await lockService.acquireLock(
-        sourcePublicKey,
-        30000,
-        5,
-        2000
-      );
+      lockValue = await lockService.acquireLock(sourcePublicKey, 30000, 5, 2000);
 
       if (!lockValue) {
         throw new AppError(
@@ -59,7 +57,6 @@ router.post(
         );
       }
 
-      // Referral Reward Logic
       const processedOperations = [...operations];
       const rewardInfos = [];
 
@@ -103,7 +100,6 @@ router.post(
         sourcePublicKey
       );
 
-      // If successful, save referral records for reward operations
       if (batchResult.success && rewardInfos.length > 0) {
         const referralRecords = rewardInfos
           .filter(
@@ -129,7 +125,6 @@ router.post(
       }
     } catch (err) {
       if (err.code !== 'LOCK_ACQUISITION_FAILED') {
-        // Record audit for the whole batch failure
         await DeploymentAudit.create({
           userId,
           tokenName: `batch(${operations.length})`,
@@ -144,7 +139,6 @@ router.post(
       }
     }
 
-    // Audit each operation individually for traceability
     await Promise.all(
       batchResult.results.map((r) =>
         DeploymentAudit.create({

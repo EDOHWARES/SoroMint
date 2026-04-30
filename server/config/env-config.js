@@ -141,22 +141,21 @@ function validateEnv() {
         default: false,
         desc: 'When true, token deployment requires a passing security scan result (scanId must be provided and must not be blocked)',
       }),
-      FEE_MONITOR_INTERVAL_MS: envalid.num({
-        default: 30000,
-        desc: 'Interval in milliseconds for checking Soroban fee stats (default: 30 seconds)',
+      GLOBAL_RATE_LIMIT_READ_WINDOW_MS: envalid.num({
+        default: 60 * 1000,
+        desc: 'Global rate limit window for read (GET) requests in milliseconds (default: 1 minute)',
       }),
-      ALERT_FEE_THRESHOLD_STROOPS: envalid.num({
-        default: 300,
-        desc: 'Threshold for p90 fee in stroops to trigger a network congestion alert (default: 300)',
-      DISCORD_WEBHOOK_URL: envalid.str({
-        default: '',
-        desc: 'Discord webhook URL for fraud detection alerts (optional)',
-        example: 'https://discordapp.com/api/webhooks/...',
+      GLOBAL_RATE_LIMIT_READ_MAX_REQUESTS: envalid.num({
+        default: 100,
+        desc: 'Maximum read (GET) requests per rate limit window per IP',
       }),
-      SLACK_WEBHOOK_URL: envalid.str({
-        default: '',
-        desc: 'Slack webhook URL for fraud detection alerts (optional)',
-        example: 'https://hooks.slack.com/services/...',
+      GLOBAL_RATE_LIMIT_WRITE_WINDOW_MS: envalid.num({
+        default: 60 * 1000,
+        desc: 'Global rate limit window for write (POST/PUT/PATCH/DELETE) requests in milliseconds (default: 1 minute)',
+      }),
+      GLOBAL_RATE_LIMIT_WRITE_MAX_REQUESTS: envalid.num({
+        default: 30,
+        desc: 'Maximum write (POST/PUT/PATCH/DELETE) requests per rate limit window per IP',
       }),
     },
     {

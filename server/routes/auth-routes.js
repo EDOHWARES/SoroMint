@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { StrKey } = require('@stellar/stellar-sdk');
 const User = require('../models/User');
@@ -12,6 +14,11 @@ const {
   CHALLENGE_WINDOW_SECONDS,
 } = require('../services/sep10-challenge-service');
 
+/**
+ * @title Authentication Routes
+ * @notice SEP-10 style Stellar wallet challenge-response authentication
+ * @dev Auth flow: GET /challenge → POST /login → JWT issued
+ */
 const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
   const router = express.Router();
 
@@ -29,36 +36,40 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     return publicKey.toUpperCase();
   };
 
+  /**
+   * @openapi
+   * @route POST /api/auth/register
+   * @name register
+   * @description Register a new user with their Stellar public key
+   * @tags Auth
+   * @param {string} publicKey - Stellar G-address
+   * @param {string} username - Optional display name (3-50 chars)
+   * @param {string} referralCode - Optional referral code (optional)
+   * @returns {object} 201 - User created with JWT
+   * @returns {object} 400 - Validation error
+   * @returns {object} 409 - User already registered
+   */
   router.post(
     '/register',
     asyncHandler(async (req, res) => {
-      const { publicKey, username } = req.body;
+      const { username, referralCode } = req.body;
+      const publicKey = validatePublicKey(req.body.publicKey);
 
-      if (!publicKey) {
-        throw new AppError(
-          'Public key is required for registration',
-          400,
-          'VALIDATION_ERROR'
-        );
-      }
-
-      if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-        throw new AppError(
-          'Invalid Stellar public key format. Must be a valid G-address (Ed25519 public key)',
-          400,
-          'INVALID_PUBLIC_KEY'
-        );
-      }
-
-      const normalizedPublicKey = publicKey.toUpperCase();
-
-      const existingUser = await User.findByPublicKey(normalizedPublicKey);
+      const existingUser = await User.findByPublicKey(publicKey);
       if (existingUser) {
         throw new AppError(
           'User with this public key already registered',
           409,
           'USER_EXISTS'
         );
+      }
+
+      let referrer = null;
+      if (referralCode) {
+        referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+        if (!referrer) {
+          logger.warn('Invalid referral code provided during registration', { referralCode });
+        }
       }
 
       if (username && (username.length < 3 || username.length > 50)) {
@@ -70,18 +81,13 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
       }
 
       const user = new User({
-        publicKey: normalizedPublicKey,
+        publicKey,
         username: username ? username.trim() : undefined,
+        referredBy: referrer ? referrer._id : null,
       });
-
       await user.save();
 
-      const accessToken = generateAccessToken(user);
-      const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
-        userAgent: req.headers['user-agent'],
-        ipAddress: req.ip
-      });
-      const refreshToken = refreshTokenDoc.token;
+      const token = generateToken(publicKey, user.username);
 
       res.status(201).json({
         success: true,
@@ -91,17 +97,26 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
             id: user._id,
             publicKey: user.publicKey,
             username: user.username,
-            createdAt: user.createdAt
+            referralCode: user.referralCode,
+            createdAt: user.createdAt,
           },
-          accessToken,
-          refreshToken,
-          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
-          refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-        }
+          token,
+          expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+        },
       });
     })
   );
 
+  /**
+   * @openapi
+   * @route GET /api/auth/challenge
+   * @name generateChallenge
+   * @description Generate a SEP-10 Stellar challenge transaction for wallet authentication
+   * @tags Auth
+   * @param {string} publicKey - Stellar G-address of authenticating wallet
+   * @returns {object} 200 - Challenge transaction XDR and token
+   * @returns {object} 400 - Missing or malformed public key
+   */
   router.get(
     '/challenge',
     asyncHandler(async (req, res) => {
@@ -126,82 +141,20 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })
   );
 
-  router.post(
-    '/login',
-    authLoginRateLimiter,
-    asyncHandler(async (req, res) => {
-      const { publicKey, signature, challenge } = req.body;
-
-      if (!publicKey) {
-        throw new AppError(
-          'Public key is required for login',
-          400,
-          'VALIDATION_ERROR'
-        );
-      }
-
-      if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-        throw new AppError(
-          'Invalid Stellar public key format. Must be a valid G-address (Ed25519 public key)',
-          400,
-          'INVALID_PUBLIC_KEY'
-        );
-      }
-
-      const normalizedPublicKey = publicKey.toUpperCase();
-
-      const user = await User.findByPublicKey(normalizedPublicKey);
-
-      if (!user) {
-        throw new AppError(
-          'User not found. Please register first.',
-          401,
-          'USER_NOT_FOUND'
-        );
-      }
-
-      if (!user.isActive()) {
-        throw new AppError(
-          `Account is ${user.status}. Please contact support.`,
-          403,
-          'ACCOUNT_INACTIVE'
-        );
-      }
-
-      if (signature && challenge) {
-        console.log(
-          '[Login] Signature/challenge provided but not yet validated (MVP mode)'
-        );
-      }
-
-      await user.updateLastLogin();
-
-      const accessToken = generateAccessToken(user);
-      const refreshTokenDoc = await RefreshToken.createRefreshToken(user, {
-        userAgent: req.headers['user-agent'],
-        ipAddress: req.ip
-      });
-      const refreshToken = refreshTokenDoc.token;
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        data: {
-          user: {
-            id: user._id,
-            publicKey: user.publicKey,
-            username: user.username,
-            lastLoginAt: user.lastLoginAt
-          },
-          accessToken,
-          refreshToken,
-          expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
-          refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-        }
-      });
-    })
-  );
-
+  /**
+   * @openapi
+   * @route POST /api/auth/login
+   * @name login
+   * @description Authenticate via SEP-10 challenge-response. First call GET /challenge, then sign the XDR with Freighter.
+   * @tags Auth
+   * @param {string} publicKey - Stellar G-address (must match challenge)
+   * @param {string} challengeToken - Token returned by GET /api/auth/challenge
+   * @param {string} signedXDR - base64 XDR of the transaction signed by wallet
+   * @returns {object} 200 - User profile and JWT token
+   * @returns {object} 400 - Missing challengeToken or signedXDR
+   * @returns {object} 401 - Signature verification failed or user not found
+   * @returns {object} 403 - Account suspended
+   */
   router.post(
     '/login',
     authLoginRateLimiter,
@@ -292,6 +245,16 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })
   );
 
+  /**
+   * @openapi
+   * @route GET /api/auth/me
+   * @name getMe
+   * @description Return the authenticated user's profile
+   * @tags Auth
+   * @security BearerAuth
+   * @returns {object} 200 - User profile
+   * @returns {object} 401 - Invalid or missing token
+   */
   router.get(
     '/me',
     authenticate,
@@ -312,33 +275,16 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })
   );
 
-  router.post('/refresh', asyncHandler(async (req, res) => {
-    const { refreshToken } = req.body;
-    
-    if (!refreshToken) {
-      throw new AppError('Refresh token is required', 400, 'REFRESH_TOKEN_REQUIRED');
-    }
-    
-    const { user } = await verifyRefreshToken(refreshToken);
-    
-    const accessToken = generateAccessToken(user);
-    const newRefreshTokenDoc = await RefreshToken.createRefreshToken(user, {
-      userAgent: req.headers['user-agent'],
-      ipAddress: req.ip
-    });
-    
-    res.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: {
-        accessToken,
-        refreshToken: newRefreshTokenDoc.token,
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
-        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
-      },
-    });
-  }));
-
+  /**
+   * @openapi
+   * @route POST /api/auth/refresh
+   * @name refreshToken
+   * @description Refresh the JWT for the currently authenticated user
+   * @tags Auth
+   * @security BearerAuth
+   * @returns {object} 200 - New JWT token
+   * @returns {object} 401 - Invalid or expired token
+   */
   router.post(
     '/rotate',
     asyncHandler(async (req, res) => {
@@ -369,6 +315,17 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })
   );
 
+  /**
+   * @openapi
+   * @route PUT /api/auth/profile
+   * @name updateProfile
+   * @description Update the authenticated user's profile
+   * @tags Auth
+   * @security BearerAuth
+   * @param {string} username - New display name (3-50 chars, optional)
+   * @returns {object} 200 - Updated user profile
+   * @returns {object} 400 - Validation error
+   */
   router.put(
     '/profile',
     authenticate,
@@ -404,6 +361,14 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })
   );
 
+  /**
+   * @openapi
+   * @route GET /api/auth/google
+   * @name googleAuth
+   * @description Initiate Google OAuth2 flow
+   * @tags Auth
+   * @param {string} link - Pass 'link' to link to existing account instead of login
+   */
   router.get('/google', optionalAuthenticate, (req, res, next) => {
     const state = req.query.link ? 'link' : 'login';
     passport.authenticate('google', {
@@ -412,49 +377,106 @@ const createAuthRouter = ({ authLoginRateLimiter = loginRateLimiter } = {}) => {
     })(req, res, next);
   });
 
-  router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/login', session: false }), asyncHandler(async (req, res) => {
-    await req.user.updateLastLogin();
-    const accessToken = generateAccessToken(req.user);
-    const refreshTokenDoc = await RefreshToken.createRefreshToken(req.user, {
-      userAgent: req.headers['user-agent'],
-      ipAddress: req.ip
-    });
-    const refreshToken = refreshTokenDoc.token;
-    res.json({
-      success: true,
-      data: {
-        user: req.user,
-        accessToken,
-        refreshToken,
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
-        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
-      }
-    });
-  }));
+  /**
+   * @openapi
+   * @route GET /api/auth/google/callback
+   * @name googleCallback
+   * @description Google OAuth2 callback handler
+   * @tags Auth
+   */
+  router.get(
+    '/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login', session: false }),
+    (req, res) => {
+      const token = generateToken(req.user);
+      res.json({
+        success: true,
+        data: {
+          user: req.user,
+          token,
+        },
+      });
+    }
+  );
 
+  /**
+   * @openapi
+   * @route GET /api/auth/github
+   * @name githubAuth
+   * @description Initiate GitHub OAuth2 flow
+   * @tags Auth
+   */
   router.get('/github', optionalAuthenticate, (req, res, next) => {
     passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
   });
 
-  router.get('/github/callback', passport.authenticate('github', { failureRedirect: '/login', session: false }), asyncHandler(async (req, res) => {
-    await req.user.updateLastLogin();
-    const accessToken = generateAccessToken(req.user);
-    const refreshTokenDoc = await RefreshToken.createRefreshToken(req.user, {
-      userAgent: req.headers['user-agent'],
-      ipAddress: req.ip
-    });
-    const refreshToken = refreshTokenDoc.token;
-    res.json({
-      success: true,
-      data: {
-        user: req.user,
-        accessToken,
-        refreshToken,
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
-        refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'
+  /**
+   * @openapi
+   * @route GET /api/auth/github/callback
+   * @name githubCallback
+   * @description GitHub OAuth2 callback handler
+   * @tags Auth
+   */
+  router.get(
+    '/github/callback',
+    passport.authenticate('github', { failureRedirect: '/login', session: false }),
+    (req, res) => {
+      const token = generateToken(req.user);
+      res.json({
+        success: true,
+        data: {
+          user: req.user,
+          token,
+        },
+      });
+    }
+  );
+
+  /**
+   * @openapi
+   * @route POST /api/auth/link-stellar
+   * @name linkStellar
+   * @description Link a Stellar public key to a social login account
+   * @tags Auth
+   * @security BearerAuth
+   * @param {string} publicKey - Valid Stellar G-address to link
+   * @returns {object} 200 - Wallet linked successfully
+   * @returns {object} 400 - Invalid public key
+   * @returns {object} 409 - Public key already linked to another account
+   */
+  router.post(
+    '/link-stellar',
+    authenticate,
+    asyncHandler(async (req, res) => {
+      const { publicKey } = req.body;
+
+      if (!publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) {
+        throw new AppError('Valid Stellar public key is required', 400, 'INVALID_PUBLIC_KEY');
       }
-    });
-  }));
+
+      const normalizedPublicKey = publicKey.toUpperCase();
+
+      const existingUser = await User.findOne({ publicKey: normalizedPublicKey });
+      if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+        throw new AppError('This Stellar public key is already linked to another account', 409, 'KEY_ALREADY_LINKED');
+      }
+
+      req.user.publicKey = normalizedPublicKey;
+      await req.user.save();
+
+      res.json({
+        success: true,
+        message: 'Stellar wallet linked successfully',
+        data: {
+          user: {
+            id: req.user._id,
+            publicKey: req.user.publicKey,
+            username: req.user.username,
+          },
+        },
+      });
+    })
+  );
 
   router.post('/revoke', authenticate, asyncHandler(async (req, res) => {
     const { refreshToken, revokeAll } = req.body;

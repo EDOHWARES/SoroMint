@@ -1,3 +1,5 @@
+'use strict';
+
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
@@ -11,11 +13,18 @@ const createSponsorshipRouter = ({
 } = {}) => {
   const router = express.Router();
 
-  router.post(
-    '/apply',
-    authenticate,
-    asyncHandler(async (req, res) => {
-      const requestedBudgetStroops = req.body?.requestedBudgetStroops;
+  /**
+   * @openapi
+   * @route POST /api/sponsorship/apply
+   * @name applyForSponsorship
+   * @description Apply for transaction sponsorship
+   * @tags Bridge
+   * @security BearerAuth
+   * @param {integer} requestedBudgetStroops - Requested budget in stroops (optional, non-negative integer)
+   * @returns {object} 200 - Application status
+   */
+  router.post('/apply', authenticate, asyncHandler(async (req, res) => {
+    const requestedBudgetStroops = req.body?.requestedBudgetStroops;
 
       if (
         requestedBudgetStroops !== undefined &&
@@ -46,11 +55,17 @@ const createSponsorshipRouter = ({
     })
   );
 
-  router.get(
-    '/status',
-    authenticate,
-    asyncHandler(async (req, res) => {
-      const status = await getSponsorshipStatus(req.user);
+  /**
+   * @openapi
+   * @route GET /api/sponsorship/status
+   * @name getSponsorshipStatus
+   * @description Get the current user's sponsorship application status
+   * @tags Bridge
+   * @security BearerAuth
+   * @returns {object} 200 - Current sponsorship status
+   */
+  router.get('/status', authenticate, asyncHandler(async (req, res) => {
+    const status = await getSponsorshipStatus(req.user);
 
       res.json({
         success: true,
@@ -59,11 +74,19 @@ const createSponsorshipRouter = ({
     })
   );
 
-  router.post(
-    '/execute',
-    authenticate,
-    asyncHandler(async (req, res) => {
-      const { transactionXdr, feeStroops } = req.body || {};
+  /**
+   * @openapi
+   * @route POST /api/sponsorship/execute
+   * @name executeSponsoredTransaction
+   * @description Execute a sponsored transaction (pay fee for user's transaction)
+   * @tags Bridge
+   * @security BearerAuth
+   * @param {string} transactionXdr - Base64 encoded transaction XDR
+   * @param {integer} feeStroops - Fee amount in stroops (optional, positive integer)
+   * @returns {object} 202 - Execution accepted
+   */
+  router.post('/execute', authenticate, asyncHandler(async (req, res) => {
+    const { transactionXdr, feeStroops } = req.body || {};
 
       if (
         !transactionXdr ||

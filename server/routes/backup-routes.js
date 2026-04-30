@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * @title Backup Routes
  * @description API routes for backup management and recovery testing
@@ -6,15 +8,17 @@
 const express = require('express');
 const router = express.Router();
 const { runBackup, listBackups } = require('../services/backup-service');
-const {
-  runRecoveryTest,
-  listBackupMetadata,
-} = require('../services/recovery-test-service');
+const { runRecoveryTest, listBackupMetadata } = require('../services/recovery-test-service');
 const { logger } = require('../utils/logger');
 
 /**
- * POST /api/backups/trigger
- * Manually trigger a backup
+ * @openapi
+ * @route POST /api/backups/trigger
+ * @name triggerBackup
+ * @description Manually trigger a backup operation
+ * @tags System
+ * @returns {object} 200 - Backup completed successfully
+ * @returns {object} 500 - Backup failed
  */
 router.post('/trigger', async (req, res) => {
   try {
@@ -46,8 +50,13 @@ router.post('/trigger', async (req, res) => {
 });
 
 /**
- * GET /api/backups
- * List all available backups
+ * @openapi
+ * @route GET /api/backups
+ * @name listBackups
+ * @description List all available backups
+ * @tags System
+ * @returns {object} 200 - List of backups
+ * @returns {object} 500 - Failed to list backups
  */
 router.get('/', async (req, res) => {
   try {
@@ -76,8 +85,13 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/backups/metadata
- * List backup metadata
+ * @openapi
+ * @route GET /api/backups/metadata
+ * @name listBackupMetadata
+ * @description List backup metadata including schedule and retention info
+ * @tags System
+ * @returns {object} 200 - Backup metadata
+ * @returns {object} 500 - Failed to list metadata
  */
 router.get('/metadata', async (req, res) => {
   try {
@@ -106,8 +120,14 @@ router.get('/metadata', async (req, res) => {
 });
 
 /**
- * POST /api/backups/test-recovery
- * Trigger a recovery test
+ * @openapi
+ * @route POST /api/backups/test-recovery
+ * @name testRecovery
+ * @description Trigger a recovery test with optional test MongoDB URI
+ * @tags System
+ * @param {string} testMongoUri - Optional test MongoDB URI for recovery testing
+ * @returns {object} 200 - Recovery test completed successfully
+ * @returns {object} 500 - Recovery test failed with stage info
  */
 router.post('/test-recovery', async (req, res) => {
   try {
@@ -142,16 +162,20 @@ router.post('/test-recovery', async (req, res) => {
 });
 
 /**
- * GET /api/backups/status
- * Get backup system status
+ * @openapi
+ * @route GET /api/backups/status
+ * @name getBackupStatus
+ * @description Get backup system status and configuration
+ * @tags System
+ * @returns {object} 200 - Backup system status
+ * @returns {object} 500 - Status check failed
  */
 router.get('/status', async (req, res) => {
   try {
     const bucket = process.env.AWS_S3_BACKUP_BUCKET;
     const encryptionPassword = process.env.BACKUP_ENCRYPTION_PASSWORD;
     const backupSchedule = process.env.BACKUP_CRON_SCHEDULE || '0 2 * * *';
-    const recoverySchedule =
-      process.env.RECOVERY_TEST_CRON_SCHEDULE || '0 3 * * *';
+    const recoverySchedule = process.env.RECOVERY_TEST_CRON_SCHEDULE || '0 3 * * *';
 
     res.status(200).json({
       success: true,

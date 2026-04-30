@@ -90,23 +90,81 @@ const createScanRateLimiter = () =>
   });
 
 /**
- * @notice Creates the limiter for data export requests (CSV/JSON).
- * @dev    Exporting can be resource-intensive; defaults to 10 exports per hour per IP.
- * @returns {Function} Express middleware for export endpoints
+ * @notice Creates a global read rate limiter for GET requests.
+ * @dev    Applies only to GET requests, allowing higher limits for read operations.
+ *         Configurable via env vars or options parameter.
+ * @param {Object} options - Override options for testing
+ * @param {number} options.windowMs - Time window in milliseconds
+ * @param {number} options.max - Maximum requests per window
+ * @returns {Function} Express middleware
  */
-const createExportRateLimiter = () =>
-  createRateLimiter({
-    windowMs: parsePositiveInteger(
-      process.env.EXPORT_RATE_LIMIT_WINDOW_MS,
-      60 * 60 * 1000
-    ),
-    max: parsePositiveInteger(process.env.EXPORT_RATE_LIMIT_MAX_REQUESTS, 10),
+const createGlobalReadRateLimiter = (options = {}) => {
+  const windowMs =
+    options.windowMs !== undefined
+      ? options.windowMs
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_READ_WINDOW_MS,
+          60 * 1000
+        );
+  const max =
+    options.max !== undefined
+      ? options.max
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_READ_MAX_REQUESTS,
+          100
+        );
+
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: createRateLimitResponse(),
+    skip: (req) => req.method !== 'GET',
   });
+};
+
+/**
+ * @notice Creates a global write rate limiter for POST/DELETE requests.
+ * @dev    Applies only to write operations (POST, PUT, PATCH, DELETE).
+ *         Stricter limits than read to protect against abuse.
+ *         Configurable via env vars or options parameter.
+ * @param {Object} options - Override options for testing
+ * @param {number} options.windowMs - Time window in milliseconds
+ * @param {number} options.max - Maximum requests per window
+ * @returns {Function} Express middleware
+ */
+const createGlobalWriteRateLimiter = (options = {}) => {
+  const windowMs =
+    options.windowMs !== undefined
+      ? options.windowMs
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_WRITE_WINDOW_MS,
+          60 * 1000
+        );
+  const max =
+    options.max !== undefined
+      ? options.max
+      : parsePositiveInteger(
+          process.env.GLOBAL_RATE_LIMIT_WRITE_MAX_REQUESTS,
+          30
+        );
+
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: createRateLimitResponse(),
+    skip: (req) => req.method === 'GET',
+  });
+};
 
 const loginRateLimiter = createLoginRateLimiter();
 const tokenDeploymentRateLimiter = createTokenDeploymentRateLimiter();
 const scanRateLimiter = createScanRateLimiter();
-const exportRateLimiter = createExportRateLimiter();
+const globalReadRateLimiter = createGlobalReadRateLimiter();
+const globalWriteRateLimiter = createGlobalWriteRateLimiter();
 
 module.exports = {
   DEFAULT_LIMIT_MESSAGE,
@@ -117,9 +175,11 @@ module.exports = {
   createLoginRateLimiter,
   createTokenDeploymentRateLimiter,
   createScanRateLimiter,
-  createExportRateLimiter,
+  createGlobalReadRateLimiter,
+  createGlobalWriteRateLimiter,
   loginRateLimiter,
   tokenDeploymentRateLimiter,
   scanRateLimiter,
-  exportRateLimiter,
+  globalReadRateLimiter,
+  globalWriteRateLimiter,
 };
