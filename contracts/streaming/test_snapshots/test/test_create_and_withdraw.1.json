@@ -79,6 +79,9 @@
                 },
                 {
                   "u32": 200
+                },
+                {
+                  "bool": true
                 }
               ]
             }
@@ -348,13 +351,10 @@
                   "map": [
                     {
                       "key": {
-                        "symbol": "base_streamed"
+                        "symbol": "is_public"
                       },
                       "val": {
-                        "i128": {
-                          "hi": 0,
-                          "lo": 0
-                        }
+                        "bool": true
                       }
                     },
                     {

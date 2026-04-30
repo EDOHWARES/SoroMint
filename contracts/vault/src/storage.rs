@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Map};
+use soroban_sdk::{contracttype, Address, Map, Symbol};
 
 #[contracttype]
 #[derive(Clone)]
@@ -10,16 +10,7 @@ pub enum DataKey {
     Vault(u64),
     UserVaults(Address),
     CollateralConfig(Address),
-    VaultInfo, // Issue #470: Bundling related fields into single storage segments
-    Balance(Address),
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VaultInfo {
-    pub admin: Address,
-    pub token: Address,
-    pub total_liabilities: i128,
+    Reentrancy(Symbol),
 }
 
 #[contracttype]

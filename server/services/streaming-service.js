@@ -6,7 +6,7 @@ const {
   BASE_FEE,
   xdr,
 } = require('@stellar/stellar-sdk');
-const PlatformFeeService = require('./platform-fee-service');
+const Stream = require('../models/Stream');
 
 class StreamingService {
   constructor(rpcUrl, networkPassphrase) {
@@ -24,8 +24,7 @@ class StreamingService {
     totalAmount,
     startLedger,
     stopLedger,
-    cancellationDelay = 0,
-    irrevocable = false
+    isPublic = false
   ) {
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
@@ -61,8 +60,7 @@ class StreamingService {
           xdr.ScVal.scvI128(this.toI128(totalAmount)),
           xdr.ScVal.scvU32(startLedger),
           xdr.ScVal.scvU32(stopLedger),
-          xdr.ScVal.scvU32(cancellationDelay),
-          xdr.ScVal.scvBool(irrevocable)
+          xdr.ScVal.scvBool(isPublic)
         )
       )
       .setTimeout(30)
@@ -72,20 +70,46 @@ class StreamingService {
     prepared.sign(sourceKeypair);
 
     const result = await this.server.sendTransaction(prepared);
-    const txResult = await this.pollTransaction(result.hash);
+    const pollResult = await this.pollTransaction(result.hash);
 
-    // Create platform fee record after successful stream creation
-    if (txResult.status === 'SUCCESS') {
-      const streamData = {
-        streamId: txResult.streamId || result.hash, // Use streamId if available, fallback to hash
-        totalAmount,
+    if (pollResult.status === 'SUCCESS') {
+      // Decode stream ID from result meta
+      const streamId = this.decodeStreamIdFromResult(pollResult);
+      
+      if (streamId === null) {
+        throw new Error('Failed to decode stream ID from transaction result');
+      }
+      
+      // Save to database
+      await Stream.create({
+        streamId: streamId.toString(),
+        contractId,
+        sender,
+        recipient,
         tokenAddress,
-      };
+        totalAmount: totalAmount.toString(),
+        ratePerLedger: (BigInt(totalAmount) / BigInt(stopLedger - startLedger)).toString(),
+        startLedger,
+        stopLedger,
+        isPublic,
+        createdTxHash: result.hash,
+      });
 
-      await this.platformFeeService.createPlatformFeeRecord(streamData, result.hash);
+      return { ...pollResult, streamId };
     }
 
-    return txResult;
+    return pollResult;
+  }
+
+  decodeStreamIdFromResult(result) {
+    if (!result.resultMetaXdr) return null;
+    const meta = xdr.TransactionMeta.fromXDR(result.resultMetaXdr, 'base64');
+    const events = meta.v3().sorobanMeta().events();
+    const createdEvent = events.find(e => e.type().name === 'contract' && e.body().v0().topics()[0].symbol().toString() === 'created');
+    if (createdEvent) {
+      return createdEvent.body().v0().topics()[1].u64().toNumber();
+    }
+    return null;
   }
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {
@@ -112,7 +136,16 @@ class StreamingService {
     prepared.sign(sourceKeypair);
 
     const result = await this.server.sendTransaction(prepared);
-    return this.pollTransaction(result.hash);
+    const pollResult = await this.pollTransaction(result.hash);
+
+    if (pollResult.status === 'SUCCESS') {
+      await Stream.findOneAndUpdate(
+        { streamId: streamId.toString() },
+        { $inc: { withdrawn: amount.toString() } }
+      );
+    }
+
+    return pollResult;
   }
 
   async cancelStream(contractId, sourceKeypair, streamId) {
@@ -138,7 +171,16 @@ class StreamingService {
     prepared.sign(sourceKeypair);
 
     const result = await this.server.sendTransaction(prepared);
-    return this.pollTransaction(result.hash);
+    const pollResult = await this.pollTransaction(result.hash);
+
+    if (pollResult.status === 'SUCCESS') {
+      await Stream.findOneAndUpdate(
+        { streamId: streamId.toString() },
+        { status: 'canceled', canceledTxHash: result.hash }
+      );
+    }
+
+    return pollResult;
   }
 
   async getStreamBalance(contractId, streamId) {
@@ -154,7 +196,7 @@ class StreamingService {
     const result = await this.server.getLedgerEntries(ledgerKey);
     if (result.entries && result.entries.length > 0) {
       const data = xdr.LedgerEntryData.fromXDR(result.entries[0].xdr, 'base64');
-      return this.parseStreamData(data);
+      return this.parseStreamData(data.value().val());
     }
     return null;
   }
@@ -187,14 +229,18 @@ class StreamingService {
 
   parseStreamData(scVal) {
     // Parse Stream struct from ScVal
+    const map = scVal.map();
+    const getVal = (key) => map.find(e => e.key().symbol().toString() === key)?.val();
+
     return {
-      sender: scVal.sender?.toString(),
-      recipient: scVal.recipient?.toString(),
-      token: scVal.token?.toString(),
-      ratePerLedger: scVal.rate_per_ledger?.toString(),
-      startLedger: scVal.start_ledger,
-      stopLedger: scVal.stop_ledger,
-      withdrawn: scVal.withdrawn?.toString(),
+      sender: getVal('sender')?.address().toString(),
+      recipient: getVal('recipient')?.address().toString(),
+      token: getVal('token')?.address().toString(),
+      ratePerLedger: getVal('rate_per_ledger')?.i128().toString(),
+      startLedger: getVal('start_ledger')?.u32(),
+      stopLedger: getVal('stop_ledger')?.u32(),
+      withdrawn: getVal('withdrawn')?.i128().toString(),
+      isPublic: getVal('is_public')?.b(),
     };
   }
 

@@ -17,8 +17,7 @@ pub struct Stream {
     pub start_ledger: u32,
     pub stop_ledger: u32,
     pub withdrawn: i128,
-    pub total_deposited: i128,
-    pub base_streamed: i128,
+    pub is_public: bool,
 }
 
 #[contracttype]
@@ -93,6 +92,7 @@ impl StreamingPayments {
         total_amount: i128,
         start_ledger: u32,
         stop_ledger: u32,
+        is_public: bool,
     ) -> u64 {
         sender.require_auth();
 
@@ -140,8 +140,7 @@ impl StreamingPayments {
             start_ledger,
             stop_ledger,
             withdrawn: 0,
-            total_deposited: total_amount,
-            base_streamed: 0,
+            is_public,
         };
 
         e.storage()
@@ -712,9 +711,9 @@ mod test {
         client.initialize(&admin);
         
         e.ledger().set_sequence_number(100);
-
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
-
+        
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &true);
+        
         e.ledger().set_sequence_number(150);
 
         let balance = client.balance_of(&stream_id);
@@ -971,8 +970,8 @@ mod test {
         client.set_fee_basis_points(&1000); // 10%
 
         e.ledger().set_sequence_number(100);
-        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200);
-
+        let stream_id = client.create_stream(&sender, &recipient, &token_addr, &1000, &100, &200, &false);
+        
         e.ledger().set_sequence_number(150);
         // Withdraw 500; with 10% fee => 50 fee, net 450
         client.withdraw(&stream_id, &500);

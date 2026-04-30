@@ -51,33 +51,12 @@ router.post(
     body('totalAmount').isString().notEmpty(),
     body('startLedger').isInt({ min: 0 }),
     body('stopLedger').isInt({ min: 0 }),
-    body('metadata')
-      .optional()
-      .isObject()
-      .withMessage('metadata must be a plain object')
-      .custom((value) => {
-        if (!value) return true;
-        const keys = Object.keys(value);
-        if (keys.length > 50) throw new Error('metadata cannot have more than 50 keys');
-        for (const key of keys) {
-          if (!/^[a-zA-Z0-9_-]{1,64}$/.test(key)) {
-            throw new Error(`Invalid metadata key: "${key}". Keys must be alphanumeric (a-z, 0-9, _, -) and max 64 chars`);
-          }
-          const val = value[key];
-          if (val !== null && typeof val === 'object') {
-            throw new Error(`Metadata values must be primitives (string, number, boolean, null), not objects or arrays`);
-          }
-          if (typeof val === 'string' && val.length > 512) {
-            throw new Error(`Metadata string values must not exceed 512 characters`);
-          }
-        }
-        return true;
-      }),
+    body('isPublic').optional().isBoolean(),
     validate,
   ],
   async (req, res, next) => {
     try {
-      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger, metadata } = req.body;
+      const { sender, recipient, tokenAddress, totalAmount, startLedger, stopLedger, isPublic } = req.body;
       
       const service = new StreamingService(
         process.env.SOROBAN_RPC_URL,
@@ -101,8 +80,7 @@ router.post(
         totalAmount,
         startLedger,
         stopLedger,
-        cancellationDelay,
-        irrevocable
+        isPublic
       );
 
      // Persist metadata to MongoDB if provided
