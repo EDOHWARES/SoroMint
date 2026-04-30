@@ -52,6 +52,7 @@ REQUIRED_FILES=(
     "services/recovery-test-service.js"
     "utils/backup-encryption.js"
     "routes/backup-routes.js"
+    "scripts/restore-latest-backup.js"
     "config/env-config.js"
     "tests/backup-encryption.test.js"
     "tests/backup-service.test.js"
@@ -80,7 +81,17 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 echo ""
 
-echo -e "${YELLOW}Step 5: Running unit tests...${NC}"
+echo -e "${YELLOW}Step 5: Verifying restore helper script...${NC}"
+if node ./scripts/restore-latest-backup.js --help >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ Restore helper script available${NC}"
+else
+    echo -e "${RED}✗ Restore helper script validation failed${NC}"
+    exit 1
+fi
+
+echo ""
+
+echo -e "${YELLOW}Step 6: Running unit tests...${NC}"
 npm test -- --testPathPattern="backup" --passWithNoTests --forceExit
 echo ""
 

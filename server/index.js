@@ -10,6 +10,7 @@ const { initEnv, getEnv } = require('./config/env-config');
 initEnv();
 
 const { scheduleBackups } = require('./services/backup-service');
+const { scheduleRecoveryTests } = require('./services/recovery-test-service');
 const { getCacheService } = require('./services/cache-service');
 const { startReconciliationWorker } = require('./services/reconciliation-service');
 
@@ -50,7 +51,7 @@ const streamingRoutes = require('./routes/streaming-routes');
 const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
-const adminRoutes = require('./routes/admin-routes');
+const backupRoutes = require('./routes/backup-routes');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -97,7 +98,7 @@ const createApp = ({
   app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
   app.use('/api/fraud-detection', fraudDetectionRoutes);
-  app.use('/api', adminRoutes);
+  app.use('/api/backups', backupRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
@@ -157,7 +158,7 @@ const startServer = async () => {
     logStartupInfo(env.PORT, env.NETWORK_PASSPHRASE);
     sampler.start();
     scheduleBackups();
-    startReconciliationWorker();
+    scheduleRecoveryTests();
   });
 
   initSocket(server);
