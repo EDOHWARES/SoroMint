@@ -6,10 +6,13 @@
  * @dev In development mode, full error stacks are logged via Winston.
  *      In production, sensitive error details are omitted from client responses.
  *      Custom errors can be created using the AppError class for specific error codes.
+ *      Error messages are translated based on the user's language preference
+ *      detected from Accept-Language header or other i18next detection methods.
  */
 
 const { logger } = require('../utils/logger');
 const { captureException, addBreadcrumb } = require('../config/sentry');
+const { getI18n } = require('../config/i18n');
 
 /**
  * @notice Custom error class for application-specific errors
@@ -30,22 +33,50 @@ class AppError extends Error {
 
 /**
  * @notice Standardized error response structure
- * @dev Used to format all error responses consistently
+ * @dev Used to format all error responses consistently with i18n support
  * @param {Error} err - The error object to format
+ * @param {Object} req - Express request object (for i18n context)
  * @param {boolean} isProduction - Whether running in production mode
  * @returns {Object} Standardized error response object
  */
-const formatErrorResponse = (err, isProduction) => {
-  const errorMessage = err.message || 'An unexpected error occurred';
+const formatErrorResponse = (err, req, isProduction) => {
+  // Get translation function from request (set by i18n middleware)
+  const t = req.t || ((key) => key);
+
+  // Extract error code for translation lookup
+  const errorCode = err.code || 'INTERNAL_ERROR';
+
+  // Try to translate the error message using the error code
+  let translatedMessage;
+  try {
+    // Build translation key: errors.{category}.{code} or errors.common.{code}
+    // The code format is usually CATEGORY_CODE (e.g., VALIDATION_ERROR, AUTH_REQUIRED)
+    // We'll try to find the appropriate translation
+
+    // First, try direct translation of the code
+    translatedMessage = t(`errors.${errorCode}`, { defaultValue: err.message });
+
+    // If the translation returns the same as the key, try common fallback
+    if (translatedMessage === `errors.${errorCode}`) {
+      // Try to map code to a common error key
+      const commonKey = mapErrorCodeToCommon(errorCode);
+      if (commonKey) {
+        translatedMessage = t(`errors.common.${commonKey}`, { defaultValue: err.message });
+      }
+    }
+  } catch (e) {
+    // If translation fails, fall back to original message
+    translatedMessage = err.message;
+  }
+
   // Handle null/undefined messages
-  const safeMessage =
-    errorMessage === 'null' || errorMessage === ''
-      ? 'An unexpected error occurred'
-      : errorMessage;
+  const safeMessage = translatedMessage === 'null' || translatedMessage === '' || !translatedMessage
+    ? t('errors.common.unexpected', { defaultValue: 'An unexpected error occurred' })
+    : translatedMessage;
 
   const response = {
     error: safeMessage,
-    code: err.code || 'INTERNAL_ERROR',
+    code: errorCode
   };
 
   // Include status code if available
@@ -59,6 +90,66 @@ const formatErrorResponse = (err, isProduction) => {
   }
 
   return response;
+};
+
+/**
+ * @notice Map error codes to common error translation keys
+ * @dev Helps fallback to common translations when specific ones don't exist
+ * @param {string} code - Error code
+ * @returns {string|null} Common error key or null
+ */
+const mapErrorCodeToCommon = (code) => {
+  const mapping = {
+    // Validation errors
+    'VALIDATION_ERROR': 'validationFailed',
+    'INVALID_ID': 'invalidId',
+    'DUPLICATE_KEY': 'duplicate',
+    'SYNTAX_ERROR': 'syntaxError',
+
+    // Auth errors
+    'AUTH_REQUIRED': 'required',
+    'USER_NOT_FOUND': 'userNotFound',
+    'ACCOUNT_INACTIVE': 'accountInactive',
+    'TOKEN_EXPIRED': 'tokenExpired',
+    'INVALID_TOKEN': 'invalidToken',
+    'TOKEN_NOT_YET_VALID': 'tokenNotYetValid',
+    'AUTH_ERROR': 'authFailed',
+
+    // Not found
+    'NOT_FOUND': 'notFound',
+    'ROUTE_NOT_FOUND': 'routeNotFound',
+
+    // Forbidden
+    'ACCESS_DENIED': 'forbidden',
+
+    // API Key
+    'INVALID_API_KEY': 'apiKey.invalid',
+    'API_KEY_REVOKED': 'apiKey.revoked',
+    'API_KEY_EXPIRED': 'apiKey.expired',
+    'RATE_LIMIT_EXCEEDED': 'rateLimit.exceeded',
+
+    // Token
+    'TOKEN_NOT_FOUND': 'tokenNotFound',
+
+    // Proposal
+    'PROPOSAL_NOT_FOUND': 'proposal.notFound',
+    'PROPOSAL_NOT_ACTIVE': 'proposal.notActive',
+    'PROPOSAL_EXPIRED': 'proposal.expired',
+    'ALREADY_VOTED': 'proposal.alreadyVoted',
+    'INVALID_STATUS': 'proposal.invalidStatus',
+
+    // Multisig
+    'TRANSACTION_NOT_FOUND': 'multisig.transactionNotFound',
+
+    // Config
+    'ENV_NOT_CONFIGURED': 'config.envNotConfigured',
+    'CORS_ORIGIN_DENIED': 'cors.originDenied',
+
+    // Internal
+    'INTERNAL_ERROR': 'internalError',
+  };
+
+  return mapping[code] || null;
 };
 
 /**
@@ -150,11 +241,9 @@ const handleKnownErrors = (err) => {
  * @param {Function} next - Express next middleware function
  */
 const notFoundHandler = (req, res, next) => {
-  const err = new AppError(
-    `Route ${req.originalUrl} not found`,
-    404,
-    'ROUTE_NOT_FOUND'
-  );
+  const t = req.t || ((key) => key);
+  const message = t('errors.common.routeNotFound', { defaultValue: `Route ${req.originalUrl} not found` });
+  const err = new AppError(message, 404, 'ROUTE_NOT_FOUND');
   next(err);
 };
 
@@ -200,8 +289,8 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Send standardized response
-  const responseBody = formatErrorResponse(processedError, isProduction);
+  // Send standardized response with i18n support
+  const responseBody = formatErrorResponse(processedError, req, isProduction);
 
   res.status(statusCode).json(responseBody);
 };

@@ -1,0 +1,200 @@
+{
+  "errors": {
+    "common": {
+      "unexpected": "An unexpected error occurred",
+      "invalidRequest": "Invalid request",
+      "notFound": "Resource not found",
+      "forbidden": "Access denied",
+      "unauthorized": "Authentication required",
+      "validationFailed": "Validation failed",
+      "duplicate": "Duplicate entry",
+      "invalidId": "Invalid ID",
+      "syntaxError": "Invalid request payload",
+      "routeNotFound": "Route not found",
+      "internalError": "Internal server error"
+    },
+    "auth": {
+      "required": "Authentication required. Please provide a valid JWT token.",
+      "userNotFound": "User not found. Token may be invalid.",
+      "accountInactive": "Account is {status}. Please contact support.",
+      "tokenExpired": "Token has expired. Please login again.",
+      "invalidToken": "Invalid token format.",
+      "tokenNotYetValid": "Token is not yet valid.",
+      "authFailed": "Authentication failed.",
+      "invalidPublicKey": "Invalid Stellar public key format. Must be a valid G-address (Ed25519 public key)",
+      "publicKeyRequired": "Public key is required",
+      "userExists": "User with this public key already registered",
+      "usernameLength": "Username must be between 3 and 50 characters",
+      "userNotFoundRegister": "User not found. Please register first.",
+      "signatureMismatch": "Public key mismatch between request body and signed challenge.",
+      "challengeRequired": "challengeToken is required. First call GET /api/auth/challenge?publicKey=<your-key>",
+      "signedXdrRequired": "signedXDR is required. Sign the challenge transaction with your Stellar wallet.",
+      "authFailedDetailed": "Authentication failed: {error}",
+      "keyAlreadyLinked": "This Stellar public key is already linked to another account",
+      "validPublicKeyRequired": "Valid Stellar public key is required"
+    },
+    "token": {
+      "securityScanRequired": "Security scan required before deployment. Please complete a security scan first.",
+      "scanNotFound": "Security scan result not found: {scanId}. Please complete a security scan first.",
+      "scanNotOwned": "The provided scanId does not belong to your account.",
+      "deploymentBlocked": "Deployment blocked: the security scan ({scanId}) found vulnerabilities.",
+      "tokenNotFound": "Token not found",
+      "zipOnly": "Only ZIP files are allowed",
+      "zipRequired": "A ZIP file is required",
+      "fieldsRequired": "name, symbol, contractId, and sourcePublicKey are required",
+      "contractAlreadyRegistered": "Contract ID is already registered by a different owner",
+      "zipProcessingFailed": "Failed to process ZIP: {error}",
+      "blockchainFailed": "Blockchain transaction failed: {error}"
+    },
+    "apiKey": {
+      "required": "API key required. Provide it via the X-API-Key header.",
+      "invalid": "Invalid API key.",
+      "revoked": "API key is revoked.",
+      "expired": "API key is expired.",
+      "missingScopes": "API key is missing required scope(s): {scopes}",
+      "notFound": "API key not found"
+    },
+    "rateLimit": {
+      "exceeded": "Too many requests. Please try again later."
+    },
+    "validation": {
+      "invalidDate": "Invalid date",
+      "invalidTimestamp": "Invalid from/to timestamp",
+      "invalidParameter": "Invalid parameter: {param}",
+      "contractIdRequired": "contractId query param is required",
+      "holderBalanceRequired": "contractId and holderBalance query params are required",
+      "invalidAddress": "holderAddress must be a valid 56-character Stellar address",
+      "dividendParamsRequired": "contractId, depositorAddress, amountStroops, and totalSupply are required",
+      "positiveAmount": "amountStroops must be a positive integer",
+      "positiveTotal": "totalSupply must be a positive integer",
+      "opsRange": "ops must be an integer between 1 and 100",
+      "transactionXdrRequired": "transactionXdr is required",
+      "feePositive": "feeStroops must be a positive integer",
+      "notEligible": "Transaction is not eligible for sponsorship: {reasons}",
+      "sponsorshipFailed": "Sponsored transaction submission failed",
+      "searchQueryTooLong": "q must not exceed 50 characters",
+      "missingFields": "Missing required fields",
+      "invalidFunction": "Invalid target function",
+      "invalidBase64": "Invalid base64 WASM data: {error}",
+      "invalidStellarAddress": "contractId must be a valid Stellar C-address (56 chars, starts with C)",
+      "invalidPublicKeyFormat": "publicKey must be a valid Stellar G-address (56 chars, starts with G)",
+      "budgetNonNegative": "requestedBudgetStroops must be a non-negative integer"
+    },
+    "proposal": {
+      "notFound": "Proposal not found",
+      "notActive": "Proposal is not active",
+      "expired": "Proposal has expired",
+      "alreadyVoted": "Already voted",
+      "cannotExecute": "Proposal cannot be executed",
+      "invalidStatus": "Invalid proposal status"
+    },
+    "dao": {
+      "tokenNotFound": "Token not found"
+    },
+    "multisig": {
+      "transactionNotFound": "Transaction not found",
+      "cannotExecute": "Transaction cannot be executed",
+      "alreadySigned": "Already signed by this signer",
+      "transactionStatus": "Transaction is {status}"
+    },
+    "vault": {
+      "missingFields": "Missing required fields"
+    },
+    "nft": {
+      "zipOnly": "Only ZIP files are allowed",
+      "zipRequired": "A ZIP file is required",
+      "collectionNotFound": "collection.json not found in ZIP",
+      "invalidJson": "collection.json is not valid JSON",
+      "invalidArray": "collection.json must contain an array of NFT metadata objects",
+      "missingImage": "Each metadata item must have an id and an image field",
+      "imageNotFound": "Image {image} not found in ZIP for NFT {id}",
+      "contractAlreadyRegistered": "Contract ID is already registered by a different owner"
+    },
+    "security": {
+      "scanNotFound": "Scan result not found: {scanId}",
+      "permissionDenied": "You do not have permission to view this scan result.",
+      "deletePermissionDenied": "You do not have permission to delete this scan result.",
+      "invalidWasm": "Invalid base64 WASM data: {error}",
+      "emptyBuffer": "Decoded buffer is empty"
+    },
+    "sponsorship": {
+      "disabled": "Sponsorship is not enabled on this server",
+      "inactiveAccount": "Only active users can apply for sponsorship",
+      "submissionFailed": "Sponsored transaction submission failed"
+    },
+    "fee": {
+      "horizonUnavailable": "Unable to fetch fee statistics from Horizon"
+    },
+    "ipfs": {
+      "pinFailed": "IPFS pinning failed: {error}",
+      "jsonPinFailed": "IPFS JSON pinning failed: {error}",
+      "invalidBase64": "Invalid base64 string format"
+    },
+    "cors": {
+      "invalidOrigin": "Invalid Origin header",
+      "originDenied": "Origin not allowed by CORS policy"
+    },
+    "batch": {
+      "lockFailed": "Account is currently busy processing another transaction. Please try again later."
+    },
+    "streaming": {
+      "pollingTimeout": "Transaction polling timeout"
+    },
+    "delegation": {
+      "approveFailed": "Failed to approve minter: {error}",
+      "revokeFailed": "Failed to revoke minter: {error}",
+      "executeFailed": "Failed to execute delegated mint: {error}",
+      "getFailed": "Failed to get delegation: {error}",
+      "getByOwnerFailed": "Failed to get delegations by owner: {error}",
+      "getByDelegateFailed": "Failed to get delegations by delegate: {error}",
+      "getActiveFailed": "Failed to get active delegations: {error}",
+      "statsFailed": "Failed to get delegation stats: {error}",
+      "mintCheckFailed": "Failed to check if can mint: {error}"
+    },
+    "recovery": {
+      "backupError": "BACKUP_ENCRYPTION_PASSWORD not configured - cannot perform recovery test",
+      "restoreFailed": "Restore failed",
+      "invalidGzip": "Invalid gzip"
+    },
+    "wasm": {
+      "scanError": "Submission rejected: {error}",
+      "transactionFailed": "Transaction failed on chain: {error}",
+      "timeout": "Transaction timed out or stuck in unknown state",
+      "pastScheduling": "Cannot schedule a mint in the past."
+    },
+    "mintQueue": {
+      "submissionRejected": "Submission rejected: {error}",
+      "transactionFailed": "Transaction failed on chain: {error}",
+      "transactionTimeout": "Transaction timed out or stuck in unknown state"
+    },
+    "bridge": {
+      "validationError": "Bridge validation error",
+      "rpcFailed": "EVM RPC request failed with HTTP {status}",
+      "rpcError": "Unknown EVM RPC error",
+      "relayFailed": "Bridge relay endpoint responded with HTTP {status}",
+      "notConfigured": "Bridge relayer is not properly configured"
+    },
+    "stellar": {
+      "noRpcUrls": "No RPC URLs provided for FailoverRpcServer",
+      "feeStatsFailed": "Horizon fee_stats request failed: {status} {statusText}"
+    },
+    "config": {
+      "envNotConfigured": "{variable} environment variable is not configured",
+      "corsOriginRequired": "CORS origin must be a non-empty string",
+      "invalidCorsOrigin": "Invalid CORS origin: {origin}",
+      "corsProtocol": "CORS origin must use http or https: {origin}",
+      "corsBareOrigin": "CORS origin must be a bare origin without path, query, hash, or credentials: {origin}",
+      "corsStringRequired": "CORS_ALLOWED_ORIGINS must be a comma-separated string",
+      "validationError": "Validation Error: {errors}"
+    },
+    "event": {
+      "onEventRequired": "onEvent handler is required"
+    },
+    "lock": {
+      "redisNotConnected": "Redis cache is not connected, cannot acquire lock"
+    },
+    "simulation": {
+      "failed": "Simulation failed: {error}"
+    }
+  }
+}
