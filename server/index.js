@@ -16,6 +16,8 @@ const { startReconciliationWorker } = require('./services/reconciliation-service
 
 const express = require('express');
 const mongoose = require('mongoose');
+const softDeletePlugin = require('./utils/soft-delete-plugin');
+mongoose.plugin(softDeletePlugin);
 const cors = require('cors');
 const { securityHeaders } = require('./middleware/security-headers');
 const { createCorsOptionsDelegate } = require('./config/cors-config');
@@ -52,7 +54,7 @@ const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
 const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
-const discoveryRoutes = require('./routes/discovery-routes');
+const adminRoutes = require('./routes/admin-routes');
 
 const createApp = ({
   authRouter = authRoutes,
@@ -96,7 +98,7 @@ const createApp = ({
   app.use('/api/streaming', streamingRoutes);
   app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
-  app.use('/api', discoveryRoutes);
+  app.use('/api/admin', adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -75,10 +75,14 @@ router.get('/webhooks', authenticate, asyncHandler(async (req, res) => {
  * @returns {object} 404 - Webhook not found
  */
 router.delete('/webhooks/:id', authenticate, asyncHandler(async (req, res) => {
-  const webhook = await Webhook.findOneAndDelete({
-    _id: req.params.id,
-    ownerPublicKey: req.user.publicKey,
-  });
+  const webhook = await Webhook.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      ownerPublicKey: req.user.publicKey,
+    },
+    { isArchived: true, deletedAt: new Date() },
+    { new: true }
+  );
 
     if (!webhook) throw new AppError('Webhook not found', 404, 'NOT_FOUND');
 
