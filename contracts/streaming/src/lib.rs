@@ -5,7 +5,7 @@
 
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, Bytes, IntoVal, Symbol, symbol_short};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -38,6 +38,11 @@ pub enum Schedule {
 pub enum StreamKey {
     Record(u64),
     Counter,
+}
+
+#[soroban_sdk::contractclient(name = "PermitClient")]
+pub trait PermitInterface {
+    fn permit(e: Env, from: Address, spender: Address, amount: i128, deadline: u64, signature: Bytes);
 }
 
 #[contracttype]
@@ -127,16 +132,54 @@ impl StreamingPayments {
             panic!("invalid ledger range");
         }
         
+        // Transfer tokens to contract
+        let client = token::Client::new(&e, &token);
+        client.transfer(&sender, &e.current_contract_address(), &total_amount);
+        
+        Self::finalize_create_stream(e, sender, recipient, token, total_amount, start_ledger, stop_ledger)
+    }
+
+    /// Create a new payment stream using a permit (one-click)
+    pub fn create_stream_with_permit(
+        e: Env,
+        sender: Address,
+        recipient: Address,
+        token: Address,
+        total_amount: i128,
+        start_ledger: u32,
+        stop_ledger: u32,
+        deadline: u64,
+        signature: Bytes,
+    ) -> u64 {
+        if total_amount <= 0 { panic!("amount must be positive"); }
+        if stop_ledger <= start_ledger { panic!("invalid ledger range"); }
+        sender.require_auth();
+        // 1. Call token.permit to set allowance
+        let permit_client = PermitClient::new(&e, &token);
+        permit_client.permit(&sender, &e.current_contract_address(), &total_amount, &deadline, &signature);
+
+        // 2. Transfer total amount to contract using transfer_from
+        let client = token::Client::new(&e, &token);
+        client.transfer_from(&e.current_contract_address(), &sender, &e.current_contract_address(), &total_amount);
+
+        Self::finalize_create_stream(e, sender, recipient, token, total_amount, start_ledger, stop_ledger)
+    }
+
+    fn finalize_create_stream(
+        e: Env,
+        sender: Address,
+        recipient: Address,
+        token: Address,
+        total_amount: i128,
+        start_ledger: u32,
+        stop_ledger: u32,
+    ) -> u64 {
         let duration = (stop_ledger - start_ledger) as i128;
         let rate_per_ledger = total_amount / duration;
         
         if rate_per_ledger == 0 { panic!("amount too small for duration"); }
         
-        // Transfer tokens to contract
-        let client = token::Client::new(&e, &token);
-        client.transfer(&sender, &e.current_contract_address(), &total_amount);
-        
-        let stream_id: u64 = e.storage().instance().get(&DataKey::Stream(StreamKey::Counter)).unwrap_or(0);
+        let stream_id = e.storage().instance().get(&DataKey::NextStreamId).unwrap_or(0u64);
         
         let stream = Stream {
             sender: sender.clone(),
@@ -745,5 +788,44 @@ mod test {
         client.withdraw_from_multiple(&vec![&e, stream_id_1, stream_id_2], &vec![&e, 500, 1000]);
         
         assert_eq!(token_client.balance(&recipient), 1500);
+    }
+
+    #[test]
+    fn test_create_stream_with_permit() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let admin = Address::generate(&e);
+        let sender = Address::generate(&e);
+        let recipient = Address::generate(&e);
+
+        let token_id = e.register(soromint_token::SoroMintToken, ());
+        let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_id);
+        token_client.initialize(&admin, &7, &soroban_sdk::String::from_str(&e, "SoroMint"), &soroban_sdk::String::from_str(&e, "SMT"));
+        
+        token_client.mint(&sender, &10000);
+        
+        let contract_id = e.register(StreamingPayments, ());
+        let client = StreamingPaymentsClient::new(&e, &contract_id);
+
+        e.ledger().set_sequence_number(100);
+        
+        let deadline = 200u64;
+        let signature = Bytes::from_slice(&e, &[0u8; 64]); 
+
+        let stream_id = client.create_stream_with_permit(
+            &sender,
+            &recipient,
+            &token_id,
+            &1000,
+            &100,
+            &200,
+            &deadline,
+            &signature
+        );
+
+        assert_eq!(client.balance_of(&stream_id), 0);
+        e.ledger().set_sequence_number(150);
+        assert_eq!(client.balance_of(&stream_id), 500);
     }
 }

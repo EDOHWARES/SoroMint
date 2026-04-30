@@ -144,17 +144,10 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Account"
+                  "symbol": "Balance"
                 },
                 {
-                  "vec": [
-                    {
-                      "symbol": "Balance"
-                    },
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                    }
-                  ]
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                 }
               ]
             },
@@ -171,17 +164,10 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Account"
+                      "symbol": "Balance"
                     },
                     {
-                      "vec": [
-                        {
-                          "symbol": "Balance"
-                        },
-                        {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                        }
-                      ]
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                     }
                   ]
                 },
@@ -209,17 +195,10 @@
                   "symbol": "Snapshot"
                 },
                 {
-                  "vec": [
-                    {
-                      "symbol": "Balance"
-                    },
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                    },
-                    {
-                      "u32": 0
-                    }
-                  ]
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "u32": 0
                 }
               ]
             },
@@ -239,17 +218,10 @@
                       "symbol": "Snapshot"
                     },
                     {
-                      "vec": [
-                        {
-                          "symbol": "Balance"
-                        },
-                        {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                        },
-                        {
-                          "u32": 0
-                        }
-                      ]
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 0
                     }
                   ]
                 },
@@ -277,17 +249,10 @@
                   "symbol": "Snapshot"
                 },
                 {
-                  "vec": [
-                    {
-                      "symbol": "Balance"
-                    },
-                    {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                    },
-                    {
-                      "u32": 10
-                    }
-                  ]
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
+                {
+                  "u32": 10
                 }
               ]
             },
@@ -307,17 +272,10 @@
                       "symbol": "Snapshot"
                     },
                     {
-                      "vec": [
-                        {
-                          "symbol": "Balance"
-                        },
-                        {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                        },
-                        {
-                          "u32": 10
-                        }
-                      ]
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 10
                     }
                   ]
                 },
@@ -362,14 +320,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Admin"
-                                }
-                              ]
+                              "symbol": "Admin"
                             }
                           ]
                         },
@@ -381,14 +332,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Decimals"
-                                }
-                              ]
+                              "symbol": "Decimals"
                             }
                           ]
                         },
@@ -400,33 +344,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "IsTransferable"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "val": {
-                          "bool": true
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Name"
-                                }
-                              ]
+                              "symbol": "Name"
                             }
                           ]
                         },
@@ -438,14 +356,22 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
+                              "symbol": "Supply"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "i128": {
+                            "hi": 0,
+                            "lo": 300
+                          }
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
                             {
-                              "vec": [
-                                {
-                                  "symbol": "Symbol"
-                                }
-                              ]
+                              "symbol": "Symbol"
                             }
                           ]
                         },
@@ -457,15 +383,12 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "TotalSupply"
+                              "symbol": "Transferable"
                             }
                           ]
                         },
                         "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 300
-                          }
+                          "bool": true
                         }
                       }
                     ]

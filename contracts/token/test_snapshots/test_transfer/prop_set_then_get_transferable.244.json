@@ -16,7 +16,7 @@
               "function_name": "set_transferable",
               "args": [
                 {
-                  "bool": false
+                  "bool": true
                 }
               ]
             }
@@ -197,10 +197,7 @@
                           ]
                         },
                         "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 0
-                          }
+                          "bool": true
                         }
                       }
                     ]

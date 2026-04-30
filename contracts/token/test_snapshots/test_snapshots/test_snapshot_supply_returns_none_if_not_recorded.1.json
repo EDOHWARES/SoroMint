@@ -45,14 +45,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Admin"
-                                }
-                              ]
+                              "symbol": "Admin"
                             }
                           ]
                         },
@@ -64,14 +57,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Decimals"
-                                }
-                              ]
+                              "symbol": "Decimals"
                             }
                           ]
                         },
@@ -83,33 +69,7 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "IsTransferable"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "val": {
-                          "bool": true
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Name"
-                                }
-                              ]
+                              "symbol": "Name"
                             }
                           ]
                         },
@@ -121,14 +81,22 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Config"
-                            },
+                              "symbol": "Supply"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "i128": {
+                            "hi": 0,
+                            "lo": 0
+                          }
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
                             {
-                              "vec": [
-                                {
-                                  "symbol": "Symbol"
-                                }
-                              ]
+                              "symbol": "Symbol"
                             }
                           ]
                         },
@@ -140,15 +108,12 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "TotalSupply"
+                              "symbol": "Transferable"
                             }
                           ]
                         },
                         "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 0
-                          }
+                          "bool": true
                         }
                       }
                     ]
