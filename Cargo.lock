@@ -1693,6 +1693,7 @@ name = "soromint-streaming"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "soromint-oracle",
 ]
 
 [[package]]
