@@ -157,6 +157,35 @@ const UserSchema = new mongoose.Schema(
       sparse: true,
       trim: true,
     },
+    /**
+     * Reference to the AccountTier
+     */
+    accountTierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AccountTier',
+      default: null, // Will be set to free tier by default
+    },
+    /**
+     * Timestamp of when tier was last changed
+     */
+    tierChangedAt: {
+      type: Date,
+    },
+    /**
+     * Total deployments made by user (all-time)
+     */
+    totalDeployments: {
+      type: Number,
+      default: 0,
+      min: [0, 'Total deployments cannot be negative'],
+    },
+    /**
+     * Whether user has received trial period
+     */
+    hasReceivedTrial: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

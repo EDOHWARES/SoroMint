@@ -52,6 +52,8 @@ const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
 const keyVaultRoutes = require('./routes/key-vault-routes');
 const reconciliationRoutes = require('./routes/reconciliation-routes');
+const billingRoutes = require('./routes/billing-routes');
+const BillingService = require('./services/billing-service');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -100,6 +102,7 @@ const createApp = ({
   app.use('/api/fraud-detection', fraudDetectionRoutes);
   app.use('/api/key-vault', keyVaultRoutes);
   app.use('/api/reconciliation', reconciliationRoutes);
+  app.use('/api/billing', billingRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
@@ -140,6 +143,17 @@ const startServer = async () => {
   }
 
   await connectDatabase();
+  
+  // Initialize billing system
+  try {
+    await BillingService.initializeAccountTiers();
+    logger.info('Billing system initialized successfully');
+  } catch (error) {
+    logger.warn('Billing system initialization failed, continuing with existing tiers', {
+      error: error.message,
+    });
+  }
+
   const app = createApp();
 
   const { initSocket } = require('./utils/socket');
