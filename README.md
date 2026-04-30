@@ -52,4 +52,5 @@ Ensure your `.env` file in the `/server` directory contains:
 - **Connect Wallet**: Integrated placeholder for Stellar wallets.
 - **Mint Tokens**: Wrap Stellar Assets or deploy custom contracts.
 - **Asset Dashboard**: Track your deployed tokens stored in MongoDB.
-- **Bridge Relayer**: Monitor cross-chain bridge events and forward normalized relay commands to an execution endpoint.
+## Security
+SoroMint maintains a security-first mindset. For vulnerability reporting and our audit fast-track process, see [SECURITY.md](./SECURITY.md).

@@ -34,6 +34,11 @@ pub struct MultiSigAdmin;
 
 #[contractimpl]
 impl MultiSigAdmin {
+    /// Initializes the multi-sig contract with a list of signers and a threshold.
+    /// 
+    /// # Arguments
+    /// * `signers` - A list of addresses that are authorized to sign transactions.
+    /// * `threshold` - The minimum number of signatures required to execute a transaction.
     pub fn initialize(e: Env, signers: Vec<Address>, threshold: u32) {
         if e.storage().instance().has(&DataKey::Signers) {
             panic!("already initialized");
@@ -46,6 +51,16 @@ impl MultiSigAdmin {
         e.storage().instance().set(&DataKey::TxCounter, &0u64);
     }
 
+    /// Proposes a new transaction to be executed by the multi-sig contract.
+    /// 
+    /// # Arguments
+    /// * `proposer` - The address of the signer proposing the transaction.
+    /// * `target` - The address of the contract to be called.
+    /// * `function` - The name of the function to be called on the target contract.
+    /// * `args` - The serialized arguments for the function call.
+    /// 
+    /// # Returns
+    /// The ID of the newly proposed transaction.
     pub fn propose_tx(
         e: Env,
         proposer: Address,
@@ -81,6 +96,11 @@ impl MultiSigAdmin {
         next_id
     }
 
+    /// Approves a pending transaction.
+    /// 
+    /// # Arguments
+    /// * `signer` - The address of the signer approving the transaction.
+    /// * `tx_id` - The ID of the transaction to approve.
     pub fn approve_tx(e: Env, signer: Address, tx_id: u64) {
         signer.require_auth();
         Self::require_signer(&e, &signer);
@@ -108,6 +128,11 @@ impl MultiSigAdmin {
             .publish((symbol_short!("tx_appr"),), (tx_id, signer));
     }
 
+    /// Executes a pending transaction if the threshold of signatures has been met.
+    /// 
+    /// # Arguments
+    /// * `executor` - The address of the signer executing the transaction.
+    /// * `tx_id` - The ID of the transaction to execute.
     pub fn execute_tx(e: Env, executor: Address, tx_id: u64) {
         executor.require_auth();
         Self::require_signer(&e, &executor);
@@ -136,6 +161,7 @@ impl MultiSigAdmin {
             .publish((symbol_short!("tx_exec"),), (tx_id, executor));
     }
 
+    /// Returns the details of a specific transaction.
     pub fn get_tx(e: Env, tx_id: u64) -> PendingTransaction {
         e.storage()
             .persistent()
@@ -143,10 +169,12 @@ impl MultiSigAdmin {
             .expect("transaction not found")
     }
 
+    /// Returns the list of authorized signers.
     pub fn get_signers(e: Env) -> Vec<Address> {
         e.storage().instance().get(&DataKey::Signers).unwrap()
     }
 
+    /// Returns the signature threshold for the multi-sig contract.
     pub fn get_threshold(e: Env) -> u32 {
         e.storage().instance().get(&DataKey::Threshold).unwrap()
     }

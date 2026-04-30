@@ -67,6 +67,13 @@ pub struct AmmPool;
 
 #[contractimpl]
 impl AmmPool {
+    /// Initializes the AMM pool with factory and asset pair.
+    /// 
+    /// # Arguments
+    /// * `factory` - The address of the AMM factory that created this pool.
+    /// * `token` - The address of the first token in the pair.
+    /// * `quote_token` - The address of the second token (quote asset) in the pair.
+    /// * `fee_bps` - The trading fee in basis points.
     pub fn initialize(
         e: Env,
         factory: Address,
@@ -97,6 +104,7 @@ impl AmmPool {
         events::emit_initialized(&e, &factory, &token, &quote_token, fee_bps);
     }
 
+    /// Returns the configuration of the pool.
     pub fn config(e: Env) -> PoolConfig {
         PoolConfig {
             factory: Self::read_factory(&e),
@@ -106,6 +114,7 @@ impl AmmPool {
         }
     }
 
+    /// Returns the current reserves of both tokens in the pool.
     pub fn reserves(e: Env) -> PoolReserves {
         PoolReserves {
             token_reserve: Self::read_reserve_token(&e),
@@ -113,14 +122,17 @@ impl AmmPool {
         }
     }
 
+    /// Returns the share balance of a specific liquidity provider.
     pub fn share_balance(e: Env, provider: Address) -> i128 {
         Self::read_share_balance(&e, &provider)
     }
 
+    /// Returns the total number of liquidity shares issued by the pool.
     pub fn total_shares(e: Env) -> i128 {
         Self::read_total_shares(&e)
     }
 
+    /// Provides a quote for adding liquidity based on maximum input amounts.
     pub fn quote_add_liquidity(
         e: Env,
         max_token_amount: i128,
@@ -132,6 +144,13 @@ impl AmmPool {
         Self::compute_liquidity(&e, max_token_amount, max_quote_amount)
     }
 
+    /// Adds liquidity to the pool.
+    /// 
+    /// # Arguments
+    /// * `provider` - The address of the liquidity provider.
+    /// * `max_token_amount` - The maximum amount of the first token to deposit.
+    /// * `max_quote_amount` - The maximum amount of the quote token to deposit.
+    /// * `min_shares` - The minimum number of shares to receive (slippage protection).
     pub fn add_liquidity(
         e: Env,
         provider: Address,
@@ -190,6 +209,13 @@ impl AmmPool {
         position
     }
 
+    /// Removes liquidity from the pool by burning shares.
+    /// 
+    /// # Arguments
+    /// * `provider` - The address of the liquidity provider.
+    /// * `shares` - The number of shares to burn.
+    /// * `min_token_amount` - The minimum amount of the first token to receive.
+    /// * `min_quote_amount` - The minimum amount of the quote token to receive.
     pub fn remove_liquidity(
         e: Env,
         provider: Address,
@@ -259,6 +285,7 @@ impl AmmPool {
         }
     }
 
+    /// Provides a quote for a token swap.
     pub fn quote_swap(e: Env, input_token: Address, amount_in: i128) -> SwapQuote {
         if amount_in <= 0 {
             panic!("swap amount must be positive");
@@ -272,6 +299,13 @@ impl AmmPool {
         }
     }
 
+    /// Performs a token swap.
+    /// 
+    /// # Arguments
+    /// * `trader` - The address of the trader.
+    /// * `input_token` - The address of the token being sold.
+    /// * `amount_in` - The amount of input token to sell.
+    /// * `min_amount_out` - The minimum amount of output token to receive.
     pub fn swap(
         e: Env,
         trader: Address,

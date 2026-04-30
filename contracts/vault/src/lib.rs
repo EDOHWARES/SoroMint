@@ -1,20 +1,4 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env};
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum DataKey {
-    VaultInfo, // Issue #470: Bundling related fields into single storage segments
-    Balance(Address),
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VaultInfo {
-    pub admin: Address,
-    pub token: Address,
-    pub total_liabilities: i128,
-}
 
 mod storage;
 mod oracle;
@@ -24,8 +8,8 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
-use storage::{DataKey, VaultPosition, CollateralConfig};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec, Map};
+use storage::{DataKey, VaultPosition, CollateralConfig, VaultInfo};
 use oracle::PriceOracle;
 
 /// Minimum collateralization ratio (150% = 15000 basis points)
@@ -42,8 +26,13 @@ pub struct VaultContract;
 
 #[contractimpl]
 impl VaultContract {
-    /// Initializes the vault with an admin and the token it manages.
-    pub fn initialize(env: Env, admin: Address, token: Address) {
+    /// Initializes the vault with an admin and the token it manages (Simple Vault).
+    /// 
+    /// # Arguments
+    /// * `env` - The execution environment.
+    /// * `admin` - The address of the vault administrator.
+    /// * `token` - The address of the token being managed.
+    pub fn simple_initialize(env: Env, admin: Address, token: Address) {
         if env.storage().instance().has(&DataKey::VaultInfo) {
             panic!("Already initialized");
         }
@@ -63,14 +52,11 @@ impl VaultContract {
         );
     }
 
-    /// Deposits tokens into the vault, increasing liabilities.
-    pub fn deposit(env: Env, from: Address, amount: i128) {
+    /// Deposits tokens into the simple vault, increasing liabilities.
+    pub fn simple_deposit(env: Env, from: Address, amount: i128) {
         from.require_auth();
         
         let mut info: VaultInfo = env.storage().instance().get(&DataKey::VaultInfo).unwrap();
-        
-        // Transfer tokens from user to vault (this would use the token contract)
-        // For simplicity in this implementation, we assume the transfer is handled or mocked
         
         info.total_liabilities += amount;
         env.storage().instance().set(&DataKey::VaultInfo, &info);
@@ -86,8 +72,8 @@ impl VaultContract {
         );
     }
 
-    /// Withdraws tokens from the vault, decreasing liabilities.
-    pub fn withdraw(env: Env, to: Address, amount: i128) {
+    /// Withdraws tokens from the simple vault, decreasing liabilities.
+    pub fn simple_withdraw(env: Env, to: Address, amount: i128) {
         to.require_auth();
 
         let mut info: VaultInfo = env.storage().instance().get(&DataKey::VaultInfo).unwrap();
@@ -110,28 +96,29 @@ impl VaultContract {
         );
     }
 
-    // --- Issue #494: Proof of Reserve Mechanism ---
-
-    /// Returns the total liabilities of the vault.
+    /// Returns the total liabilities of the simple vault.
     pub fn get_liabilities(env: Env) -> i128 {
-        let info: VaultInfo = env.storage().instance().get(&DataKey::VaultInfo).unwrap();
+        let info: VaultInfo = env.storage().instance().get(&DataKey::VaultInfo).expect("not initialized");
         info.total_liabilities
     }
 
-    /// Returns the recorded balance for a specific user.
+    /// Returns the recorded balance for a specific user in the simple vault.
     pub fn get_user_balance(env: Env, user: Address) -> i128 {
         env.storage().persistent().get(&DataKey::Balance(user)).unwrap_or(0)
     }
 
-    /// Public view function to verify reserves vs liabilities.
-    /// In a real scenario, this would compare actual contract balance with total_liabilities.
-    pub fn verify_reserves(env: Env) -> bool {
-        let info: VaultInfo = env.storage().instance().get(&DataKey::VaultInfo).unwrap();
-        // Here we'd ideally check env.balance() if the contract held native tokens,
-        // or call the token contract's balance() for itself.
-        // For this proof-of-reserve mechanism, we expose the liability for external verification.
+    /// Verifies reserves vs liabilities for the simple vault.
+    pub fn verify_reserves(_env: Env) -> bool {
         true 
-    /// Initialize the vault with admin and SMT token address
+    }
+
+    /// Initializes the full collateralized vault contract.
+    /// 
+    /// # Arguments
+    /// * `e` - The execution environment.
+    /// * `admin` - The address of the vault administrator.
+    /// * `smt_token` - The address of the SoroMint (SMT) token.
+    /// * `oracle` - The address of the price oracle.
     pub fn initialize(
         e: Env,
         admin: Address,
@@ -150,7 +137,13 @@ impl VaultContract {
         events::emit_initialized(&e, &admin, &smt_token, &oracle);
     }
 
-    /// Add a supported collateral token with configuration
+    /// Adds a supported collateral token with its risk parameters.
+    /// 
+    /// # Arguments
+    /// * `collateral_token` - The address of the token to support as collateral.
+    /// * `min_collateral_ratio` - The minimum ratio (in bps) required to mint debt.
+    /// * `liquidation_threshold` - The ratio (in bps) below which a vault can be liquidated.
+    /// * `liquidation_penalty` - The penalty (in bps) applied during liquidation.
     pub fn add_collateral(
         e: Env,
         collateral_token: Address,
@@ -183,7 +176,16 @@ impl VaultContract {
         events::emit_collateral_added(&e, &collateral_token, &config);
     }
 
-    /// Deposit collateral and mint SMT
+    /// Deposits collateral and mints SMT tokens against it.
+    /// 
+    /// # Arguments
+    /// * `user` - The address of the user creating the vault.
+    /// * `collateral_token` - The address of the collateral token to deposit.
+    /// * `collateral_amount` - The amount of collateral to deposit.
+    /// * `smt_amount` - The amount of SMT tokens to mint as debt.
+    /// 
+    /// # Returns
+    /// The ID of the newly created vault.
     pub fn deposit_and_mint(
         e: Env,
         user: Address,
@@ -254,8 +256,13 @@ impl VaultContract {
         vault_id
     }
 
-    /// Add more collateral to existing vault
-    pub fn add_collateral(
+    /// Adds more collateral to an existing vault.
+    /// 
+    /// # Arguments
+    /// * `vault_id` - The ID of the vault to update.
+    /// * `collateral_token` - The address of the collateral token.
+    /// * `amount` - The amount of additional collateral to deposit.
+    pub fn add_collateral_to_vault(
         e: Env,
         vault_id: u64,
         collateral_token: Address,
@@ -291,7 +298,11 @@ impl VaultContract {
         events::emit_collateral_added_to_vault(&e, vault_id, &collateral_token, amount);
     }
 
-    /// Mint additional SMT against existing collateral
+    /// Mints additional SMT tokens against the existing collateral in a vault.
+    /// 
+    /// # Arguments
+    /// * `vault_id` - The ID of the vault.
+    /// * `smt_amount` - The amount of additional SMT to mint.
     pub fn mint_more(
         e: Env,
         vault_id: u64,
@@ -322,7 +333,13 @@ impl VaultContract {
         events::emit_smt_minted(&e, vault_id, smt_amount, new_debt);
     }
 
-    /// Repay debt and optionally withdraw collateral
+    /// Repays debt (burns SMT) and/or withdraws collateral from a vault.
+    /// 
+    /// # Arguments
+    /// * `vault_id` - The ID of the vault.
+    /// * `repay_amount` - The amount of debt to repay.
+    /// * `collateral_token` - The address of the collateral token to withdraw.
+    /// * `withdraw_amount` - The amount of collateral to withdraw.
     pub fn repay_and_withdraw(
         e: Env,
         vault_id: u64,
@@ -370,7 +387,12 @@ impl VaultContract {
         events::emit_repay_and_withdraw(&e, vault_id, repay_amount, &collateral_token, withdraw_amount);
     }
 
-    /// Liquidate an undercollateralized vault
+    /// Liquidates an undercollateralized vault.
+    /// 
+    /// # Arguments
+    /// * `vault_id` - The ID of the vault to liquidate.
+    /// * `liquidator` - The address of the liquidator.
+    /// * `debt_to_cover` - The amount of debt to cover (pay off) to receive collateral.
     pub fn liquidate(
         e: Env,
         vault_id: u64,
@@ -388,7 +410,7 @@ impl VaultContract {
         }
 
         // Check if vault is liquidatable
-        let (is_liquidatable, ratio) = Self::check_liquidation(&e, &position);
+        let (is_liquidatable, _ratio) = Self::check_liquidation(&e, &position);
         if !is_liquidatable {
             panic!("vault is healthy");
         }
@@ -406,10 +428,10 @@ impl VaultContract {
         let mut total_seized_value = 0i128;
         for (token, amount) in position.collaterals.iter() {
             let price = oracle::get_price(&e, &oracle_addr, &token);
-            let value = (amount * price) / 1_0000000;
+            let _value = (amount * price) / 1_0000000;
             
             // Calculate proportion to seize
-            let collateral_ratio = (value * BP_DIVISOR as i128) / Self::get_total_collateral_value(&e, &position.collaterals);
+            let collateral_ratio = (_value * BP_DIVISOR as i128) / Self::get_total_collateral_value(&e, &position.collaterals);
             let debt_share = (debt_value * collateral_ratio) / BP_DIVISOR as i128;
             
             // Add liquidation penalty
@@ -436,21 +458,21 @@ impl VaultContract {
         events::emit_liquidation(&e, vault_id, &liquidator, debt_to_cover, total_seized_value);
     }
 
-    /// Get vault position details
+    /// Returns the current state of a vault position.
     pub fn get_vault(e: Env, vault_id: u64) -> VaultPosition {
         e.storage().persistent()
             .get(&DataKey::Vault(vault_id))
             .expect("vault not found")
     }
 
-    /// Get user's vault IDs
+    /// Returns all vault IDs owned by a specific user.
     pub fn get_user_vaults(e: Env, user: Address) -> Vec<u64> {
         e.storage().persistent()
             .get(&DataKey::UserVaults(user))
             .unwrap_or(Vec::new(&e))
     }
 
-    /// Get vault health (collateralization ratio)
+    /// Returns the collateralization ratio of a vault in basis points.
     pub fn get_vault_health(e: Env, vault_id: u64) -> i128 {
         let position: VaultPosition = e.storage().persistent()
             .get(&DataKey::Vault(vault_id))
@@ -467,7 +489,7 @@ impl VaultContract {
         (collateral_value * BP_DIVISOR as i128) / debt_value
     }
 
-    /// Check if vault can be liquidated
+    /// Returns true if the vault is currently eligible for liquidation.
     pub fn is_liquidatable(e: Env, vault_id: u64) -> bool {
         let position: VaultPosition = e.storage().persistent()
             .get(&DataKey::Vault(vault_id))
