@@ -33,6 +33,7 @@ pub struct TokenInfo {
 #[derive(Clone)]
 pub enum DataKey {
     Admin,
+    ClawbackAdmin,
     Allowance(Address, Address),
     Balance(Address),
     Name,
@@ -173,16 +174,10 @@ impl SoroMintToken {
         (new_from, new_to)
     }
 
-    /// Initializes the contract with an administrator, decimals, name, and symbol.
-    /// 
-    /// # Arguments
-    /// * `admin` - The address of the contract administrator.
-    /// * `decimals` - The number of decimals for the token.
-    /// * `name` - The human-readable name of the token.
-    /// * `symbol` - The ticker symbol for the token.
-    pub fn initialize(e: Env, admin: Address, decimals: u32, name: String, symbol: String) {
+    pub fn initialize(e: Env, admin: Address, clawback_admin: Address, decimals: u32, name: String, symbol: String) {
         if e.storage().instance().has(&DataKey::Admin) { panic!("already initialized"); }
         e.storage().instance().set(&DataKey::Admin, &admin);
+        e.storage().instance().set(&DataKey::ClawbackAdmin, &clawback_admin);
         e.storage().instance().set(&DataKey::Decimals, &decimals);
         e.storage().instance().set(&DataKey::Name, &name);
         e.storage().instance().set(&DataKey::Symbol, &symbol);
@@ -220,11 +215,25 @@ impl SoroMintToken {
         e.storage().instance().set(&DataKey::Transferable, &transferable);
     }
 
-    /// Mints new tokens to a specified address. Only callable by the admin.
-    /// 
-    /// # Arguments
-    /// * `to` - The recipient of the minted tokens.
-    /// * `amount` - The amount of tokens to mint.
+    pub fn clawback(e: Env, from: Address, amount: i128) {
+        let clawback_admin: Address = e.storage().instance().get(&DataKey::ClawbackAdmin).unwrap();
+        clawback_admin.require_auth();
+
+        let from_balance = Self::read_balance(&e, &from);
+        if from_balance < amount {
+            panic!("insufficient balance for clawback");
+        }
+
+        let new_from = from_balance - amount;
+        Self::write_balance(&e, &from, new_from);
+
+        let supply = e.storage().instance().get::<_, i128>(&DataKey::Supply).unwrap();
+        let new_supply = supply - amount;
+        e.storage().instance().set(&DataKey::Supply, &new_supply);
+
+        events::emit_clawback(&e, &clawback_admin, &from, amount);
+    }
+
     pub fn mint(e: Env, to: Address, amount: i128) {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();

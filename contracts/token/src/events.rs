@@ -181,7 +181,7 @@ pub fn emit_supply_snapshot_taken(e: &Env, ledger: u32, supply: i128) {
     e.events().publish(topics, (ledger, supply));
 }
 
-pub fn emit_upgraded(e: &Env, new_wasm_hash: soroban_sdk::BytesN<32>) {
-    let topics = (symbol_short!("upgraded"),);
-    e.events().publish(topics, new_wasm_hash);
+pub fn emit_clawback(e: &Env, admin: &Address, from: &Address, amount: i128) {
+    let topics = (Symbol::new(e, "clawback"), admin.clone(), from.clone());
+    e.events().publish(topics, amount);
 }
