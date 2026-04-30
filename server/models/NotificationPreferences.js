@@ -32,10 +32,15 @@ const NotificationPreferencesSchema = new mongoose.Schema(
       stream_cancelled: { type: Boolean, default: true },
     },
   },
-  {
-    timestamps: true,
-  }
-);
+  events: {
+    tokenMinted: { type: Boolean, default: true },
+    transactionConfirmed: { type: Boolean, default: true },
+    deploymentFailed: { type: Boolean, default: true },
+    streamStarted: { type: Boolean, default: true },
+  },
+}, {
+  timestamps: true,
+});
 
 NotificationPreferencesSchema.index({ userId: 1 });
 
