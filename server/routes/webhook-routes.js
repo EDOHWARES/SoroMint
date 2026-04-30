@@ -1,15 +1,18 @@
 const express = require('express');
-const crypto = require('crypto');
 const { z } = require('zod');
 const Webhook = require('../models/Webhook');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
+const { SUPPORTED_WEBHOOK_EVENTS } = require('../services/webhook-service');
 
 const router = express.Router();
+
+const getZodIssues = (error) => error.issues || error.errors || [];
 
 const webhookSchema = z.object({
   url: z.string().url('Invalid URL'),
   events: z
+    .array(z.enum(SUPPORTED_WEBHOOK_EVENTS))
     .array(z.enum(['token.minted', 'token.transferred', 'token.burned']))
     .min(1)
     .default(['token.minted']),
@@ -23,6 +26,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = webhookSchema.safeParse(req.body);
     if (!parsed.success) {
+      const msg = getZodIssues(parsed.error)
       const msg = parsed.error.errors
         .map((e) => `${e.path.join('.')}: ${e.message}`)
         .join(', ');
