@@ -50,10 +50,7 @@ const streamingRoutes = require('./routes/streaming-routes');
 const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
-const keyVaultRoutes = require('./routes/key-vault-routes');
-const reconciliationRoutes = require('./routes/reconciliation-routes');
-const billingRoutes = require('./routes/billing-routes');
-const BillingService = require('./services/billing-service');
+const adminRoutes = require('./routes/admin-routes');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -100,9 +97,7 @@ const createApp = ({
   app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
   app.use('/api/fraud-detection', fraudDetectionRoutes);
-  app.use('/api/key-vault', keyVaultRoutes);
-  app.use('/api/reconciliation', reconciliationRoutes);
-  app.use('/api/billing', billingRoutes);
+  app.use('/api', adminRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
