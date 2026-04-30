@@ -79,9 +79,7 @@
                 {
                   "u32": 200
                 },
-                {
-                  "bool": false
-                }
+                "void"
               ]
             }
           },
@@ -122,6 +120,9 @@
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
               "function_name": "cancel_stream",
               "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                },
                 {
                   "u64": 0
                 }
