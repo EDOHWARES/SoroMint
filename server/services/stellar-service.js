@@ -12,7 +12,7 @@ const {
   xdr,
 } = require('@stellar/stellar-sdk');
 const { logger } = require('../utils/logger');
-const { getEnv } = require('../config/env-config');
+const { retryWithBackoff } = require('../utils/retry');
 
 class FailoverRpcServer {
   constructor(urls) {
@@ -46,13 +46,15 @@ class FailoverRpcServer {
   async execute(fn) {
     let lastError;
     for (let i = 0; i < this.urls.length; i++) {
+      const url = this.urls[this.currentIndex];
+      const server = this.current;
       try {
-        return await fn(this.current);
+        return await retryWithBackoff(() => fn(server), { label: `Soroban RPC [${url}]` });
       } catch (error) {
         lastError = error;
-        logger.error('RPC call failed, attempting failover', {
-          url: this.urls[this.currentIndex],
-          error: error.message,
+        logger.error('RPC endpoint exhausted retries, attempting failover', {
+          url,
+          error: error.message
         });
         this.next();
       }
