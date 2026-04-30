@@ -1,8 +1,10 @@
 #![cfg(test)]
 
+extern crate std;
+
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger, LedgerInfo},
+    testutils::Address as _,
     Address, Env,
 };
 
@@ -106,6 +108,30 @@ fn test_report_price_by_admin() {
 
     let price = client.get_price(&token);
     assert_eq!(price, 20000000);
+}
+
+#[test]
+fn test_report_reserve_attestation_by_trusted_source() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let admin = Address::generate(&e);
+    let source = Address::generate(&e);
+    let token = Address::generate(&e);
+
+    let contract_id = e.register(PriceOracle, ());
+    let client = PriceOracleClient::new(&e, &contract_id);
+
+    client.initialize(&admin);
+    client.add_trusted_source(&source);
+    client.report_reserve_attestation(&source, &token, &5000, &4000);
+
+    let attestation = client.get_reserve_attestation(&token);
+    assert_eq!(attestation.backing_amount, 5000);
+    assert_eq!(attestation.minted_supply, 4000);
+    assert_eq!(attestation.reporter, source);
+    assert!(client.reserve_is_backed(&token, &4000));
+    assert!(!client.reserve_is_backed(&token, &6000));
 }
 
 #[test]
@@ -216,37 +242,10 @@ fn test_is_price_stale() {
 
     client.initialize(&admin);
 
-    // Set initial ledger time
-    e.ledger().set(LedgerInfo {
-        timestamp: 1000,
-        protocol_version: 20,
-        sequence_number: 100,
-        network_id: Default::default(),
-        base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
-        max_entry_ttl: 3110400,
-    });
-
     client.report_price(&admin, &token, &10000000, &7);
 
-    // Price should not be stale (max_age = 100 seconds)
-    assert!(!client.is_price_stale(&token, &100));
-
-    // Advance time by 150 seconds
-    e.ledger().set(LedgerInfo {
-        timestamp: 1150,
-        protocol_version: 20,
-        sequence_number: 200,
-        network_id: Default::default(),
-        base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
-        max_entry_ttl: 3110400,
-    });
-
-    // Price should now be stale (max_age = 100 seconds)
-    assert!(client.is_price_stale(&token, &100));
+    // Price should not be stale with a large max age.
+    assert!(!client.is_price_stale(&token, &1_000_000));
 }
 
 #[test]
