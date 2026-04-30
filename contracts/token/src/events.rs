@@ -3,7 +3,7 @@
 //! Provides helper functions for emitting structured Soroban events
 //! for every state-changing operation in the SoroMint token contract.
 
-use soroban_sdk::{symbol_short, Address, Env, String, Symbol};
+use soroban_sdk::{symbol_short, Address, BytesN, Env, String, Symbol};
 
 pub fn emit_transfer(
     e: &Env,

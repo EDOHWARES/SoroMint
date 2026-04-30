@@ -290,6 +290,128 @@ impl SoroMintToken {
         Self::write_balance(e, to, new_to);
         (new_from, new_to)
     }
+
+    /// Sets the multi-signature contract address for high-risk operations.
+    /// This enables multi-sig authorization for treasury withdrawals.
+    ///
+    /// # Arguments
+    /// * `multisig_contract` - The address of the multi-sig access control contract.
+    ///
+    /// # Authorization
+    /// Requires the current admin to authorize.
+    pub fn set_multisig_contract(e: Env, multisig_contract: Address) {
+        let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::MultiSigContract, &multisig_contract);
+        events::emit_multisig_configured(&e, &admin, &multisig_contract);
+    }
+
+    /// Returns the configured multi-sig contract address.
+    pub fn multisig_contract(e: Env) -> Option<Address> {
+        e.storage().instance().get(&DataKey::MultiSigContract)
+    }
+
+    /// Proposes a treasury withdrawal operation that requires multi-sig approval.
+    /// This is a high-risk operation that distributes collected fees to the treasury.
+    ///
+    /// # Arguments
+    /// * `operation_id` - A unique identifier for the operation.
+    /// * `recipient`    - The address to receive the withdrawn funds.
+    /// * `amount`       - The amount to withdraw.
+    ///
+    /// # Authorization
+    /// Requires the proposer to be an authorized signer in the multi-sig contract.
+    pub fn propose_treasury_withdrawal(e: Env, operation_id: BytesN<32>, recipient: Address, amount: i128) {
+        let multisig: Address = e.storage().instance().get(&DataKey::MultiSigContract).expect("multisig not configured");
+        
+        // Call the multi-sig contract to propose the operation
+        let action = Symbol::new(&e, "withdraw_treasury");
+        let mut args = soroban_sdk::vec![&e];
+        args.push_back(operation_id.clone().into_val(&e));
+        args.push_back(action.into_val(&e));
+        args.push_back(recipient.clone().into_val(&e));
+        args.push_back(amount.into_val(&e));
+        
+        e.invoke_contract::<()>(&multisig, &Symbol::new(&e, "propose_operation"), args);
+        
+        events::emit_treasury_withdrawal_proposed(&e, &recipient, amount, &operation_id);
+    }
+
+    /// Executes a treasury withdrawal after multi-sig approval is obtained.
+    ///
+    /// # Arguments
+    /// * `operation_id` - The unique identifier of the approved operation.
+    /// * `recipient`    - The address to receive the withdrawn funds.
+    /// * `amount`       - The amount to withdraw.
+    ///
+    /// # Returns
+    /// Returns `true` if the withdrawal was successful.
+    ///
+    /// # Panics
+    /// Panics if:
+    /// - Multi-sig is not configured
+    /// - The operation hasn't received enough approvals
+    pub fn execute_treasury_withdrawal(e: Env, operation_id: BytesN<32>, recipient: Address, amount: i128) -> bool {
+        let multisig: Address = e.storage().instance().get(&DataKey::MultiSigContract).expect("multisig not configured");
+        
+        // First verify the operation is approved via multi-sig contract
+        let args = soroban_sdk::vec![&e, operation_id.clone().into_val(&e)];
+        let approved: bool = e.invoke_contract(&multisig, &Symbol::new(&e, "execute_operation"), args);
+        
+        if !approved {
+            panic!("multi-sig execution failed");
+        }
+
+        // Execute the actual transfer from treasury to recipient
+        let fee_config: FeeConfig = e.storage().instance().get(&DataKey::FeeConfig).expect("fee config not set");
+        let treasury_balance = Self::read_balance(&e, &fee_config.treasury);
+        
+        if treasury_balance < amount {
+            panic!("insufficient treasury balance");
+        }
+
+        // Transfer from treasury to recipient
+        Self::write_balance(&e, &fee_config.treasury, treasury_balance - amount);
+        let recipient_balance = Self::read_balance(&e, &recipient);
+        Self::write_balance(&e, &recipient, recipient_balance + amount);
+
+        events::emit_treasury_withdrawal(&e, &recipient, amount, &operation_id);
+        
+        true
+    }
+
+    /// Simplified treasury withdrawal that checks multi-sig approval directly.
+    /// This is the recommended way to withdraw fees.
+    ///
+    /// # Arguments
+    /// * `operation_id` - The unique identifier of the approved operation.
+    /// * `recipient`    - The address to receive the withdrawn funds.
+    /// * `amount`       - The amount to withdraw.
+    pub fn withdraw_treasury(e: Env, operation_id: BytesN<32>, recipient: Address, amount: i128) {
+        let multisig: Address = e.storage().instance().get(&DataKey::MultiSigContract).expect("multisig not configured");
+        
+        // Verify the operation has been executed (approved) via multi-sig contract
+        let args = soroban_sdk::vec![&e, operation_id.clone().into_val(&e)];
+        let is_executed: bool = e.invoke_contract(&multisig, &Symbol::new(&e, "is_executed"), args);
+        
+        if !is_executed {
+            panic!("operation not approved by multi-sig");
+        }
+
+        // Execute the actual transfer
+        let fee_config: FeeConfig = e.storage().instance().get(&DataKey::FeeConfig).expect("fee config not set");
+        let treasury_balance = Self::read_balance(&e, &fee_config.treasury);
+        
+        if treasury_balance < amount {
+            panic!("insufficient treasury balance");
+        }
+
+        Self::write_balance(&e, &fee_config.treasury, treasury_balance - amount);
+        let recipient_balance = Self::read_balance(&e, &recipient);
+        Self::write_balance(&e, &recipient, recipient_balance + amount);
+
+        events::emit_treasury_withdrawal(&e, &recipient, amount, &operation_id);
+    }
 }
 
 #[contractimpl]

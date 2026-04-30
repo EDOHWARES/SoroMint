@@ -5,8 +5,8 @@ edition = "2021"
 publish = false
 
 [lib]
-path = "src/access.rs"
-crate-type = ["cdylib"]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = "22.0.0"
