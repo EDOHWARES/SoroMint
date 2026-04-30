@@ -22,6 +22,14 @@ client/coverage/
 server/coverage/
 server/logs/
 server/test_output.txt
+!server/benchmarks/results/
+server/benchmarks/results/**
+!server/benchmarks/results/*.json
+!server/benchmarks/results/*.md
+server/benchmarks/results/**/*.cpuprofile
+server/benchmarks/results/**/*.heapprofile
+server/benchmarks/results/**/*.heapsnapshot
+server/benchmarks/results/**/*.log
 
 # Misc
 .DS_Store

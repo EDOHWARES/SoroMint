@@ -13,6 +13,7 @@ const {
   asyncHandler,
   AppError,
 } = require('../../middleware/error-handler');
+const { logger, buildStructuredLogEntry, correlationIdMiddleware } = require('../../utils/logger');
 
 describe('Error Handler Middleware', () => {
   let app;
@@ -264,6 +265,94 @@ describe('Error Handler Middleware', () => {
       expect(response.body.code).toBe('LOG_TEST');
       // Winston logs are tested indirectly through the logger module tests
       // This test verifies the error handler still processes errors correctly
+    });
+
+    it('should emit structured warn logs with request metadata and stack traces', async () => {
+      const originalWarn = logger.warn;
+      logger.warn = jest.fn();
+
+      app.use(correlationIdMiddleware);
+      app.get('/test', (req, res, next) => {
+        next(new AppError('Warn log test', 422, 'WARN_TEST'));
+      });
+      app.use(errorHandler);
+
+      const response = await request(app)
+        .get('/test')
+        .set('X-Correlation-ID', 'warn-request-id');
+
+      expect(response.status).toBe(422);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Client Error',
+        expect.objectContaining({
+          requestId: 'warn-request-id',
+          correlationId: 'warn-request-id',
+          path: '/test',
+          method: 'GET',
+          statusCode: 422,
+          code: 'WARN_TEST',
+          isOperational: true,
+          error: expect.any(AppError),
+        })
+      );
+
+      const [message, metadata] = logger.warn.mock.calls[0];
+      const entry = buildStructuredLogEntry('warn', message, metadata);
+      expect(entry.requestId).toBe('warn-request-id');
+      expect(entry.metadata).toEqual(
+        expect.objectContaining({
+          path: '/test',
+          method: 'GET',
+          statusCode: 422,
+          code: 'WARN_TEST',
+          isOperational: true,
+        })
+      );
+      expect(entry.error.stack).toContain('Warn log test');
+
+      logger.warn = originalWarn;
+    });
+
+    it('should emit structured error logs without leaking production stacks to clients', async () => {
+      process.env.NODE_ENV = 'production';
+      const originalError = logger.error;
+      logger.error = jest.fn();
+
+      app.use(correlationIdMiddleware);
+      app.get('/test', (req, res, next) => {
+        next(new Error('Database exploded'));
+      });
+      app.use(errorHandler);
+
+      const response = await request(app)
+        .get('/test')
+        .set('X-Correlation-ID', 'error-request-id');
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe('An unexpected error occurred');
+      expect(response.body.stack).toBeUndefined();
+      expect(logger.error).toHaveBeenCalledWith(
+        'Internal Server Error',
+        expect.objectContaining({
+          requestId: 'error-request-id',
+          correlationId: 'error-request-id',
+          path: '/test',
+          method: 'GET',
+          statusCode: 500,
+          code: 'INTERNAL_ERROR',
+          isOperational: false,
+          error: expect.any(Error),
+        })
+      );
+
+      const [message, metadata] = logger.error.mock.calls[0];
+      const entry = buildStructuredLogEntry('error', message, metadata);
+      expect(entry.requestId).toBe('error-request-id');
+      expect(entry.error.message).toBe('Database exploded');
+      expect(entry.error.stack).toContain('Database exploded');
+
+      logger.error = originalError;
+      delete process.env.NODE_ENV;
     });
   });
 

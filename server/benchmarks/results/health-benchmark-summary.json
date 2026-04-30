@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-04-25T13:09:28.790Z",
+  "benchmark": "general-request-health",
+  "methodology": {
+    "concurrency": 30,
+    "iterations": 3,
+    "durationMs": 5000,
+    "warmupMs": 1000,
+    "optimizedHttpLogSuccessSampleRate": "0"
+  },
+  "baseline": {
+    "label": "baseline",
+    "runs": [
+      {
+        "requests": 33699,
+        "failures": 0,
+        "throughputRps": 6737.714122291507,
+        "averageLatencyMs": 4.443183164663643,
+        "p95LatencyMs": 5.527211999999963
+      },
+      {
+        "requests": 35117,
+        "failures": 0,
+        "throughputRps": 7021.316500158796,
+        "averageLatencyMs": 4.2640830832930074,
+        "p95LatencyMs": 5.285390999999436
+      },
+      {
+        "requests": 35398,
+        "failures": 0,
+        "throughputRps": 7077.38562333974,
+        "averageLatencyMs": 4.230533400079118,
+        "p95LatencyMs": 5.245301000000836
+      }
+    ],
+    "selected": {
+      "requests": 35117,
+      "failures": 0,
+      "throughputRps": 7021.316500158796,
+      "averageLatencyMs": 4.2640830832930074,
+      "p95LatencyMs": 5.285390999999436
+    }
+  },
+  "optimized": {
+    "label": "optimized",
+    "runs": [
+      {
+        "requests": 40523,
+        "failures": 0,
+        "throughputRps": 8102.503692696115,
+        "averageLatencyMs": 3.6948017110529983,
+        "p95LatencyMs": 4.637209000000439
+      },
+      {
+        "requests": 41964,
+        "failures": 0,
+        "throughputRps": 8390.768925439448,
+        "averageLatencyMs": 3.5678110135353953,
+        "p95LatencyMs": 4.070945999999822
+      },
+      {
+        "requests": 41697,
+        "failures": 0,
+        "throughputRps": 8337.193880120434,
+        "averageLatencyMs": 3.590851994436025,
+        "p95LatencyMs": 4.09075600000142
+      }
+    ],
+    "selected": {
+      "requests": 41697,
+      "failures": 0,
+      "throughputRps": 8337.193880120434,
+      "averageLatencyMs": 3.590851994436025,
+      "p95LatencyMs": 4.09075600000142
+    }
+  },
+  "improvements": {
+    "throughputPercent": 0.18741177383641347,
+    "p95LatencyReductionPercent": 0.22602585125644314
+  }
+}
