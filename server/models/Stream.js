@@ -107,6 +107,15 @@ const streamSchema = new mongoose.Schema(
       type: String,
       default: '0',
     },
+    cancellationDelay: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    irrevocable: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ['scheduled', 'active', 'completed', 'canceled'],

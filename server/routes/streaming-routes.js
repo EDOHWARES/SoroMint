@@ -41,17 +41,17 @@ router.post(
     body('totalAmount').isString().notEmpty(),
     body('startLedger').isInt({ min: 0 }),
     body('stopLedger').isInt({ min: 0 }),
+    body('cancellationDelay').optional().isInt({ min: 0 }),
+    body('irrevocable').optional().isBoolean(),
     validate,
   ],
   async (req, res, next) => {
     try {
       const {
-        sender,
-        recipient,
-        tokenAddress,
-        totalAmount,
-        startLedger,
-        stopLedger,
+        sender, recipient, tokenAddress, totalAmount,
+        startLedger, stopLedger,
+        cancellationDelay = 0,
+        irrevocable = false,
       } = req.body;
 
       const service = new StreamingService(
@@ -75,7 +75,9 @@ router.post(
         normalizedTokenAddress,
         totalAmount,
         startLedger,
-        stopLedger
+        stopLedger,
+        cancellationDelay,
+        irrevocable
       );
 
       if (result.status === 'SUCCESS') {

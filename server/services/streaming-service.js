@@ -23,7 +23,9 @@ class StreamingService {
     tokenAddress,
     totalAmount,
     startLedger,
-    stopLedger
+    stopLedger,
+    cancellationDelay = 0,
+    irrevocable = false
   ) {
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
@@ -58,7 +60,9 @@ class StreamingService {
           ),
           xdr.ScVal.scvI128(this.toI128(totalAmount)),
           xdr.ScVal.scvU32(startLedger),
-          xdr.ScVal.scvU32(stopLedger)
+          xdr.ScVal.scvU32(stopLedger),
+          xdr.ScVal.scvU32(cancellationDelay),
+          xdr.ScVal.scvBool(irrevocable)
         )
       )
       .setTimeout(30)
