@@ -1,11 +1,8 @@
 const express = require('express');
 const { z } = require('zod');
 const StreamingService = require('../services/streaming-service');
-const StreamingTokenWhitelist = require('../models/StreamingTokenWhitelist');
-const { authenticate, authorize } = require('../middleware/auth');
-const { asyncHandler, AppError } = require('../middleware/error-handler');
-const { dispatch } = require('../services/webhook-service');
-const { logger } = require('../utils/logger');
+const PlatformFeeService = require('../services/platform-fee-service');
+const Stream = require('../models/Stream');
 const { body, param, validationResult } = require('express-validator');
 const { getCacheService } = require('../services/cache-service');
 const Stream = require('../models/Stream');
@@ -27,127 +24,13 @@ const validate = (req, res, next) => {
   next();
 };
 
-const notifyStreamWebhooks = (event, data) => {
-  void dispatch(event, data).catch((error) => {
-    logger.warn('Stream webhook dispatch failed', {
-      event,
-      error: error.message,
-    });
-  });
+const calculateRatePerLedger = (totalAmount, startLedger, stopLedger) => {
+  const duration = stopLedger - startLedger;
+  if (duration <= 0) return '0';
+  const bigTotal = BigInt(totalAmount);
+  const rate = bigTotal / BigInt(duration);
+  return rate.toString();
 };
-
-const escapeCSV = (val) => {
-  if (val == null) return '""';
-  const str = String(val).replace(/"/g, '""');
-  return `"${str}"`;
-};
-
-const streamToCSV = (doc) =>
-  [
-    doc.streamId,
-    doc.contractId,
-    doc.sender,
-    doc.recipient,
-    doc.tokenAddress,
-    doc.totalAmount,
-    doc.ratePerLedger,
-    doc.startLedger,
-    doc.stopLedger,
-    doc.withdrawn,
-    doc.status,
-    doc.createdAt?.toISOString(),
-  ]
-    .map(escapeCSV)
-    .join(',') + '\n';
-
-const CSV_HEADERS =
-  'streamId,contractId,sender,recipient,tokenAddress,totalAmount,ratePerLedger,startLedger,stopLedger,withdrawn,status,createdAt\n';
-
-/**
- * @route GET /api/streaming/export
- * @description Export streaming history as CSV or JSON
- * @access Private
- * @query {string} format - Export format (csv or json, default: csv)
- * @query {string} startDate - Filter streams from this date
- * @query {string} endDate - Filter streams to this date
- */
-router.get(
-  '/export',
-  authenticate,
-  exportRateLimiter,
-  [
-    query('format').optional().isIn(['csv', 'json']),
-    query('startDate')
-      .optional()
-      .isISO8601()
-      .withMessage('Invalid startDate format'),
-    query('endDate')
-      .optional()
-      .isISO8601()
-      .withMessage('Invalid endDate format'),
-    validate,
-  ],
-  asyncHandler(async (req, res) => {
-    const { format = 'csv', startDate, endDate } = req.query;
-    const publicKey = req.user.publicKey;
-
-    logger.info('Exporting streaming history', {
-      correlationId: req.correlationId,
-      user: publicKey,
-      format,
-      startDate,
-      endDate,
-    });
-
-    const dbQuery = {
-      $or: [{ sender: publicKey }, { recipient: publicKey }],
-    };
-
-    if (startDate || endDate) {
-      dbQuery.createdAt = {};
-      if (startDate) dbQuery.createdAt.$gte = new Date(startDate);
-      if (endDate) dbQuery.createdAt.$lte = new Date(endDate);
-    }
-
-    if (format === 'json') {
-      const streams = await Stream.find(dbQuery).sort({ createdAt: -1 });
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename=streaming_history.json'
-      );
-      return res.json({
-        success: true,
-        count: streams.length,
-        data: streams,
-      });
-    }
-
-    // Default to CSV with streaming
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=streaming_history.csv'
-    );
-    res.write(CSV_HEADERS);
-
-    const cursor = Stream.find(dbQuery).sort({ createdAt: -1 }).cursor();
-
-    const transformer = new Transform({
-      objectMode: true,
-      transform(doc, _enc, cb) {
-        cb(null, streamToCSV(doc));
-      },
-    });
-
-    transformer.on('error', (err) => {
-      logger.error('Export stream error', { error: err.message });
-      res.destroy(err);
-    });
-
-    cursor.pipe(transformer).pipe(res);
-  })
-);
 
 router.post(
   '/streams',
@@ -175,6 +58,11 @@ router.post(
         process.env.SOROBAN_RPC_URL,
         process.env.NETWORK_PASSPHRASE
       );
+      const feeService = new PlatformFeeService();
+
+      // Calculate platform fee
+      const feeAmount = await feeService.calculateFee(totalAmount, tokenAddress);
+      const feePercentage = await feeService.getFeeConfig(tokenAddress);
 
       const normalizedTokenAddress = normalizeTokenAddress(tokenAddress);
       await requireWhitelistedToken(normalizedTokenAddress);
@@ -190,57 +78,43 @@ router.post(
         stopLedger
       );
 
-      notifyStreamWebhooks('stream.created', {
-        streamId: result.streamId ?? null,
-        txHash: result.hash,
-        sender,
-        recipient,
-        tokenAddress: normalizedTokenAddress,
-        totalAmount,
-        startLedger,
-        stopLedger,
-      });
-
-      res.status(201).json({
-        success: true,
-        streamId: result.streamId,
-        txHash: result.hash,
-      });
-      res
-        .status(201)
-        .json({
-          success: true,
-          streamId: result.streamId,
-          txHash: result.hash,
+      if (result.status === 'SUCCESS') {
+        // Save stream to database with fee information
+        const stream = new Stream({
+          streamId: result.streamId || result.hash,
+          contractId: process.env.STREAMING_CONTRACT_ID,
+          sender,
+          recipient,
+          tokenAddress,
+          totalAmount,
+          ratePerLedger: calculateRatePerLedger(totalAmount, startLedger, stopLedger),
+          startLedger,
+          stopLedger,
+          createdTxHash: result.hash,
+          platformFeeAmount: feeAmount,
+          platformFeePercentage: feePercentage,
         });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
-router.post(
-  '/schedule',
-  [
-    body('sender').isString().notEmpty(),
-    body('recipient').isString().notEmpty(),
-    body('tokenAddress').isString().notEmpty(),
-    body('totalAmount').isString().notEmpty(),
-    body('startLedger').isInt({ min: 0 }),
-    body('stopLedger').isInt({ min: 0 }),
-    body('scheduledStartLedger').isInt({ min: 0 }),
-    validate,
-  ],
-  async (req, res, next) => {
-    try {
-      const scheduledStreamService = require('../services/scheduled-stream-service');
-      const stream = await scheduledStreamService.scheduleStream(req.body);
+        await stream.save();
+
+        // Create platform fee record
+        await feeService.createPlatformFeeRecord({
+          streamId: stream.streamId,
+          totalAmount,
+          tokenAddress,
+        }, result.hash);
+
+        await feeService.updateStreamWithFeeInfo(stream.streamId, feeAmount, feePercentage);
+      }
 
       res.status(201).json({ 
         success: true, 
-        message: 'Stream scheduled successfully',
-        id: stream._id,
-        scheduledStartLedger: stream.scheduledStartLedger
+        streamId: result.streamId, 
+        txHash: result.hash,
+        platformFee: {
+          amount: feeAmount,
+          percentage: feePercentage,
+        }
       });
     } catch (error) {
       next(error);

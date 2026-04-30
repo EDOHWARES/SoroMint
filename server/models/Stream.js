@@ -123,21 +123,14 @@ const streamSchema = new mongoose.Schema(
     canceledTxHash: {
       type: String,
     },
-    // Full-text search fields (Task 3)
-    notes: {
+    platformFeeAmount: {
       type: String,
-      default: '',
+      default: '0',
     },
-    metadata: [
-      {
-        key: { type: String },
-        value: { type: String },
-      },
-    ],
-    // Reconciliation fields (Task 4)
-    reconciliationNote: { type: String },
-    reconciliationError: { type: String },
-    reconciledAt: { type: Date },
+    platformFeePercentage: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,

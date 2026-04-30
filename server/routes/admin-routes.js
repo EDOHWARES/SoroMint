@@ -1,220 +1,229 @@
 const express = require('express');
-const User = require('../models/User');
-const Token = require('../models/Token');
-const Stream = require('../models/Stream');
-const SystemConfig = require('../models/SystemConfig');
-const TVLAnalyticsService = require('../services/tvl-analytics-service');
-const { authenticate, authorize } = require('../middleware/auth');
-const { asyncHandler, AppError } = require('../middleware/error-handler');
+const PlatformFeeService = require('../services/platform-fee-service');
+const { body, param, validationResult } = require('express-validator');
 
 const router = express.Router();
-const tvlAnalyticsService = new TVLAnalyticsService();
 
-const PLATFORM_CONFIG_KEY = 'platform';
-
-const getMaintenanceConfig = async () => {
-  const config = await SystemConfig.findOne({ key: PLATFORM_CONFIG_KEY }).lean();
-
-  if (!config) {
-    return {
-      maintenanceMode: false,
-      updatedBy: null,
-      updatedAt: null,
-    };
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
-
-  return {
-    maintenanceMode: config.maintenanceMode,
-    updatedBy: config.updatedBy || null,
-    updatedAt: config.updatedAt || null,
-  };
+  next();
 };
 
-router.use('/admin', authenticate, authorize('admin'));
+// Middleware to check if user is admin
+const requireAdmin = (req, res, next) => {
+  // This is a placeholder - implement proper admin authentication
+  // You might check against a user role, API key, or other auth mechanism
+  const isAdmin = req.headers['x-admin-key'] === process.env.ADMIN_API_KEY;
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
 
-router.get(
-  '/admin/tvl',
-  asyncHandler(async (_req, res) => {
-    const tvl = await tvlAnalyticsService.calculateTVL();
+// Get collected fees statistics
+router.get('/fees/stats', requireAdmin, async (req, res, next) => {
+  try {
+    const feeService = new PlatformFeeService();
+    const stats = await feeService.getFeeStatistics();
+    
+    res.json({ success: true, stats });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    res.json({
-      success: true,
-      data: tvl,
-    });
-  })
-);
-
-router.get(
-  '/admin/metrics',
-  asyncHandler(async (_req, res) => {
-    const [
-      tvl,
-      totalUsers,
-      activeUsers,
-      suspendedUsers,
-      totalTokens,
-      totalStreams,
-      activeStreams,
-      maintenance,
-    ] = await Promise.all([
-      tvlAnalyticsService.calculateTVL(),
-      User.countDocuments({}),
-      User.countDocuments({ status: 'active' }),
-      User.countDocuments({ status: 'suspended' }),
-      Token.countDocuments({}),
-      Stream.countDocuments({}),
-      Stream.countDocuments({ status: 'active' }),
-      getMaintenanceConfig(),
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        timestamp: new Date().toISOString(),
-        maintenanceMode: maintenance.maintenanceMode,
-        tvl: {
-          totalValueLocked: tvl.totalValueLocked,
-          totalValueLockedFormatted: tvl.totalValueLockedFormatted,
-          activeStreamCount: tvl.activeStreamCount,
-        },
-        users: {
-          total: totalUsers,
-          active: activeUsers,
-          suspended: suspendedUsers,
-        },
-        tokens: {
-          total: totalTokens,
-        },
-        streams: {
-          total: totalStreams,
-          active: activeStreams,
-        },
-      },
-    });
-  })
-);
-
-router.get(
-  '/admin/maintenance',
-  asyncHandler(async (_req, res) => {
-    const config = await getMaintenanceConfig();
-
-    res.json({
-      success: true,
-      data: config,
-    });
-  })
-);
-
-router.patch(
-  '/admin/maintenance',
-  asyncHandler(async (req, res) => {
-    const { enabled } = req.body;
-
-    if (typeof enabled !== 'boolean') {
-      throw new AppError(
-        'enabled must be a boolean value',
-        400,
-        'VALIDATION_ERROR'
-      );
+// Get collected fees with optional filtering
+router.get('/fees', 
+  requireAdmin,
+  [
+    param('tokenAddress').optional().isString(),
+    param('status').optional().isIn(['collected', 'withdrawn', 'pending']),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { tokenAddress, status } = req.query;
+      const feeService = new PlatformFeeService();
+      const result = await feeService.getCollectedFees(tokenAddress, status);
+      
+      res.json({ success: true, ...result });
+    } catch (error) {
+      next(error);
     }
+  }
+);
 
-    const config = await SystemConfig.findOneAndUpdate(
-      { key: PLATFORM_CONFIG_KEY },
-      {
-        key: PLATFORM_CONFIG_KEY,
-        maintenanceMode: enabled,
-        updatedBy: req.user._id,
-      },
-      {
-        new: true,
-        upsert: true,
-        runValidators: true,
-        setDefaultsOnInsert: true,
+// Withdraw collected fees
+router.post('/fees/withdraw',
+  requireAdmin,
+  [
+    body('tokenAddress').isString().notEmpty(),
+    body('amount').optional().isString().notEmpty(),
+    body('adminAddress').isString().notEmpty(),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { tokenAddress, amount, adminAddress } = req.body;
+      const feeService = new PlatformFeeService();
+      
+      // Get fees to withdraw (all or specific amount)
+      const feesToWithdraw = await feeService.withdrawFees(adminAddress, tokenAddress, amount);
+      
+      if (feesToWithdraw.length === 0) {
+        return res.status(400).json({ error: 'No fees available for withdrawal' });
       }
-    );
 
-    res.json({
-      success: true,
-      data: {
-        maintenanceMode: config.maintenanceMode,
-        updatedBy: config.updatedBy,
-        updatedAt: config.updatedAt,
-      },
-    });
-  })
+      // Calculate total withdrawal amount
+      const totalAmount = feesToWithdraw.reduce((sum, fee) => {
+        return sum + BigInt(fee.feeAmount);
+      }, 0n);
+
+      // Here you would implement the actual token transfer logic
+      // For now, we'll mark them as withdrawn
+      const feeIds = feesToWithdraw.map(fee => fee._id);
+      const mockTxHash = 'withdraw_' + Date.now();
+      
+      await feeService.markFeesAsWithdrawn(feeIds, mockTxHash, adminAddress);
+
+      res.json({
+        success: true,
+        withdrawnAmount: totalAmount.toString(),
+        feeCount: feesToWithdraw.length,
+        txHash: mockTxHash,
+        fees: feesToWithdraw.map(fee => ({
+          id: fee._id,
+          amount: fee.feeAmount,
+          streamId: fee.streamId
+        }))
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 );
 
-router.patch(
-  '/admin/users/:userId/ban',
-  asyncHandler(async (req, res) => {
-    const { userId } = req.params;
+// Get fee withdrawal history
+router.get('/fees/withdrawals', requireAdmin, async (req, res, next) => {
+  try {
+    const PlatformFee = require('../models/PlatformFee');
+    const withdrawals = await PlatformFee.find({ status: 'withdrawn' })
+      .sort({ withdrawnAt: -1 })
+      .select('feeAmount withdrawnTxHash withdrawnAt withdrawnBy tokenAddress streamId');
 
-    if (String(req.user._id) === String(userId)) {
-      throw new AppError('You cannot ban your own account', 400, 'SELF_BAN');
-    }
+    res.json({ success: true, withdrawals });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    const targetUser = await User.findById(userId);
+// Get all fee configurations
+router.get('/fee-configs', requireAdmin, async (req, res, next) => {
+  try {
+    const PlatformFeeConfig = require('../models/PlatformFeeConfig');
+    const configs = await PlatformFeeConfig.find().sort({ createdAt: -1 });
+    
+    res.json({ success: true, configs });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    if (!targetUser) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    if (targetUser.status === 'deleted') {
-      throw new AppError(
-        'Deleted users cannot be banned',
-        400,
-        'INVALID_USER_STATUS'
+// Create or update fee configuration
+router.post('/fee-configs',
+  requireAdmin,
+  [
+    body('tokenAddress').isString().notEmpty(),
+    body('feePercentage').isFloat({ min: 0, max: 100 }),
+    body('updatedBy').isString().notEmpty(),
+    body('description').optional().isString(),
+    body('minFeeAmount').optional().isString(),
+    body('maxFeeAmount').optional().isString(),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { tokenAddress, feePercentage, updatedBy, description, minFeeAmount, maxFeeAmount } = req.body;
+      
+      const PlatformFeeConfig = require('../models/PlatformFeeConfig');
+      
+      const config = await PlatformFeeConfig.findOneAndUpdate(
+        { tokenAddress },
+        {
+          feePercentage,
+          updatedBy,
+          description,
+          minFeeAmount: minFeeAmount || '0',
+          maxFeeAmount,
+          isActive: true,
+        },
+        { upsert: true, new: true }
       );
-    }
 
-    if (targetUser.status !== 'suspended') {
-      targetUser.status = 'suspended';
-      await targetUser.save();
+      res.json({ success: true, config });
+    } catch (error) {
+      next(error);
     }
-
-    res.json({
-      success: true,
-      data: {
-        id: targetUser._id,
-        status: targetUser.status,
-      },
-    });
-  })
+  }
 );
 
-router.patch(
-  '/admin/users/:userId/unban',
-  asyncHandler(async (req, res) => {
-    const { userId } = req.params;
-
-    const targetUser = await User.findById(userId);
-
-    if (!targetUser) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    if (targetUser.status === 'deleted') {
-      throw new AppError(
-        'Deleted users cannot be unbanned',
-        400,
-        'INVALID_USER_STATUS'
+// Toggle fee configuration active status
+router.patch('/fee-configs/:tokenAddress/toggle',
+  requireAdmin,
+  [
+    param('tokenAddress').isString().notEmpty(),
+    body('isActive').isBoolean(),
+    body('updatedBy').isString().notEmpty(),
+    validate,
+  ],
+  async (req, res, next) => {
+    try {
+      const { tokenAddress } = req.params;
+      const { isActive, updatedBy } = req.body;
+      
+      const PlatformFeeConfig = require('../models/PlatformFeeConfig');
+      
+      const config = await PlatformFeeConfig.findOneAndUpdate(
+        { tokenAddress },
+        { isActive, updatedBy },
+        { new: true }
       );
-    }
 
-    if (targetUser.status !== 'active') {
-      targetUser.status = 'active';
-      await targetUser.save();
-    }
+      if (!config) {
+        return res.status(404).json({ error: 'Fee configuration not found' });
+      }
 
-    res.json({
-      success: true,
-      data: {
-        id: targetUser._id,
-        status: targetUser.status,
-      },
-    });
-  })
+      res.json({ success: true, config });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Delete fee configuration
+router.delete('/fee-configs/:tokenAddress',
+  requireAdmin,
+  [param('tokenAddress').isString().notEmpty(), validate],
+  async (req, res, next) => {
+    try {
+      const { tokenAddress } = req.params;
+      
+      const PlatformFeeConfig = require('../models/PlatformFeeConfig');
+      
+      const result = await PlatformFeeConfig.deleteOne({ tokenAddress });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Fee configuration not found' });
+      }
+
+      res.json({ success: true, message: 'Fee configuration deleted' });
+    } catch (error) {
+      next(error);
+    }
+  }
 );
 
 module.exports = router;

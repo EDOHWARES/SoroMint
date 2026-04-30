@@ -51,7 +51,7 @@ const streamingRoutes = require('./routes/streaming-routes');
 const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
 const fraudDetectionRoutes = require('./routes/fraud-detection-routes');
-const backupRoutes = require('./routes/backup-routes');
+const adminRoutes = require('./routes/admin-routes');
 const FraudDetectionMiddleware = require('./middleware/fraud-detection');
 
 const createApp = ({
@@ -98,7 +98,7 @@ const createApp = ({
   app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
   app.use('/api/fraud-detection', fraudDetectionRoutes);
-  app.use('/api/backups', backupRoutes);
+  app.use('/api/admin', adminRoutes);
 
   // Apply streaming fraud detection middleware
   app.use('/api/streaming', fraudMiddleware.monitorStreamingOperations());
