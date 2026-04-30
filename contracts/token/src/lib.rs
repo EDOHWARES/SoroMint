@@ -210,11 +210,6 @@ impl SoroMintToken {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
-    /// Upgrades the contract logic while preserving state.
-    pub fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("not initialized");
-        admin.require_auth();
-
     /// Enables or disables token transfers globally.
     /// 
     /// # Arguments
@@ -302,17 +297,6 @@ impl SoroMintToken {
 
     pub fn take_snapshot(e: Env) -> u32 {
         let admin: Address = e.storage().instance().get(&DataKey::Admin).unwrap();
-        admin.require_auth();
-
-        let mut balance = Self::read_balance(&e, &to);
-        balance = balance.checked_add(amount).expect("balance overflow");
-        Self::write_balance(&e, &to, balance);
-
-    /// Mints new tokens to a recipient address (Admin only).
-    pub fn mint(e: Env, to: Address, amount: i128) {
-        if amount <= 0 { panic!("mint amount must be positive"); }
-        
-        let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("Not initialized");
         admin.require_auth();
 
         let mut balance = Self::read_balance(&e, &to);
