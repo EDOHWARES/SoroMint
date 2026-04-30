@@ -132,13 +132,27 @@ const streamSchema = new mongoose.Schema(
     canceledTxHash: {
       type: String,
     },
-    platformFeeAmount: {
-      type: String,
-      default: '0',
-    },
-    platformFeePercentage: {
-      type: Number,
-      default: 0,
+    metadata: {
+      type: Map,
+      of: mongoose.Schema.Types.Mixed,
+      default: {},
+      validate: {
+        validator: function (value) {
+          if (!value) return true;
+          // Max 50 keys
+          if (value.size > 50) return false;
+          for (const [key, val] of value.entries()) {
+            // Keys must be alphanumeric with underscores/hyphens, max 64 chars
+            if (!/^[a-zA-Z0-9_-]{1,64}$/.test(key)) return false;
+            // Values must be primitives (no nested objects to prevent injection)
+            if (val !== null && typeof val === 'object') return false;
+            // String values max 512 chars
+            if (typeof val === 'string' && val.length > 512) return false;
+          }
+          return true;
+        },
+        message: 'Invalid metadata: max 50 keys, keys must be alphanumeric (max 64 chars), values must be primitives (max 512 chars)',
+      },
     },
   },
   {
@@ -148,7 +162,6 @@ const streamSchema = new mongoose.Schema(
 
 streamSchema.index({ sender: 1, status: 1 });
 streamSchema.index({ recipient: 1, status: 1 });
-// Text index for regex-based search fallback (Task 3)
-streamSchema.index({ sender: 'text', recipient: 'text', tokenAddress: 'text', notes: 'text' });
+streamSchema.index({ 'metadata.$**': 1 });
 
 module.exports = mongoose.model('Stream', streamSchema);
