@@ -5,6 +5,9 @@ const {
   getRecommendedFee,
   getFeeSuggestions,
 } = require('../services/fee-service');
+const {
+  simulateTransactionEstimate,
+} = require('../services/transaction-simulation-service');
 const { logger } = require('../utils/logger');
 
 const router = express.Router();
@@ -111,6 +114,48 @@ router.get(
     res.json({
       success: true,
       data: suggestions,
+    });
+  })
+);
+
+/**
+ * @route POST /api/fees/simulate
+ * @description Simulate a Soroban transaction and return the estimated
+ *              resource usage, fee breakdown, and execution result.
+ * @access Public
+ *
+ * @body {string} transactionXdr - Base64-encoded transaction envelope XDR
+ *
+ * @returns {Object} 200 - Simulation result with fees in XLM
+ * @returns {Object} 400 - Missing or invalid transaction XDR
+ * @returns {Object} 422 - Soroban simulation failed
+ */
+router.post(
+  '/fees/simulate',
+  asyncHandler(async (req, res) => {
+    const transactionXdr =
+      req.body.transactionXdr ||
+      req.body.transactionXDR ||
+      req.body.transaction;
+
+    if (typeof transactionXdr !== 'string' || transactionXdr.trim() === '') {
+      throw new AppError(
+        'transactionXdr is required',
+        400,
+        'INVALID_PARAMETER'
+      );
+    }
+
+    logger.info('Fee simulation requested', {
+      correlationId: req.correlationId,
+      transactionLength: transactionXdr.length,
+    });
+
+    const simulation = await simulateTransactionEstimate(transactionXdr);
+
+    res.json({
+      success: true,
+      data: simulation,
     });
   })
 );
