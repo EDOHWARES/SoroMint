@@ -26,7 +26,7 @@
     "@sendgrid/mail": "^8.1.6",
     "@sentry/node": "^10.45.0",
     "@stellar/stellar-sdk": "^15.0.1",
-    "bullmq": "^5.76.1",
+    "bullmq": "^5.76.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
