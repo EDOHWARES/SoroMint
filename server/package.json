@@ -45,7 +45,7 @@
     "i18next-fs-backend": "^2.3.1",
     "i18next-http-middleware": "^3.5.0",
     "ioredis": "^5.10.1",
-    "knex": "^3.2.7",
+    "knex": "^3.2.10",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "pg": "^8.20.0",
