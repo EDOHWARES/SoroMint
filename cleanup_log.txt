@@ -1,0 +1,183 @@
+Fetched 100 issues from page 1...
+Fetched 100 issues from page 2...
+Fetched 58 issues from page 3...
+Total issues fetched: 258
+Found 178 duplicates to close.
+✅ Closed duplicate issue #480
+✅ Closed duplicate issue #477
+✅ Closed duplicate issue #473
+✅ Closed duplicate issue #469
+✅ Closed duplicate issue #465
+✅ Closed duplicate issue #460
+✅ Closed duplicate issue #456
+✅ Closed duplicate issue #454
+✅ Closed duplicate issue #450
+✅ Closed duplicate issue #446
+✅ Closed duplicate issue #443
+✅ Closed duplicate issue #440
+✅ Closed duplicate issue #437
+✅ Closed duplicate issue #434
+✅ Closed duplicate issue #431
+✅ Closed duplicate issue #428
+✅ Closed duplicate issue #426
+✅ Closed duplicate issue #425
+✅ Closed duplicate issue #424
+✅ Closed duplicate issue #422
+✅ Closed duplicate issue #421
+✅ Closed duplicate issue #419
+✅ Closed duplicate issue #417
+✅ Closed duplicate issue #415
+✅ Closed duplicate issue #414
+✅ Closed duplicate issue #413
+✅ Closed duplicate issue #412
+✅ Closed duplicate issue #411
+✅ Closed duplicate issue #409
+✅ Closed duplicate issue #408
+✅ Closed duplicate issue #407
+✅ Closed duplicate issue #406
+✅ Closed duplicate issue #405
+✅ Closed duplicate issue #404
+✅ Closed duplicate issue #403
+✅ Closed duplicate issue #402
+✅ Closed duplicate issue #401
+✅ Closed duplicate issue #400
+✅ Closed duplicate issue #399
+✅ Closed duplicate issue #398
+✅ Closed duplicate issue #397
+✅ Closed duplicate issue #396
+❌ Error closing issue #395: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #394
+❌ Error closing issue #393: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #392
+❌ Error closing issue #391: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #390
+✅ Closed duplicate issue #389
+✅ Closed duplicate issue #388
+✅ Closed duplicate issue #387
+✅ Closed duplicate issue #386
+✅ Closed duplicate issue #385
+✅ Closed duplicate issue #384
+❌ Error closing issue #383: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #382
+❌ Error closing issue #381: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #380
+❌ Error closing issue #379: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #378
+❌ Error closing issue #377: HTTP Error 422: Unprocessable Entity
+❌ Error closing issue #376: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #375
+✅ Closed duplicate issue #374
+✅ Closed duplicate issue #373
+❌ Error closing issue #372: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #371
+❌ Error closing issue #370: HTTP Error 422: Unprocessable Entity
+❌ Error closing issue #369: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #368
+✅ Closed duplicate issue #367
+✅ Closed duplicate issue #366
+❌ Error closing issue #365: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #363
+✅ Closed duplicate issue #362
+✅ Closed duplicate issue #360
+❌ Error closing issue #359: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #357
+✅ Closed duplicate issue #355
+✅ Closed duplicate issue #356
+✅ Closed duplicate issue #354
+✅ Closed duplicate issue #353
+✅ Closed duplicate issue #352
+❌ Error closing issue #351: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #350
+✅ Closed duplicate issue #349
+✅ Closed duplicate issue #348
+❌ Error closing issue #347: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #346
+✅ Closed duplicate issue #345
+✅ Closed duplicate issue #344
+✅ Closed duplicate issue #343
+✅ Closed duplicate issue #342
+✅ Closed duplicate issue #341
+❌ Error closing issue #340: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #339
+✅ Closed duplicate issue #338
+✅ Closed duplicate issue #337
+✅ Closed duplicate issue #336
+❌ Error closing issue #335: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #334
+✅ Closed duplicate issue #333
+❌ Error closing issue #332: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #331
+✅ Closed duplicate issue #330
+✅ Closed duplicate issue #329
+✅ Closed duplicate issue #328
+❌ Error closing issue #327: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #326
+✅ Closed duplicate issue #325
+✅ Closed duplicate issue #324
+❌ Error closing issue #323: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #322
+❌ Error closing issue #321: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #320
+✅ Closed duplicate issue #319
+✅ Closed duplicate issue #318
+✅ Closed duplicate issue #317
+❌ Error closing issue #316: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #315
+✅ Closed duplicate issue #314
+✅ Closed duplicate issue #313
+✅ Closed duplicate issue #312
+❌ Error closing issue #311: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #310
+✅ Closed duplicate issue #308
+✅ Closed duplicate issue #307
+✅ Closed duplicate issue #306
+✅ Closed duplicate issue #305
+✅ Closed duplicate issue #304
+✅ Closed duplicate issue #303
+✅ Closed duplicate issue #302
+✅ Closed duplicate issue #301
+✅ Closed duplicate issue #300
+✅ Closed duplicate issue #299
+✅ Closed duplicate issue #298
+✅ Closed duplicate issue #297
+✅ Closed duplicate issue #296
+✅ Closed duplicate issue #295
+✅ Closed duplicate issue #294
+✅ Closed duplicate issue #293
+✅ Closed duplicate issue #292
+✅ Closed duplicate issue #291
+✅ Closed duplicate issue #290
+✅ Closed duplicate issue #289
+✅ Closed duplicate issue #288
+✅ Closed duplicate issue #287
+✅ Closed duplicate issue #286
+✅ Closed duplicate issue #285
+❌ Error closing issue #284: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #283
+✅ Closed duplicate issue #282
+❌ Error closing issue #281: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #280
+✅ Closed duplicate issue #279
+✅ Closed duplicate issue #278
+❌ Error closing issue #277: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #276
+❌ Error closing issue #275: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #274
+✅ Closed duplicate issue #273
+✅ Closed duplicate issue #272
+✅ Closed duplicate issue #271
+❌ Error closing issue #270: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #269
+❌ Error closing issue #268: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #267
+✅ Closed duplicate issue #266
+❌ Error closing issue #265: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #264
+✅ Closed duplicate issue #263
+❌ Error closing issue #262: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #261
+✅ Closed duplicate issue #260
+❌ Error closing issue #259: HTTP Error 422: Unprocessable Entity
+✅ Closed duplicate issue #258
+✅ Closed duplicate issue #257
+❌ Error closing issue #256: HTTP Error 422: Unprocessable Entity
