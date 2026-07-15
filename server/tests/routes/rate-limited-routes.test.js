@@ -64,6 +64,9 @@ describe('Rate Limited Routes', () => {
       }),
     });
 
+    // The rate-limiter applies per IP. Send two rapid POST /login requests.
+    // With max:1, the first hit counts (returns 400 — missing challenge) and
+    // the second should be blocked with 429.
     const firstResponse = await request(limitedApp)
       .post('/api/auth/login')
       .send({ publicKey: TEST_PUBLIC_KEY });
@@ -72,7 +75,7 @@ describe('Rate Limited Routes', () => {
       .post('/api/auth/login')
       .send({ publicKey: TEST_PUBLIC_KEY });
 
-    expect(firstResponse.status).toBe(200);
+    expect(firstResponse.status).toBe(400); // missing challengeToken
     expect(secondResponse.status).toBe(429);
     expect(secondResponse.body).toEqual({
       error: 'Too many requests. Please try again later.',

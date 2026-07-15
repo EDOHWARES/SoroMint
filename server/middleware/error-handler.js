@@ -41,7 +41,7 @@ class AppError extends Error {
  */
 const formatErrorResponse = (err, req, isProduction) => {
   // Get translation function from request (set by i18n middleware)
-  const t = req.t || ((key) => key);
+  const t = req.t || ((key, options) => (options && options.defaultValue !== undefined ? options.defaultValue : key));
 
   // Extract error code for translation lookup
   const errorCode = err.code || 'INTERNAL_ERROR';
@@ -175,30 +175,6 @@ const logError = (err, req, originalError = err) => {
       error: originalError,
     })
   );
-const logError = (err, req, isProduction) => {
-  const logData = {
-    message: err.message,
-    code: err.code || 'INTERNAL_ERROR',
-    statusCode: err.statusCode || 500,
-    path: req.originalUrl,
-    method: req.method,
-    correlationId: req.correlationId,
-    isOperational: err.isOperational || false,
-  };
-
-  // Include stack trace in log data
-  if (err.stack) {
-    logData.stack = err.stack;
-  }
-
-  // Log with appropriate level based on error severity
-  if (err.statusCode >= 500) {
-    logger.error('Internal Server Error', logData);
-  } else if (err.statusCode >= 400) {
-    logger.warn('Client Error', logData);
-  } else {
-    logger.info('Error', logData);
-  }
 };
 
 /**
@@ -257,7 +233,7 @@ const handleKnownErrors = (err) => {
  * @param {Function} next - Express next middleware function
  */
 const notFoundHandler = (req, res, next) => {
-  const t = req.t || ((key) => key);
+  const t = req.t || ((key, options) => (options && options.defaultValue !== undefined ? options.defaultValue : key));
   const message = t('errors.common.routeNotFound', { defaultValue: `Route ${req.originalUrl} not found` });
   const err = new AppError(message, 404, 'ROUTE_NOT_FOUND');
   next(err);

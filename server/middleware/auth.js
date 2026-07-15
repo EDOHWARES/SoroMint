@@ -54,8 +54,13 @@ const authenticate = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Find user by ID from token payload
-    const user = await User.findById(decoded.id);
+    // Find user by ID or publicKey from token payload
+    let user;
+    if (decoded.id) {
+      user = await User.findById(decoded.id);
+    } else if (decoded.publicKey) {
+      user = await User.findByPublicKey(decoded.publicKey);
+    }
 
     if (!user) {
       throw new AppError(
@@ -129,7 +134,12 @@ const optionalAuthenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id);
+    let user;
+    if (decoded.id) {
+      user = await User.findById(decoded.id);
+    } else if (decoded.publicKey) {
+      user = await User.findByPublicKey(decoded.publicKey);
+    }
 
     if (user && user.isActive()) {
       req.user = user;
@@ -181,20 +191,35 @@ const authorize = (...roles) => {
  * @returns {string} Signed JWT token
  * @throws {Error} If JWT_SECRET is not configured
  */
-const generateAccessToken = (user) => {
+const generateAccessToken = (userOrPublicKey, username) => {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET environment variable is not configured');
   }
 
-  const payload = {
-    id: user._id,
-    publicKey: user.publicKey,
-    username: user.username,
-    type: 'access',
-  };
+  let payload;
+  if (typeof userOrPublicKey === 'string') {
+    payload = {
+      publicKey: userOrPublicKey,
+      username: username || null,
+      type: 'access',
+    };
+  } else if (userOrPublicKey && typeof userOrPublicKey === 'object') {
+    payload = {
+      id: userOrPublicKey._id,
+      publicKey: userOrPublicKey.publicKey,
+      username: userOrPublicKey.username,
+      type: 'access',
+    };
+  } else {
+    payload = {
+      publicKey: null,
+      username: null,
+      type: 'access',
+    };
+  }
 
   const options = {
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || process.env.JWT_EXPIRES_IN || '15m',
     issuer: 'SoroMint',
     audience: 'SoroMint-API',
   };
