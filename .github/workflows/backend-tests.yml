@@ -38,6 +38,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run Backend Tests
-        run: pnpm test -- --ci --coverage --forceExit
+        run: pnpm exec jest --ci --coverage --forceExit
         env:
           NODE_ENV: test
