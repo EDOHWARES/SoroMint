@@ -1,0 +1,31 @@
+name: Contract Fuzz Smoke Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/vault/**'
+      - 'contracts/streaming/**'
+      - 'fuzz/**'
+      - '.github/workflows/contract-fuzz.yml'
+  push:
+    branches: [main, 'agent/**', 'feat/**']
+    paths:
+      - 'contracts/vault/**'
+      - 'contracts/streaming/**'
+      - 'fuzz/**'
+      - '.github/workflows/contract-fuzz.yml'
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Fuzz vault deposit math
+        run: cargo fuzz run vault_deposit -- -runs=10000
+      - name: Fuzz stream release math
+        run: cargo fuzz run stream_release -- -runs=10000

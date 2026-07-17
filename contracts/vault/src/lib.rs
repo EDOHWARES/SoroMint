@@ -5,6 +5,7 @@ mod oracle;
 mod liquidation;
 mod events;
 mod reentrancy;
+pub mod math;
 
 #[cfg(test)]
 mod test;
@@ -109,11 +110,11 @@ impl VaultContract {
         let smt_price = 1_0000000i128; // SMT pegged to $1 with 7 decimals
 
         // Calculate collateral value in USD
-        let collateral_value = (collateral_amount * collateral_price) / 1_0000000;
+        let collateral_value = math::collateral_value(collateral_amount, collateral_price, 1_0000000).expect("collateral value overflow");
         let debt_value = (smt_amount * smt_price) / 1_0000000;
 
         // Check collateralization ratio
-        let ratio = (collateral_value * BP_DIVISOR as i128) / debt_value;
+        let ratio = math::collateralization_ratio(collateral_value, debt_value, BP_DIVISOR as i128).expect("collateral ratio overflow");
         if ratio < config.min_collateral_ratio as i128 {
             panic!("insufficient collateral ratio");
         }
@@ -436,7 +437,7 @@ impl VaultContract {
         let smt_price = 1_0000000i128;
         let debt_value = (debt * smt_price) / 1_0000000;
 
-        let ratio = (collateral_value * BP_DIVISOR as i128) / debt_value;
+        let ratio = math::collateralization_ratio(collateral_value, debt_value, BP_DIVISOR as i128).expect("collateral ratio overflow");
 
         // Check against the strictest min collateral ratio
         let mut min_ratio = MIN_COLLATERAL_RATIO;
@@ -462,7 +463,7 @@ impl VaultContract {
         let smt_price = 1_0000000i128;
         let debt_value = (position.debt * smt_price) / 1_0000000;
 
-        let ratio = (collateral_value * BP_DIVISOR as i128) / debt_value;
+        let ratio = math::collateralization_ratio(collateral_value, debt_value, BP_DIVISOR as i128).expect("collateral ratio overflow");
 
         // Check against the highest liquidation threshold
         let mut threshold = LIQUIDATION_THRESHOLD;

@@ -1,0 +1,28 @@
+[package]
+name = "soromint-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "vault_deposit"
+path = "fuzz_targets/vault_deposit.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "stream_release"
+path = "fuzz_targets/stream_release.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

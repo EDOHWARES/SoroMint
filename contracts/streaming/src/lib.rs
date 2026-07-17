@@ -4,6 +4,7 @@
 //! Supports real-time payroll, subscription payments, and milestone-based vesting.
 
 #![no_std]
+pub mod math;
 
 use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, Bytes, IntoVal, Symbol, symbol_short};
 
@@ -391,7 +392,7 @@ impl StreamingPayments {
 
     fn calculate_streamed(e: &Env, stream: &Stream, schedule: &Schedule) -> i128 {
         match schedule {
-            Schedule::Linear(_) => Self::calculate_linear_streamed(e, stream),
+            Schedule::Linear(total_amount) => math::vested_amount(*total_amount, stream.start_ledger, stream.stop_ledger, e.ledger().sequence()).expect("stream release overflow"),
             Schedule::Milestone(milestones) => {
                 let current = e.ledger().sequence();
                 let mut streamed = 0i128;
