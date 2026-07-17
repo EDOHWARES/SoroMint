@@ -15,14 +15,19 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let current = start.saturating_add(offset.min(duration));
-    let vested = stream_math::vested_amount(total, start, stop, current).unwrap();
+    let Some(vested) = stream_math::vested_amount(total, start, stop, current) else {
+        // Checked arithmetic deliberately rejects schedules whose intermediate
+        // multiplication cannot be represented.
+        return;
+    };
     assert!((0..=total).contains(&vested));
     assert_eq!(
         stream_math::vested_amount(total, start, stop, stop),
         Some(total)
     );
     if current < stop {
-        let next = stream_math::vested_amount(total, start, stop, current + 1).unwrap();
-        assert!(next >= vested);
+        if let Some(next) = stream_math::vested_amount(total, start, stop, current + 1) {
+            assert!(next >= vested);
+        }
     }
 });
