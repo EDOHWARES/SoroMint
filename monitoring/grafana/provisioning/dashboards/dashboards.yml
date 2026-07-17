@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: SoroMint
+    folder: SoroMint
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

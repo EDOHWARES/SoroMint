@@ -1,27 +1,15 @@
-# ─── Stage 1: Builder ────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
-
+FROM node:20-alpine AS dependencies
 WORKDIR /app
+RUN corepack enable
+COPY server/package.json server/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-COPY server/package*.json ./
-
-RUN npm ci
-
-COPY server/ .
-
-# ─── Stage 2: Runner ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
-
 ENV NODE_ENV=production
-
 WORKDIR /app
-
-COPY server/package*.json ./
-
-RUN npm ci --omit=dev
-
-COPY --from=builder /app .
-
+RUN corepack enable
+COPY server/package.json server/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+COPY server/ .
 EXPOSE 5000
-
 CMD ["node", "index.js"]

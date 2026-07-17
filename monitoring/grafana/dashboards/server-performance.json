@@ -1,0 +1,63 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "API request rate by response code",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (status_code) (rate(soromint_http_requests_total[5m]))",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "API latency p95",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(soromint_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Active WebSockets",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [{ "expr": "soromint_websocket_connections_active" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "MongoDB pool",
+      "gridPos": { "h": 6, "w": 9, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "soromint_database_pool_connections",
+          "legendFormat": "{{state}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RPC failures",
+      "gridPos": { "h": 6, "w": 9, "x": 15, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (endpoint, method) (rate(soromint_rpc_failures_total[5m]))",
+          "legendFormat": "{{endpoint}} {{method}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["soromint", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "SoroMint Server Performance",
+  "uid": "soromint-server-performance",
+  "version": 1
+}

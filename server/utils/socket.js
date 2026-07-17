@@ -9,6 +9,10 @@ const { createAdapter } = require('@socket.io/redis-adapter');
 const { Emitter } = require('@socket.io/redis-emitter');
 const Redis = require('ioredis');
 const { logger } = require('./logger');
+const {
+  websocketConnected,
+  websocketDisconnected,
+} = require('../telemetry/metrics');
 
 let io;
 let emitter;
@@ -65,6 +69,7 @@ const initSocket = (httpServer) => {
    *    - Description: Real-time stream of Soroban blockchain events.
    */
   io.on('connection', (socket) => {
+    websocketConnected();
     logger.info('New socket client connected', { socketId: socket.id });
 
     // Allow users to join a private room for targeted updates (e.g. by wallet address)
@@ -76,6 +81,7 @@ const initSocket = (httpServer) => {
     });
 
     socket.on('disconnect', () => {
+      websocketDisconnected();
       logger.info('Socket client disconnected', { socketId: socket.id });
     });
 

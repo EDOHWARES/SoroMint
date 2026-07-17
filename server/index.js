@@ -12,7 +12,9 @@ initEnv();
 const { scheduleBackups } = require('./services/backup-service');
 const { startFeeMonitor } = require('./services/fee-monitor-service');
 const { getCacheService } = require('./services/cache-service');
-const { startReconciliationWorker } = require('./services/reconciliation-service');
+const {
+  startReconciliationWorker,
+} = require('./services/reconciliation-service');
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -21,7 +23,10 @@ mongoose.plugin(softDeletePlugin);
 const cors = require('cors');
 const { securityHeaders } = require('./middleware/security-headers');
 const { createCorsOptionsDelegate } = require('./config/cors-config');
-const { globalReadRateLimiter, globalWriteRateLimiter } = require('./middleware/rate-limiter');
+const {
+  globalReadRateLimiter,
+  globalWriteRateLimiter,
+} = require('./middleware/rate-limiter');
 
 const { initSentry } = require('./config/sentry');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
@@ -35,6 +40,8 @@ const {
 } = require('./utils/logger');
 const { setupSwagger } = require('./config/swagger');
 const { sampler } = require('./services/resource-sampler');
+const BillingService = require('./services/billing-service');
+const { metricsRouter, metricsMiddleware } = require('./telemetry/metrics');
 const authRoutes = require('./routes/auth-routes');
 const statusRoutes = require('./routes/status-routes');
 const auditRoutes = require('./routes/audit-routes');
@@ -64,15 +71,17 @@ const createApp = ({
 } = {}) => {
   const app = express();
   const corsMiddleware = cors(createCorsOptionsDelegate());
-  const fraudMiddleware = FraudDetectionMiddleware.getInstance();
 
   initSentry(app);
   app.use(securityHeaders);
   app.use(correlationIdMiddleware);
   app.use(httpLoggerMiddleware);
+  app.use(metricsMiddleware);
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
   app.use(express.json());
+
+  app.use('/metrics', metricsRouter);
 
   app.use('/api', globalReadRateLimiter);
   app.use('/api', globalWriteRateLimiter);
@@ -136,15 +145,18 @@ const startServer = async () => {
   }
 
   await connectDatabase();
-  
+
   // Initialize billing system
   try {
     await BillingService.initializeAccountTiers();
     logger.info('Billing system initialized successfully');
   } catch (error) {
-    logger.warn('Billing system initialization failed, continuing with existing tiers', {
-      error: error.message,
-    });
+    logger.warn(
+      'Billing system initialization failed, continuing with existing tiers',
+      {
+        error: error.message,
+      }
+    );
   }
 
   const app = createApp();
