@@ -51,7 +51,7 @@ pub struct MintDelegate {
 - Handles fee sponsorship if configured
 - Emits `dlg_mint` event
 
-**mint_delegate(owner, delegate) -> Option<MintDelegate>**
+**`mint_delegate(owner, delegate) -> Option<MintDelegate>`**
 - Query function to retrieve delegation details
 - Returns None if delegation doesn't exist
 

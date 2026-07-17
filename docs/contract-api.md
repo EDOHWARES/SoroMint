@@ -27,7 +27,7 @@ The AMM layer adds two new contracts:
 - `AmmFactory`: deploys and indexes pools for SoroMint-issued tokens paired with configured XLM/USDC quote-token contracts
 - `AmmPool`: manages constant-product liquidity, LP share accounting, and swap execution for a single token pair
 
-See [docs/amm-factory.md](/home/chinonso-peter/Drips/SoroMint/docs/amm-factory.md) for the full interface summary.
+See [docs/amm-factory.md](./amm-factory.md) for the full interface summary.
 
 ## Metadata Management
 

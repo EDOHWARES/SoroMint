@@ -314,4 +314,4 @@ SOROBAN_RPC_URL="https://soroban-test.stellar.org"
 
 ## Support
 
-For issues, feature requests, or contributions, please refer to the [GitHub repository](https://github.com/your-org/soromint).
+For issues, feature requests, or contributions, please refer to the [GitHub repository](https://github.com/EDOHWARES/SoroMint).

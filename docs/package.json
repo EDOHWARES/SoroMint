@@ -1,0 +1,15 @@
+{
+  "name": "soromint-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "check:links": "node scripts/check-links.mjs"
+  },
+  "devDependencies": {
+    "markdown-link-check": "^3.13.7",
+    "vitepress": "^1.6.4"
+  }
+}
