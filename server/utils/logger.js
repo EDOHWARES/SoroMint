@@ -397,13 +397,6 @@ const correlationIdMiddleware = (req, res, next) => {
   req.correlationId = req.headers['x-correlation-id'] || generateCorrelationId();
   req.requestId = req.correlationId;
   res.setHeader('X-Correlation-ID', req.correlationId);
-  // Get correlation ID from header or generate new one
-  req.correlationId =
-    req.headers['x-correlation-id'] || generateCorrelationId();
-
-  // Set response header for client tracing
-  res.setHeader('X-Correlation-ID', req.correlationId);
-
   next();
 };
 
@@ -440,24 +433,6 @@ const httpLoggerMiddleware = (req, res, next) => {
     }
 
     if (statusCode >= 500) {
-  const startTime = Date.now();
-  const correlationId = req.correlationId;
-
-  // Log when response is finished
-  res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    const logData = {
-      correlationId,
-      method: req.method,
-      url: req.originalUrl,
-      statusCode: res.statusCode,
-      durationMs: duration,
-      ip: req.ip || req.connection.remoteAddress,
-      userAgent: req.get('user-agent'),
-    };
-
-    // Log level based on status code
-    if (res.statusCode >= 500) {
       logger.error('HTTP Request', logData);
     } else if (statusCode >= 400) {
       logger.warn('HTTP Request', logData);
@@ -474,13 +449,11 @@ const logStartupInfo = (port, network) => {
     port,
     network,
     nodeEnv: getEnvironment(),
-    nodeEnv: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString(),
   });
 };
 
 const logShutdownInfo = (reason) => {
-  logger.warn('Server shutting down', { reason });
   logger.warn('Server shutting down', {
     reason,
     timestamp: new Date().toISOString(),
@@ -489,8 +462,6 @@ const logShutdownInfo = (reason) => {
 
 const logDatabaseConnection = (success, error = null) => {
   if (success) {
-    logger.info('MongoDB Connected');
-    return;
     logger.info('MongoDB Connected', {
       timestamp: new Date().toISOString(),
     });
@@ -500,17 +471,12 @@ const logDatabaseConnection = (success, error = null) => {
       timestamp: new Date().toISOString(),
     });
   }
-
-  logger.error('MongoDB Connection Error', {
-    error: error || 'Unknown error',
-  });
 };
 
 const logRouteRegistration = (method, routePath) => {
   logger.debug('Route registered', {
     method,
     path: routePath,
-    path,
   });
 };
 
@@ -535,4 +501,3 @@ Object.assign(logger, {
 });
 
 module.exports = logger;
-};
