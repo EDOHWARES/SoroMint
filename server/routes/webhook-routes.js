@@ -3,6 +3,7 @@
 const express = require('express');
 const { z } = require('zod');
 const Webhook = require('../models/Webhook');
+const WebhookDelivery = require('../models/WebhookDelivery');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/error-handler');
 const { SUPPORTED_WEBHOOK_EVENTS } = require('../services/webhook-service');
@@ -15,7 +16,6 @@ const webhookSchema = z.object({
   url: z.string().url('Invalid URL'),
   events: z
     .array(z.enum(SUPPORTED_WEBHOOK_EVENTS))
-    .array(z.enum(['token.minted', 'token.transferred', 'token.burned']))
     .min(1)
     .default(['token.minted']),
   secret: z.string().min(16, 'Secret must be at least 16 characters'),
@@ -89,5 +89,75 @@ router.delete('/webhooks/:id', authenticate, asyncHandler(async (req, res) => {
     res.json({ success: true });
   })
 );
+
+/**
+ * @openapi
+ * @route GET /api/webhooks/{id}/deliveries
+ * @name listWebhookDeliveries
+ * @description List delivery attempts for a specific webhook
+ * @tags Webhooks
+ * @security BearerAuth
+ * @param {string} id - Webhook ID
+ * @returns {array} 200 - Array of webhook deliveries
+ * @returns {object} 404 - Webhook not found
+ */
+router.get('/webhooks/:id/deliveries', authenticate, asyncHandler(async (req, res) => {
+  const webhook = await Webhook.findOne({
+    _id: req.params.id,
+    ownerPublicKey: req.user.publicKey,
+  });
+
+  if (!webhook) throw new AppError('Webhook not found', 404, 'NOT_FOUND');
+
+  const { status, limit = 50, skip = 0 } = req.query;
+  const query = { webhookId: webhook._id };
+  if (status) {
+    query.status = status;
+  }
+
+  const deliveries = await WebhookDelivery.find(query)
+    .sort({ createdAt: -1 })
+    .skip(Number(skip))
+    .limit(Number(limit));
+
+  res.json({ success: true, data: deliveries });
+}));
+
+/**
+ * @openapi
+ * @route POST /api/webhooks/deliveries/{deliveryId}/retry
+ * @name retryWebhookDelivery
+ * @description Manually retry a DLQ delivery
+ * @tags Webhooks
+ * @security BearerAuth
+ * @param {string} deliveryId - Delivery ID
+ * @returns {object} 200 - Success confirmation
+ * @returns {object} 404 - Delivery not found or not in DLQ
+ */
+router.post('/webhooks/deliveries/:deliveryId/retry', authenticate, asyncHandler(async (req, res) => {
+  const delivery = await WebhookDelivery.findById(req.params.deliveryId).populate('webhookId');
+  if (!delivery) throw new AppError('WebhookDelivery not found', 404, 'NOT_FOUND');
+
+  if (delivery.webhookId.ownerPublicKey !== req.user.publicKey) {
+    throw new AppError('Unauthorized access to WebhookDelivery', 403, 'FORBIDDEN');
+  }
+
+  if (delivery.status !== 'DLQ' && delivery.status !== 'FAILED') {
+    throw new AppError('Only FAILED or DLQ deliveries can be manually retried', 400, 'BAD_REQUEST');
+  }
+
+  const { webhookQueue } = require('../services/webhook-queue');
+
+  // Reset status to PENDING and attempts to 0 for a fresh retry schedule
+  delivery.status = 'PENDING';
+  delivery.attempts = 0;
+  await delivery.save();
+
+  await webhookQueue.add('webhookDelivery', {
+    deliveryId: String(delivery._id),
+  });
+
+  res.json({ success: true, message: 'Delivery queued for retry' });
+}));
 
 module.exports = router;

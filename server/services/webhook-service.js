@@ -62,55 +62,36 @@ const deliver = (url, payload, signature, headers = {}) =>
     req.end();
   });
 
-const deliverWithRetry = async (webhook, event, data) => {
-  const payload = JSON.stringify({
-    event,
-    data,
-    webhookId: String(webhook._id),
-    deliveredAt: new Date().toISOString(),
-  });
-  const signature = sign(webhook.secret, payload);
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      await deliver(webhook.url, payload, signature, {
-        'X-SoroMint-Event': event,
-        'X-SoroMint-Webhook-Id': String(webhook._id),
-      });
-      await deliver(webhook.url, payload, signature);
-      logger.info('Webhook delivered', {
-        webhookId: webhook._id,
-        event,
-        attempt,
-      });
-      return;
-    } catch (err) {
-      logger.warn('Webhook delivery failed', {
-        webhookId: webhook._id,
-        event,
-        attempt,
-        error: err.message,
-      });
-      if (attempt < MAX_RETRIES) {
-        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
-      }
-    }
-  }
-
-  logger.error('Webhook delivery exhausted retries', {
-    webhookId: webhook._id,
-    event,
-  });
-};
-
 const dispatch = async (event, data) => {
   const webhooks = await Webhook.find({ events: event, active: true }).lean();
   if (webhooks.length === 0) {
-    return;
+    return [];
   }
 
+  // Import the queue lazily to avoid circular dependencies if needed, or require at top.
+  // Since webhook-service exports deliver and sign used by webhook-queue,
+  // we require the queue here to avoid circular dependency issues at load time.
+  const { webhookQueue } = require('./webhook-queue');
+  const WebhookDelivery = require('../models/WebhookDelivery');
+
   const results = await Promise.allSettled(
-    webhooks.map((wh) => deliverWithRetry(wh, event, data))
+    webhooks.map(async (wh) => {
+      // Create pending delivery record
+      const delivery = await WebhookDelivery.create({
+        webhookId: wh._id,
+        event,
+        data,
+        status: 'PENDING',
+        attempts: 0,
+      });
+
+      // Enqueue job to BullMQ
+      const job = await webhookQueue.add('webhookDelivery', {
+        deliveryId: String(delivery._id),
+      });
+
+      return { deliveryId: delivery._id, jobId: job.id };
+    })
   );
 
   return results;
@@ -119,6 +100,7 @@ const dispatch = async (event, data) => {
 module.exports = {
   dispatch,
   sign,
+  deliver,
   TOKEN_WEBHOOK_EVENTS,
   STREAM_WEBHOOK_EVENTS,
   SUPPORTED_WEBHOOK_EVENTS,

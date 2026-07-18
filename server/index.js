@@ -161,6 +161,9 @@ const startServer = async () => {
     });
     scheduleBackups();
     startFeeMonitor();
+    
+    // Initialize Webhook Queue and Worker
+    require('./services/webhook-queue');
   });
 
   initSocket(server);
