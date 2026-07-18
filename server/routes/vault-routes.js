@@ -215,11 +215,9 @@ router.get('/:vaultId/health', authenticate, asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: {
-      vaultId,
-      collateralToken,
-      amount
-    );
+    data: health
+  });
+}));
 
 /**
  * @openapi

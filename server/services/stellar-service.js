@@ -13,6 +13,7 @@ const {
 } = require('@stellar/stellar-sdk');
 const { logger } = require('../utils/logger');
 const { retryWithBackoff } = require('../utils/retry');
+const { getEnv } = require('../config/env-config');
 
 class FailoverRpcServer {
   constructor(urls) {

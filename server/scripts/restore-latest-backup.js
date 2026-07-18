@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Restore the latest encrypted MongoDB backup from S3.
  *

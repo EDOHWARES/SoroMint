@@ -34,7 +34,7 @@ const tokenSchema = z.object({
     .optional(),
   iconBase64: z
     .string()
-    .regex(/^data:([A-Za-z-+\/]+);base64,(.+)$/, 'Invalid base64 image string')
+    .regex(/^data:([A-Za-z-+/]+);base64,(.+)$/, 'Invalid base64 image string')
     .optional(),
 });
 

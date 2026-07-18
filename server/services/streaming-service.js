@@ -6,6 +6,7 @@ const {
   xdr,
 } = require('@stellar/stellar-sdk');
 const { setTimeout: delay } = require('node:timers/promises');
+const Stream = require('../models/Stream');
 
 const DEFAULT_POLL_INTERVAL_MS = 1000;
 const DEFAULT_POLL_TIMEOUT_MS = 30000;
@@ -60,10 +61,6 @@ class StreamingService {
   ) {
     const contract = this.getContract(contractId);
     const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
-    const contract = new Contract(contractId);
-    const sourceAccount = await this.server.getAccount(
-      sourceKeypair.publicKey()
-    );
 
     // Calculate platform fee
     const feeAmount = await this.platformFeeService.calculateFee(totalAmount, tokenAddress);
@@ -147,8 +144,6 @@ class StreamingService {
   }
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -185,8 +180,6 @@ class StreamingService {
   }
 
   async cancelStream(contractId, sourceKeypair, streamId) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -240,8 +233,6 @@ class StreamingService {
   }
 
   async getStream(contractId, streamId) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(contract.address().toString());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       contract.address().toString()

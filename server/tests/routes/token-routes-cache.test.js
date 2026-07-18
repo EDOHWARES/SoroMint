@@ -6,10 +6,10 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const Token = require('../../../models/Token');
-const DeploymentAudit = require('../../../models/DeploymentAudit');
-const { createTokenRouter } = require('../../../routes/token-routes');
-const { getCacheService } = require('../../../services/cache-service');
+const Token = require('../../models/Token');
+const DeploymentAudit = require('../../models/DeploymentAudit');
+const { createTokenRouter } = require('../../routes/token-routes');
+const { getCacheService } = require('../../services/cache-service');
 const express = require('express');
 
 // Mock cache service

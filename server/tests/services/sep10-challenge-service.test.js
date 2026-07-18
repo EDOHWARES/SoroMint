@@ -522,6 +522,3 @@ describe('CHALLENGE_WINDOW_SECONDS', () => {
     expect(CHALLENGE_WINDOW_SECONDS).toBeGreaterThanOrEqual(60);
   });
 });
-```
-
-Now let me update the auth-routes tests and create the client auth service — all at once:

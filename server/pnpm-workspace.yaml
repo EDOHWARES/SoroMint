@@ -1,0 +1,6 @@
+allowBuilds:
+  '@scarf/scarf': true
+  mongodb-memory-server: true
+  msgpackr-extract: true
+  sqlite3: true
+  unrs-resolver: true

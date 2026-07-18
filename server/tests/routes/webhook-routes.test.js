@@ -23,10 +23,7 @@ const { errorHandler } = require('../../middleware/error-handler');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const User = require('../../models/User');
-const Webhook = require('../../models/Webhook');
 const { generateToken } = require('../../middleware/auth');
-const { errorHandler } = require('../../middleware/error-handler');
-const webhookRoutes = require('../../routes/webhook-routes');
 
 let mongoServer;
 let app;
@@ -65,25 +62,8 @@ afterAll(async () => {
 });
 
 describe('webhook routes', () => {
-  let app;
-
   beforeEach(() => {
     jest.clearAllMocks();
-describe('POST /api/webhooks', () => {
-  it('registers a webhook', async () => {
-    const res = await request(app)
-      .post('/api/webhooks')
-      .set('Authorization', `Bearer ${validToken}`)
-      .send({
-        url: 'https://example.com/hook',
-        secret: 'supersecretvalue1234',
-        events: ['token.minted'],
-      });
-
-    app = express();
-    app.use(express.json());
-    app.use('/api', webhookRoutes);
-    app.use(errorHandler);
   });
 
   describe('POST /api/webhooks', () => {
@@ -97,6 +77,7 @@ describe('POST /api/webhooks', () => {
 
       const res = await request(app)
         .post('/api/webhooks')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({
           url: 'https://example.com/hook',
           secret: 'supersecretvalue1234',
@@ -113,15 +94,6 @@ describe('POST /api/webhooks', () => {
         })
       );
     });
-  it('rejects invalid URL', async () => {
-    const res = await request(app)
-      .post('/api/webhooks')
-      .set('Authorization', `Bearer ${validToken}`)
-      .send({
-        url: 'not-a-url',
-        secret: 'supersecretvalue1234',
-        events: ['token.minted'],
-      });
 
     it('registers a stream webhook', async () => {
       Webhook.create.mockResolvedValue({
@@ -133,6 +105,7 @@ describe('POST /api/webhooks', () => {
 
       const res = await request(app)
         .post('/api/webhooks')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({
           url: 'https://example.com/stream-hook',
           secret: 'supersecretvalue1234',
@@ -148,20 +121,12 @@ describe('POST /api/webhooks', () => {
     it('rejects invalid URL', async () => {
       const res = await request(app)
         .post('/api/webhooks')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({
           url: 'not-a-url',
           secret: 'supersecretvalue1234',
           events: ['token.minted'],
         });
-  it('rejects short secret', async () => {
-    const res = await request(app)
-      .post('/api/webhooks')
-      .set('Authorization', `Bearer ${validToken}`)
-      .send({
-        url: 'https://example.com/hook',
-        secret: 'short',
-        events: ['token.minted'],
-      });
 
       expect(res.status).toBe(400);
     });
@@ -169,20 +134,25 @@ describe('POST /api/webhooks', () => {
     it('rejects short secret', async () => {
       const res = await request(app)
         .post('/api/webhooks')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({
           url: 'https://example.com/hook',
           secret: 'short',
           events: ['token.minted'],
         });
-  it('requires authentication', async () => {
-    const res = await request(app)
-      .post('/api/webhooks')
-      .send({
-        url: 'https://example.com/hook',
-        secret: 'supersecretvalue1234',
-      });
 
       expect(res.status).toBe(400);
+    });
+
+    it('requires authentication', async () => {
+      const res = await request(app)
+        .post('/api/webhooks')
+        .send({
+          url: 'https://example.com/hook',
+          secret: 'supersecretvalue1234',
+        });
+
+      expect(res.status).toBe(401);
     });
   });
 

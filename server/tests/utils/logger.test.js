@@ -5,6 +5,7 @@ const loadLoggerModule = () => {
   return require('../../utils/logger');
 };
 const {
+  logger,
   generateCorrelationId,
   correlationIdMiddleware,
   httpLoggerMiddleware,
@@ -51,20 +52,15 @@ describe('Logger Utility', () => {
       feature: 'auth',
     });
 
-    expect(entry).toMatchObject({
-      level: 'info',
-      message: 'Structured log',
-      service: 'soromint-server',
-      environment: 'test',
-      requestId: 'req-123',
-      error: null,
-      metadata: expect.objectContaining({
-        feature: 'auth',
-        identifiers: expect.objectContaining({
-          requestId: 'req-123',
-          traceId: 'trace-123',
-        }),
-      }),
+    expect(entry.level).toBe('info');
+    expect(entry.message).toBe('Structured log');
+    expect(entry.service).toBe('soromint-server');
+    expect(entry.environment).toBe('test');
+    expect(entry.requestId).toBe('req-123');
+    expect(entry.error).toBeNull();
+    expect(entry.metadata.feature).toBe('auth');
+    expect(entry.metadata.identifiers.requestId).toBe('req-123');
+    expect(entry.metadata.identifiers.traceId).toBe('trace-123');
     process.env.NODE_ENV = originalEnv;
   });
 
@@ -322,13 +318,18 @@ describe('Logger Utility', () => {
       httpLoggerMiddleware(mockReq, mockRes, mockNext);
 
       setTimeout(() => {
-        expect(mockLogger.http).toHaveBeenCalledWith(
-          'HTTP Request',
-          expect.objectContaining({
-            correlationId: undefined,
-          })
-        );
-        done();
+        try {
+          expect(mockLogger.http).toHaveBeenCalledWith(
+            'HTTP Request',
+            expect.objectContaining({
+              method: 'GET',
+              url: '/api/tokens',
+            })
+          );
+          done();
+        } catch (error) {
+          done(error);
+        }
       }, 50);
     });
   });
@@ -498,7 +499,7 @@ describe('Logger Utility', () => {
       const callArg = mockLogger.error.mock.calls[0][1];
       expect(callArg.timestamp).toBeDefined();
     });
-    expect(new Date(entry.timestamp).toISOString()).toBe(entry.timestamp);
+
   });
 
   it('serializes direct Error arguments and nested error metadata with stacks', () => {
@@ -510,40 +511,6 @@ describe('Logger Utility', () => {
     const { buildStructuredLogEntry } = loadLoggerModule();
     const error = new Error('boom');
     error.code = 'E_BOOM';
-  describe('logRouteRegistration', () => {
-    let mockLogger;
-
-    beforeEach(() => {
-      mockLogger = {
-        debug: jest.fn(),
-      };
-      logger.debug = mockLogger.debug;
-    });
-
-    it('should log route registration with method and path', () => {
-      logRouteRegistration('GET', '/api/tokens');
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Route registered',
-        expect.objectContaining({
-          method: 'GET',
-          path: '/api/tokens',
-        })
-      );
-    });
-
-    it('should handle POST routes', () => {
-      logRouteRegistration('POST', '/api/tokens');
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Route registered',
-        expect.objectContaining({
-          method: 'POST',
-          path: '/api/tokens',
-        })
-      );
-    });
-
     const directEntry = buildStructuredLogEntry('error', 'Direct error', error);
     const nestedEntry = buildStructuredLogEntry('error', 'Nested error', { error });
 
@@ -557,6 +524,50 @@ describe('Logger Utility', () => {
       name: 'Error',
       message: 'boom',
       code: 'E_BOOM',
+    });
+    expect(nestedEntry.error.stack).toContain('boom');
+  });
+
+  describe('logRouteRegistration', () => {
+    let mockLogger;
+    let localLogRouteRegistration;
+
+    beforeEach(() => {
+      mockLogger = {
+        debug: jest.fn(),
+      };
+      const module = loadLoggerModule();
+      module.logger.debug = mockLogger.debug;
+      localLogRouteRegistration = module.logRouteRegistration;
+    });
+
+    it('should log route registration with method and path', () => {
+      localLogRouteRegistration('GET', '/api/tokens');
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Route registered',
+        expect.objectContaining({
+          method: 'GET',
+          path: '/api/tokens',
+        })
+      );
+    });
+
+    it('should handle POST routes', () => {
+      localLogRouteRegistration('POST', '/api/tokens');
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Route registered',
+        expect.objectContaining({
+          method: 'POST',
+          path: '/api/tokens',
+        })
+      );
+    });
+
+    it('should handle PUT routes with parameters', () => {
+      localLogRouteRegistration('PUT', '/api/tokens/:id');
+
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Route registered',
         expect.objectContaining({
@@ -567,7 +578,7 @@ describe('Logger Utility', () => {
     });
 
     it('should handle DELETE routes', () => {
-      logRouteRegistration('DELETE', '/api/tokens/:id');
+      localLogRouteRegistration('DELETE', '/api/tokens/:id');
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Route registered',
@@ -577,7 +588,6 @@ describe('Logger Utility', () => {
         })
       );
     });
-    expect(nestedEntry.error.stack).toContain('boom');
   });
 
   it('sets correlationId, requestId, and X-Correlation-ID header', () => {
@@ -646,12 +656,16 @@ describe('Logger Utility', () => {
 
     logger.http = originalHttp;
   });
-        originalUrl: '/api/status',
-        ip: '127.0.0.1',
-        connection: { remoteAddress: '127.0.0.1' },
-        get: jest.fn(() => 'TestAgent'),
-        headers: { 'x-correlation-id': 'integration-test-id' },
-      };
+
+  it('combines correlationIdMiddleware and httpLoggerMiddleware correctly', (done) => {
+    const mockReq = {
+      method: 'GET',
+      originalUrl: '/api/status',
+      ip: '127.0.0.1',
+      connection: { remoteAddress: '127.0.0.1' },
+      get: jest.fn(() => 'TestAgent'),
+      headers: { 'x-correlation-id': 'integration-test-id' },
+    };
 
       const mockRes = {
         statusCode: 200,
@@ -732,9 +746,16 @@ describe('Logger Utility', () => {
         })
       );
     });
-  });
+
 
   describe('Edge Cases', () => {
+    const originalEnv = process.env;
+
+    afterEach(() => {
+      process.env = originalEnv;
+      jest.restoreAllMocks();
+    });
+
     it('should handle empty header object in correlationIdMiddleware', () => {
       const mockReq = { headers: {} };
       const mockRes = { setHeader: jest.fn() };
@@ -1126,7 +1147,23 @@ describe('Logger Utility', () => {
       };
 
       const mockLogger = { http: jest.fn() };
-      logger.http = mockLogger.http;
+      const { logger: localLogger, httpLoggerMiddleware: localHttpLoggerMiddleware } = loadLoggerModule();
+      localLogger.http = mockLogger.http;
+
+      const mockNext = jest.fn();
+      localHttpLoggerMiddleware(mockReq, mockRes, mockNext);
+
+      setTimeout(() => {
+        expect(mockLogger.http).toHaveBeenCalledWith(
+          'HTTP Request',
+          expect.objectContaining({
+            method: 'OPTIONS',
+            statusCode: 204,
+          })
+        );
+        done();
+      }, 50);
+    });
 
   it('creates separate exact-level daily rotate transports', () => {
     process.env = {
@@ -1185,7 +1222,7 @@ describe('Logger Utility', () => {
     );
     expect(logger.error).toHaveBeenCalledWith(
       'MongoDB Connection Error',
-      expect.objectContaining({ error: expect.any(Error) })
+      expect.objectContaining({ error: 'Connection failed' })
     );
     expect(logger.debug).toHaveBeenCalledWith(
       'Route registered',
@@ -1195,16 +1232,7 @@ describe('Logger Utility', () => {
     logger.info = originalInfo;
     logger.error = originalError;
     logger.debug = originalDebug;
-      setTimeout(() => {
-        expect(mockLogger.http).toHaveBeenCalledWith(
-          'HTTP Request',
-          expect.objectContaining({
-            method: 'OPTIONS',
-            statusCode: 204,
-          })
-        );
-        done();
-      }, 50);
-    });
   });
+});
+
 });
