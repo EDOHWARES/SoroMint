@@ -5,6 +5,12 @@
 
 #![no_std]
 
+extern crate alloc;
+
+#[cfg(target_family = "wasm")]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 mod events;
 mod validation;
 

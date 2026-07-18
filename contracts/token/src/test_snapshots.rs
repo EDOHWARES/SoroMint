@@ -33,7 +33,7 @@ fn test_snapshot_balance_returns_none_if_not_recorded() {
 
 #[test]
 fn test_snapshot_reflects_balance_at_time_of_snapshot() {
-    let (e, _, user, client) = setup();
+    let (_e, _, user, client) = setup();
     client.mint(&user, &500);
 
     let ledger1 = client.take_snapshot(&user);
@@ -154,7 +154,7 @@ fn test_multiple_accounts_snapshots_independent() {
 
 #[test]
 fn test_snapshot_after_burn() {
-    let (e, _, user, client) = setup();
+    let (_e, _, user, client) = setup();
     client.mint(&user, &1000);
     client.burn(&user, &300);
 

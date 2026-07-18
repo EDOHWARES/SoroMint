@@ -1,4 +1,5 @@
 #![cfg(test)]
+extern crate std;
 
 use super::*;
 use soroban_sdk::{
@@ -6,9 +7,18 @@ use soroban_sdk::{
     token, Address, Env,
 };
 
-fn create_token_contract<'a>(e: &Env, admin: &Address) -> (Address, token::Client<'a>) {
-    let contract_id = e.register_stellar_asset_contract_v2(admin.clone());
-    (contract_id.clone(), token::Client::new(e, &contract_id))
+fn create_token_contract<'a>(
+    e: &Env,
+    admin: &Address,
+) -> (Address, token::Client<'a>, token::StellarAssetClient<'a>) {
+    let contract_id = e
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    (
+        contract_id.clone(),
+        token::Client::new(e, &contract_id),
+        token::StellarAssetClient::new(e, &contract_id),
+    )
 }
 
 #[test]
@@ -42,11 +52,11 @@ fn test_create_trade() {
     client.initialize(&admin);
 
     // Create tokens
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, token_b) = create_token_contract(&e, &admin);
+    let (token_a_id, token_a, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, _token_b, _token_b_admin) = create_token_contract(&e, &admin);
 
     // Mint tokens to maker
-    token_a.mint(&maker, &1000);
+    token_a_admin.mint(&maker, &1000);
 
     // Create trade
     let trade_id = client.create_trade(&maker, &token_a_id, &100, &token_b_id, &200, &1000);
@@ -82,12 +92,12 @@ fn test_accept_trade() {
     client.initialize(&admin);
 
     // Create tokens
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, token_b) = create_token_contract(&e, &admin);
+    let (token_a_id, token_a, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, token_b, token_b_admin) = create_token_contract(&e, &admin);
 
     // Mint tokens
-    token_a.mint(&maker, &1000);
-    token_b.mint(&taker, &2000);
+    token_a_admin.mint(&maker, &1000);
+    token_b_admin.mint(&taker, &2000);
 
     // Create trade
     let trade_id = client.create_trade(&maker, &token_a_id, &100, &token_b_id, &200, &1000);
@@ -123,11 +133,11 @@ fn test_cancel_trade() {
     client.initialize(&admin);
 
     // Create tokens
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, _) = create_token_contract(&e, &admin);
+    let (token_a_id, token_a, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, _, _) = create_token_contract(&e, &admin);
 
     // Mint tokens to maker
-    token_a.mint(&maker, &1000);
+    token_a_admin.mint(&maker, &1000);
 
     // Create trade
     let trade_id = client.create_trade(&maker, &token_a_id, &100, &token_b_id, &200, &1000);
@@ -158,21 +168,21 @@ fn test_claim_expired() {
     client.initialize(&admin);
 
     // Create tokens
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, _) = create_token_contract(&e, &admin);
+    let (token_a_id, token_a, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, _, _) = create_token_contract(&e, &admin);
 
     // Mint tokens to maker
-    token_a.mint(&maker, &1000);
+    token_a_admin.mint(&maker, &1000);
 
     // Set initial ledger
     e.ledger().set(LedgerInfo {
         timestamp: 1000,
-        protocol_version: 20,
+        protocol_version: 22,
         sequence_number: 100,
         network_id: Default::default(),
         base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
+        min_temp_entry_ttl: 4096,
+        min_persistent_entry_ttl: 4096,
         max_entry_ttl: 3110400,
     });
 
@@ -182,12 +192,12 @@ fn test_claim_expired() {
     // Advance ledger past expiration
     e.ledger().set(LedgerInfo {
         timestamp: 2000,
-        protocol_version: 20,
+        protocol_version: 22,
         sequence_number: 151,
         network_id: Default::default(),
         base_reserve: 10,
-        min_temp_entry_ttl: 10,
-        min_persistent_entry_ttl: 10,
+        min_temp_entry_ttl: 4096,
+        min_persistent_entry_ttl: 4096,
         max_entry_ttl: 3110400,
     });
 
@@ -217,11 +227,11 @@ fn test_is_active() {
     client.initialize(&admin);
 
     // Create tokens
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, _) = create_token_contract(&e, &admin);
+    let (token_a_id, _, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, _, _) = create_token_contract(&e, &admin);
 
     // Mint tokens to maker
-    token_a.mint(&maker, &1000);
+    token_a_admin.mint(&maker, &1000);
 
     // Create trade
     let trade_id = client.create_trade(&maker, &token_a_id, &100, &token_b_id, &200, &1000);
@@ -250,8 +260,8 @@ fn test_create_trade_zero_amount() {
 
     client.initialize(&admin);
 
-    let (token_a_id, _) = create_token_contract(&e, &admin);
-    let (token_b_id, _) = create_token_contract(&e, &admin);
+    let (token_a_id, _, _) = create_token_contract(&e, &admin);
+    let (token_b_id, _, _) = create_token_contract(&e, &admin);
 
     // Should panic with zero amount
     client.create_trade(&maker, &token_a_id, &0, &token_b_id, &200, &1000);
@@ -272,11 +282,11 @@ fn test_accept_completed_trade() {
 
     client.initialize(&admin);
 
-    let (token_a_id, token_a) = create_token_contract(&e, &admin);
-    let (token_b_id, token_b) = create_token_contract(&e, &admin);
+    let (token_a_id, _token_a, token_a_admin) = create_token_contract(&e, &admin);
+    let (token_b_id, _token_b, token_b_admin) = create_token_contract(&e, &admin);
 
-    token_a.mint(&maker, &1000);
-    token_b.mint(&taker, &2000);
+    token_a_admin.mint(&maker, &1000);
+    token_b_admin.mint(&taker, &2000);
 
     let trade_id = client.create_trade(&maker, &token_a_id, &100, &token_b_id, &200, &1000);
 

@@ -3,12 +3,9 @@
 //! A Soroban contract implementing multi-signature (multi-sig) authorization
 //! for high-risk administrative operations like withdrawing fees.
 
-#![no_std]
-
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Vec, Symbol};
-
-#[cfg(test)]
-mod test_multisig;
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
+};
 
 #[contracttype]
 #[derive(Clone)]
@@ -97,10 +94,15 @@ impl MultiSigAccessControl {
             proposer: proposer.clone(),
             executed: false,
         };
-        e.storage().persistent().set(&DataKey::PendingOp(operation_id.clone()), &operation);
+        e.storage()
+            .persistent()
+            .set(&DataKey::PendingOp(operation_id.clone()), &operation);
 
         // Record the first approval from the proposer
-        e.storage().persistent().set(&DataKey::Approvals(operation_id.clone(), proposer.clone()), &true);
+        e.storage().persistent().set(
+            &DataKey::Approvals(operation_id.clone(), proposer.clone()),
+            &true,
+        );
 
         // Emit event
         e.events().publish((OP_CREATED, operation_id), proposer);
@@ -124,7 +126,8 @@ impl MultiSigAccessControl {
         }
 
         // Get the pending operation
-        let operation: Operation = e.storage()
+        let operation: Operation = e
+            .storage()
             .persistent()
             .get(&DataKey::PendingOp(operation_id.clone()))
             .expect("operation not found");
@@ -134,7 +137,10 @@ impl MultiSigAccessControl {
         }
 
         // Record the approval
-        e.storage().persistent().set(&DataKey::Approvals(operation_id.clone(), approver.clone()), &true);
+        e.storage().persistent().set(
+            &DataKey::Approvals(operation_id.clone(), approver.clone()),
+            &true,
+        );
 
         // Emit event
         e.events().publish((OP_APPROVED, operation_id), approver);
@@ -155,7 +161,8 @@ impl MultiSigAccessControl {
     /// - The approval threshold hasn't been met
     pub fn execute_operation(e: Env, operation_id: BytesN<32>) -> bool {
         // Get the pending operation
-        let mut operation: Operation = e.storage()
+        let mut operation: Operation = e
+            .storage()
             .persistent()
             .get(&DataKey::PendingOp(operation_id.clone()))
             .expect("operation not found");
@@ -185,10 +192,13 @@ impl MultiSigAccessControl {
 
         // Mark as executed
         operation.executed = true;
-        e.storage().persistent().set(&DataKey::PendingOp(operation_id.clone()), &operation);
+        e.storage()
+            .persistent()
+            .set(&DataKey::PendingOp(operation_id.clone()), &operation);
 
         // Emit event
-        e.events().publish((OP_EXECUTED, operation_id), approval_count);
+        e.events()
+            .publish((OP_EXECUTED, operation_id), approval_count);
 
         true
     }
@@ -227,12 +237,12 @@ impl MultiSigAccessControl {
     }
 
     /// Returns the contract version.
-    pub fn version(e: Env) -> soroban_sdk::String {
+    pub fn ms_version(e: Env) -> soroban_sdk::String {
         soroban_sdk::String::from_str(&e, "1.0.0")
     }
 
     /// Returns the contract status.
-    pub fn status(e: Env) -> soroban_sdk::String {
+    pub fn ms_status(e: Env) -> soroban_sdk::String {
         soroban_sdk::String::from_str(&e, "alive")
     }
 }

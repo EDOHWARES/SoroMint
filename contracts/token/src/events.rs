@@ -3,7 +3,7 @@
 //! Provides helper functions for emitting structured Soroban events
 //! for every state-changing operation in the SoroMint token contract.
 
-use soroban_sdk::{symbol_short, Address, BytesN, Env, String, Symbol};
+use soroban_sdk::{symbol_short, Address, Env, String, Symbol};
 
 pub fn emit_transfer(
     e: &Env,
@@ -18,7 +18,13 @@ pub fn emit_transfer(
         .publish(topics, (amount, new_from_balance, new_to_balance));
 }
 
-pub fn emit_approve(e: &Env, from: &Address, spender: &Address, amount: i128, expiration_ledger: u32) {
+pub fn emit_approve(
+    e: &Env,
+    from: &Address,
+    spender: &Address,
+    amount: i128,
+    expiration_ledger: u32,
+) {
     let topics = (Symbol::new(e, "approve"), from.clone(), spender.clone());
     e.events().publish(topics, (amount, expiration_ledger));
 }
@@ -54,36 +60,6 @@ pub fn emit_initialized(e: &Env, admin: &Address, decimal: u32, name: &String, s
     e.events().publish(
         topics,
         (admin.clone(), decimal, name.clone(), symbol.clone()),
-    );
-}
-
-pub fn emit_ownership_transfer(e: &Env, prev_admin: &Address, new_admin: &Address) {
-    let topics = (
-        Symbol::new(e, "owner_tx"),
-        prev_admin.clone(),
-        new_admin.clone(),
-    );
-    e.events().publish(topics, new_admin.clone());
-}
-
-pub fn emit_metadata_updated(
-    env: &Env,
-    admin: &Address,
-    old_name: &String,
-    old_symbol: &String,
-    new_name: &String,
-    new_symbol: &String,
-) {
-    let topics = (symbol_short!("SoroMint"), symbol_short!("upd_meta"));
-    env.events().publish(
-        topics,
-        (
-            admin.clone(),
-            old_name.clone(),
-            old_symbol.clone(),
-            new_name.clone(),
-            new_symbol.clone(),
-        ),
     );
 }
 
@@ -131,29 +107,6 @@ pub fn emit_transfer_from(
     );
 }
 
-pub fn emit_minter_approved(e: &Env, owner: &Address, delegate: &Address, limit: i128) {
-    let topics = (Symbol::new(e, "minter_ok"), owner.clone(), delegate.clone());
-    e.events().publish(topics, limit);
-}
-
-pub fn emit_minter_revoked(e: &Env, owner: &Address, delegate: &Address) {
-    let topics = (Symbol::new(e, "minter_rv"), owner.clone(), delegate.clone());
-    e.events().publish(topics, ());
-}
-
-pub fn emit_delegate_mint(
-    e: &Env,
-    delegate: &Address,
-    owner: &Address,
-    to: &Address,
-    amount: i128,
-    new_balance: i128,
-    new_supply: i128,
-) {
-    let topics = (Symbol::new(e, "dlg_mint"), delegate.clone(), owner.clone(), to.clone());
-    e.events().publish(topics, (amount, new_balance, new_supply));
-}
-
 pub fn emit_transferability_updated(e: &Env, admin: &Address, transferable: bool) {
     let topics = (symbol_short!("xferable"), admin.clone());
     e.events().publish(topics, transferable);
@@ -168,7 +121,8 @@ pub fn emit_minter_mint(
     new_supply: i128,
 ) {
     let topics = (Symbol::new(e, "mtr_mint"), minter.clone(), to.clone());
-    e.events().publish(topics, (amount, new_balance, new_supply));
+    e.events()
+        .publish(topics, (amount, new_balance, new_supply));
 }
 
 pub fn emit_snapshot_taken(e: &Env, account: &Address, ledger: u32, balance: i128) {
@@ -179,9 +133,4 @@ pub fn emit_snapshot_taken(e: &Env, account: &Address, ledger: u32, balance: i12
 pub fn emit_supply_snapshot_taken(e: &Env, ledger: u32, supply: i128) {
     let topics = (symbol_short!("sup_snap"),);
     e.events().publish(topics, (ledger, supply));
-}
-
-pub fn emit_clawback(e: &Env, admin: &Address, from: &Address, amount: i128) {
-    let topics = (Symbol::new(e, "clawback"), admin.clone(), from.clone());
-    e.events().publish(topics, amount);
 }

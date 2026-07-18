@@ -1,5 +1,5 @@
-use soroban_sdk::{symbol_short, Address, Env, Symbol, Map};
 use crate::storage::CollateralConfig;
+use soroban_sdk::{symbol_short, Address, Env};
 
 pub fn emit_initialized(e: &Env, admin: &Address, smt_token: &Address, oracle: &Address) {
     let topics = (symbol_short!("init"),);
@@ -8,7 +8,14 @@ pub fn emit_initialized(e: &Env, admin: &Address, smt_token: &Address, oracle: &
 
 pub fn emit_collateral_added(e: &Env, token: &Address, config: &CollateralConfig) {
     let topics = (symbol_short!("coll_add"),);
-    e.events().publish(topics, (token, config.min_collateral_ratio, config.liquidation_threshold));
+    e.events().publish(
+        topics,
+        (
+            token,
+            config.min_collateral_ratio,
+            config.liquidation_threshold,
+        ),
+    );
 }
 
 pub fn emit_vault_created(
@@ -20,15 +27,11 @@ pub fn emit_vault_created(
     debt: i128,
 ) {
     let topics = (symbol_short!("vlt_new"), vault_id);
-    e.events().publish(topics, (owner, collateral_token, collateral_amount, debt));
+    e.events()
+        .publish(topics, (owner, collateral_token, collateral_amount, debt));
 }
 
-pub fn emit_collateral_added_to_vault(
-    e: &Env,
-    vault_id: u64,
-    token: &Address,
-    amount: i128,
-) {
+pub fn emit_collateral_added_to_vault(e: &Env, vault_id: u64, token: &Address, amount: i128) {
     let topics = (symbol_short!("vlt_add"), vault_id);
     e.events().publish(topics, (token, amount));
 }
@@ -46,7 +49,8 @@ pub fn emit_repay_and_withdraw(
     withdraw_amount: i128,
 ) {
     let topics = (symbol_short!("vlt_rpay"), vault_id);
-    e.events().publish(topics, (repay_amount, token, withdraw_amount));
+    e.events()
+        .publish(topics, (repay_amount, token, withdraw_amount));
 }
 
 pub fn emit_liquidation(
@@ -57,5 +61,6 @@ pub fn emit_liquidation(
     collateral_seized_value: i128,
 ) {
     let topics = (symbol_short!("vlt_liq"), vault_id);
-    e.events().publish(topics, (liquidator, debt_covered, collateral_seized_value));
+    e.events()
+        .publish(topics, (liquidator, debt_covered, collateral_seized_value));
 }

@@ -1,11 +1,18 @@
 use soroban_sdk::{String, Vec};
 
+fn to_std_string(s: &String) -> alloc::string::String {
+    let mut buf = alloc::vec::Vec::new();
+    buf.resize(s.len() as usize, 0);
+    s.copy_into_slice(&mut buf);
+    alloc::string::String::from_utf8(buf).unwrap()
+}
+
 /// Check if string contains blocked words (case-insensitive)
 pub fn contains_blocked_word(text: &str, blocked_words: &Vec<String>) -> bool {
     let text_lower = text.to_lowercase();
 
     for blocked in blocked_words.iter() {
-        let blocked_lower = blocked.to_string().to_lowercase();
+        let blocked_lower = to_std_string(&blocked).to_lowercase();
         if text_lower.contains(&blocked_lower) {
             return true;
         }
@@ -54,7 +61,7 @@ pub fn has_repeated_characters(text: &str, threshold: usize) -> bool {
         return false;
     }
 
-    let chars: Vec<char> = text.chars().collect();
+    let chars: alloc::vec::Vec<char> = text.chars().collect();
     let mut count = 1;
 
     for i in 1..chars.len() {
@@ -188,7 +195,10 @@ pub fn contains_spam_pattern(text: &str) -> bool {
     }
 
     // Check for excessive emojis/special characters
-    let special_count = text.chars().filter(|c| !c.is_alphanumeric() && *c != ' ').count();
+    let special_count = text
+        .chars()
+        .filter(|c| !c.is_alphanumeric() && *c != ' ')
+        .count();
     if special_count > text.len() / 3 {
         return true;
     }
@@ -206,94 +216,4 @@ pub fn contains_spam_pattern(text: &str) -> bool {
     }
 
     false
-}
-
-/// Check for impersonation patterns
-pub fn contains_impersonation_pattern(text: &str) -> bool {
-    let text_lower = text.to_lowercase();
-
-    // Common impersonation targets
-    let targets = [
-        "bitcoin",
-        "ethereum",
-        "stellar",
-        "soroban",
-        "usdt",
-        "usdc",
-        "dai",
-        "wrapped",
-        "official",
-        "foundation",
-    ];
-
-    for target in targets.iter() {
-        if text_lower.contains(target) {
-            // Check for variations like "Bitcoin2", "EthereumX", etc.
-            if text_lower.contains(&format!("{}2", target))
-                || text_lower.contains(&format!("{}x", target))
-                || text_lower.contains(&format!("new {}", target))
-                || text_lower.contains(&format!("{} 2.0", target))
-            {
-                return true;
-            }
-        }
-    }
-
-    false
-}
-
-/// Calculate text entropy (randomness) - higher = more random
-pub fn calculate_entropy(text: &str) -> u32 {
-    if text.is_empty() {
-        return 0;
-    }
-
-    let mut char_counts: [u32; 256] = [0; 256];
-    let mut total = 0u32;
-
-    for c in text.chars() {
-        let byte = (c as u32 % 256) as usize;
-        char_counts[byte] += 1;
-        total += 1;
-    }
-
-    let mut entropy = 0.0f64;
-    for &count in char_counts.iter() {
-        if count > 0 {
-            let probability = count as f64 / total as f64;
-            entropy -= probability * probability.log2();
-        }
-    }
-
-    // Scale to 0-100
-    (entropy * 20.0).min(100.0) as u32
-}
-
-/// Check if text looks like random gibberish
-pub fn is_gibberish(text: &str) -> bool {
-    // Very high entropy suggests random characters
-    let entropy = calculate_entropy(text);
-    if entropy > 80 {
-        return true;
-    }
-
-    // Check for lack of vowels (in Latin text)
-    let vowels = ['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'];
-    let vowel_count = text.chars().filter(|c| vowels.contains(c)).count();
-    let alpha_count = text.chars().filter(|c| c.is_alphabetic()).count();
-
-    if alpha_count > 5 && vowel_count == 0 {
-        return true;
-    }
-
-    false
-}
-
-/// Check for excessive punctuation
-pub fn has_excessive_punctuation(text: &str) -> bool {
-    let punct_chars = ['!', '?', '.', ',', ';', ':', '-', '_'];
-    let punct_count = text.chars().filter(|c| punct_chars.contains(c)).count();
-
-    // More than 30% punctuation is suspicious
-    punct_count > text.len() / 3
 }

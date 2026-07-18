@@ -2,12 +2,10 @@
 
 mod test {
     use soroban_sdk::testutils::Address as _;
-    use soroban_sdk::{Address, BytesN, Env, Symbol, Vec, IntoVal};
+    use soroban_sdk::{Address, BytesN, Env, Symbol, Vec};
 
-    use crate::MultiSigAccessControl;
-
-    fn create_address(env: &Env, id: u32) -> Address {
-        Address::from_contract_id(&env.register_test_contract_v2([], id).into())
+    fn create_address(env: &Env, _id: u32) -> Address {
+        Address::generate(env)
     }
 
     #[test]
@@ -15,8 +13,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -40,8 +38,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let mut signers = Vec::new(&env);
@@ -56,8 +54,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -74,8 +72,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -89,7 +87,7 @@ mod test {
         client.initialize(&signers, &2);
 
         // Propose operation
-        let operation_id: BytesN<32> = [0u8; 32].into();
+        let operation_id = BytesN::from_array(&env, &[0u8; 32]);
         let action = Symbol::new(&env, "withdraw_fees");
         client.propose_operation(&operation_id, &action, &signer1);
 
@@ -117,8 +115,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -130,7 +128,7 @@ mod test {
         client.initialize(&signers, &2);
 
         // Propose operation
-        let operation_id: BytesN<32> = [0u8; 32].into();
+        let operation_id = BytesN::from_array(&env, &[0u8; 32]);
         let action = Symbol::new(&env, "withdraw_fees");
         client.propose_operation(&operation_id, &action, &signer1);
 
@@ -144,8 +142,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -157,7 +155,7 @@ mod test {
         client.initialize(&signers, &2);
 
         // Propose and approve operation
-        let operation_id: BytesN<32> = [0u8; 32].into();
+        let operation_id = BytesN::from_array(&env, &[0u8; 32]);
         let action = Symbol::new(&env, "withdraw_fees");
         client.propose_operation(&operation_id, &action, &signer1);
         client.approve_operation(&operation_id, &signer2);
@@ -175,8 +173,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let non_signer = create_address(&env, 100);
@@ -187,7 +185,7 @@ mod test {
         client.initialize(&signers, &1);
 
         // Try to propose with non-signer
-        let operation_id: BytesN<32> = [0u8; 32].into();
+        let operation_id = BytesN::from_array(&env, &[0u8; 32]);
         let action = Symbol::new(&env, "withdraw_fees");
         client.propose_operation(&operation_id, &action, &non_signer);
     }
@@ -197,8 +195,8 @@ mod test {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_test_contract_v2([], 0);
-        let client = MultiSigAccessControl::new(&env, contract_id.clone().into());
+        let contract_id = env.register(crate::multisig::MultiSigAccessControl, ());
+        let client = crate::multisig::MultiSigAccessControlClient::new(&env, &contract_id);
 
         let signer1 = create_address(&env, 1);
         let signer2 = create_address(&env, 2);
@@ -217,7 +215,7 @@ mod test {
         client.initialize(&signers, &3);
 
         // Propose operation
-        let operation_id: BytesN<32> = [0u8; 32].into();
+        let operation_id = BytesN::from_array(&env, &[0u8; 32]);
         let action = Symbol::new(&env, "withdraw_fees");
         client.propose_operation(&operation_id, &action, &signer1);
 

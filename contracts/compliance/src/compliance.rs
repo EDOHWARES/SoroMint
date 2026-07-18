@@ -1,15 +1,16 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol, Vec, IntoVal,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
 
 #[cfg(test)]
 mod test_compliance;
 
 mod events;
 
-use events::{emit_clawback_executed, emit_config_updated, emit_token_set, emit_clawback_admin_set, emit_blacklist_updated};
+use events::{
+    emit_blacklist_updated, emit_clawback_admin_set, emit_clawback_executed, emit_config_updated,
+    emit_token_set,
+};
 
 #[contracttype]
 #[derive(Clone)]
@@ -106,21 +107,36 @@ pub struct ClawbackRecord {
 ///
 /// # Panics
 /// Panics if already initialized.
-pub fn initialize(e: &Env, admin: Address, clawback_admin: Address, token_address: Address, default_jurisdiction: Jurisdiction) {
+pub fn initialize(
+    e: &Env,
+    admin: Address,
+    clawback_admin: Address,
+    token_address: Address,
+    default_jurisdiction: Jurisdiction,
+) {
     if e.storage().instance().has(&DataKey::TokenAddress) {
         panic!("already initialized");
     }
 
     e.storage().instance().set(&DataKey::Admin, &admin);
-    e.storage().instance().set(&DataKey::ClawbackAdmin, &clawback_admin);
-    e.storage().instance().set(&DataKey::TokenAddress, &token_address);
+    e.storage()
+        .instance()
+        .set(&DataKey::ClawbackAdmin, &clawback_admin);
+    e.storage()
+        .instance()
+        .set(&DataKey::TokenAddress, &token_address);
     e.storage().instance().set(&DataKey::ClawbackCounter, &0u64);
-    e.storage().instance().set(&DataKey::DefaultJurisdiction, &default_jurisdiction);
+    e.storage()
+        .instance()
+        .set(&DataKey::DefaultJurisdiction, &default_jurisdiction);
 }
 
 /// Returns the current clawback admin address.
 pub fn get_clawback_admin(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::ClawbackAdmin).expect("Clawback admin not set")
+    e.storage()
+        .instance()
+        .get(&DataKey::ClawbackAdmin)
+        .expect("Clawback admin not set")
 }
 
 /// Sets the clawback admin address.
@@ -130,7 +146,9 @@ pub fn get_clawback_admin(e: &Env) -> Address {
 pub fn set_clawback_admin(e: Env, admin: Address, new_clawback_admin: Address) {
     admin.require_auth();
     require_admin(&e, &admin);
-    e.storage().instance().set(&DataKey::ClawbackAdmin, &new_clawback_admin);
+    e.storage()
+        .instance()
+        .set(&DataKey::ClawbackAdmin, &new_clawback_admin);
     emit_clawback_admin_set(&e, &admin, &new_clawback_admin);
 }
 
@@ -141,13 +159,18 @@ pub fn set_clawback_admin(e: Env, admin: Address, new_clawback_admin: Address) {
 pub fn set_token_address(e: Env, admin: Address, token_address: Address) {
     admin.require_auth();
     require_admin(&e, &admin);
-    e.storage().instance().set(&DataKey::TokenAddress, &token_address);
+    e.storage()
+        .instance()
+        .set(&DataKey::TokenAddress, &token_address);
     emit_token_set(&e, &admin, &token_address);
 }
 
 /// Returns the current default jurisdiction.
 pub fn get_default_jurisdiction(e: &Env) -> Jurisdiction {
-    e.storage().instance().get(&DataKey::DefaultJurisdiction).unwrap_or(Jurisdiction::GLOBAL)
+    e.storage()
+        .instance()
+        .get(&DataKey::DefaultJurisdiction)
+        .unwrap_or(Jurisdiction::GLOBAL)
 }
 
 /// Sets the default jurisdiction for clawback operations.
@@ -157,10 +180,16 @@ pub fn get_default_jurisdiction(e: &Env) -> Jurisdiction {
 pub fn set_default_jurisdiction(e: Env, admin: Address, jurisdiction: Jurisdiction) {
     admin.require_auth();
     require_admin(&e, &admin);
-    let old_jur = e.storage().instance().get(&DataKey::DefaultJurisdiction).unwrap_or(Jurisdiction::GLOBAL);
+    let old_jur = e
+        .storage()
+        .instance()
+        .get(&DataKey::DefaultJurisdiction)
+        .unwrap_or(Jurisdiction::GLOBAL);
     let old_str = jurisdiction_to_string(&e, &old_jur);
     let new_str = jurisdiction_to_string(&e, &jurisdiction);
-    e.storage().instance().set(&DataKey::DefaultJurisdiction, &jurisdiction);
+    e.storage()
+        .instance()
+        .set(&DataKey::DefaultJurisdiction, &jurisdiction);
     emit_config_updated(&e, &admin, "default_jurisdiction", old_str, new_str);
 }
 
@@ -198,7 +227,11 @@ pub fn clawback(
     notes: Option<String>,
 ) {
     caller.require_auth();
-    let stored_clawback_admin: Address = e.storage().instance().get(&DataKey::ClawbackAdmin).expect("Clawback admin not configured");
+    let stored_clawback_admin: Address = e
+        .storage()
+        .instance()
+        .get(&DataKey::ClawbackAdmin)
+        .expect("Clawback admin not configured");
     if caller != stored_clawback_admin {
         panic!("Unauthorized: not clawback admin");
     }
@@ -207,22 +240,26 @@ pub fn clawback(
         panic!("amount must be positive");
     }
 
-    let token_address: Address = e.storage().instance().get(&DataKey::TokenAddress).expect("Token address not set");
+    let token_address: Address = e
+        .storage()
+        .instance()
+        .get(&DataKey::TokenAddress)
+        .expect("Token address not set");
 
     // Call token contract's clawback function
     use soroban_sdk::{IntoVal, Symbol};
-    let args = soroban_sdk::vec![
-        &e,
-        from.into_val(&e),
-        amount.into_val(&e),
-    ];
+    let args = soroban_sdk::vec![&e, from.into_val(&e), amount.into_val(&e),];
     e.invoke_contract::<()>(&token_address, &Symbol::new(&e, "clawback"), args);
 
     // Record timestamp
     let timestamp = e.ledger().timestamp();
 
     // Store audit record
-    let counter: u64 = e.storage().instance().get(&DataKey::ClawbackCounter).unwrap_or(0);
+    let counter: u64 = e
+        .storage()
+        .instance()
+        .get(&DataKey::ClawbackCounter)
+        .unwrap_or(0);
     let record_id = counter + 1;
 
     let record = ClawbackRecord {
@@ -237,8 +274,12 @@ pub fn clawback(
         executed_by: caller.clone(),
     };
 
-    e.storage().instance().set(&DataKey::ClawbackRecord(record_id), &record);
-    e.storage().instance().set(&DataKey::ClawbackCounter, &record_id);
+    e.storage()
+        .instance()
+        .set(&DataKey::ClawbackRecord(record_id), &record);
+    e.storage()
+        .instance()
+        .set(&DataKey::ClawbackCounter, &record_id);
 
     // Emit detailed event
     let reason_str = reason_to_string(&e, reason);
@@ -258,12 +299,18 @@ pub fn clawback(
 
 /// Returns the ClawbackRecord for a given record ID, if it exists.
 pub fn get_clawback_record(e: &Env, record_id: u64) -> Option<ClawbackRecord> {
-    e.storage().instance().get(&DataKey::ClawbackRecord(record_id))
+    e.storage()
+        .instance()
+        .get(&DataKey::ClawbackRecord(record_id))
 }
 
 /// Returns the most recent N clawback records, newest first.
 pub fn get_recent_clawbacks(e: &Env, limit: u32) -> Vec<ClawbackRecord> {
-    let counter: u64 = e.storage().instance().get(&DataKey::ClawbackCounter).unwrap_or(0);
+    let counter: u64 = e
+        .storage()
+        .instance()
+        .get(&DataKey::ClawbackCounter)
+        .unwrap_or(0);
     let mut results = Vec::new(&e);
     let limit_usize = limit as usize;
     let mut count = 0;
@@ -272,7 +319,11 @@ pub fn get_recent_clawbacks(e: &Env, limit: u32) -> Vec<ClawbackRecord> {
         if count >= limit_usize {
             break;
         }
-        if let Some(record) = e.storage().instance().get::<_, ClawbackRecord>(&DataKey::ClawbackRecord(id)) {
+        if let Some(record) = e
+            .storage()
+            .instance()
+            .get::<_, ClawbackRecord>(&DataKey::ClawbackRecord(id))
+        {
             results.push_back(record);
             count += 1;
         }
@@ -281,13 +332,26 @@ pub fn get_recent_clawbacks(e: &Env, limit: u32) -> Vec<ClawbackRecord> {
 }
 
 /// Returns all clawback records for a specific address.
-pub fn get_clawbacks_for_address(e: &Env, addr: Address, limit: u32, offset: u32) -> Vec<ClawbackRecord> {
-    let counter: u64 = e.storage().instance().get(&DataKey::ClawbackCounter).unwrap_or(0);
+pub fn get_clawbacks_for_address(
+    e: &Env,
+    addr: Address,
+    limit: u32,
+    offset: u32,
+) -> Vec<ClawbackRecord> {
+    let counter: u64 = e
+        .storage()
+        .instance()
+        .get(&DataKey::ClawbackCounter)
+        .unwrap_or(0);
     let mut results = Vec::new(&e);
     let mut matched: u32 = 0;
 
     for id in (1..=counter).rev() {
-        if let Some(record) = e.storage().instance().get::<_, ClawbackRecord>(&DataKey::ClawbackRecord(id)) {
+        if let Some(record) = e
+            .storage()
+            .instance()
+            .get::<_, ClawbackRecord>(&DataKey::ClawbackRecord(id))
+        {
             if record.from == addr {
                 if matched >= offset && (results.len() as u32) < limit {
                     results.push_back(record);
@@ -301,7 +365,10 @@ pub fn get_clawbacks_for_address(e: &Env, addr: Address, limit: u32, offset: u32
 
 /// Returns the total number of clawback records stored.
 pub fn get_clawback_count(e: &Env) -> u64 {
-    e.storage().instance().get(&DataKey::ClawbackCounter).unwrap_or(0)
+    e.storage()
+        .instance()
+        .get(&DataKey::ClawbackCounter)
+        .unwrap_or(0)
 }
 
 // --- Blacklist functions (unchanged) ---
@@ -352,13 +419,20 @@ pub fn require_not_blacklisted(e: &Env, addr: Address) {
 
 /// Returns the current admin address.
 pub fn get_admin(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::Admin).expect("Admin not initialized")
+    e.storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("Admin not initialized")
 }
 
 /// Sets the admin address. Only callable by current admin.
 pub fn set_admin(e: Env, current_admin: Address, new_admin: Address) {
     current_admin.require_auth();
-    let stored_admin: Address = e.storage().instance().get(&DataKey::Admin).expect("Admin not set");
+    let stored_admin: Address = e
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("Admin not set");
     if current_admin != stored_admin {
         panic!("Unauthorized: not admin");
     }
@@ -367,7 +441,11 @@ pub fn set_admin(e: Env, current_admin: Address, new_admin: Address) {
 
 /// Asserts the caller is the admin.
 pub fn require_admin(e: &Env, caller: &Address) {
-    let admin: Address = e.storage().instance().get(&DataKey::Admin).expect("Admin not set");
+    let admin: Address = e
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .expect("Admin not set");
     if *caller != admin {
         panic!("Unauthorized: not admin");
     }
@@ -398,8 +476,20 @@ impl ComplianceContract {
     /// @param clawback_admin Address authorized to execute clawbacks.
     /// @param token_address Address of the SMT token contract.
     /// @param default_jurisdiction Default jurisdiction for clawbacks.
-    pub fn initialize(e: Env, admin: Address, clawback_admin: Address, token_address: Address, default_jurisdiction: Jurisdiction) {
-        initialize(&e, admin, clawback_admin, token_address, default_jurisdiction);
+    pub fn initialize(
+        e: Env,
+        admin: Address,
+        clawback_admin: Address,
+        token_address: Address,
+        default_jurisdiction: Jurisdiction,
+    ) {
+        initialize(
+            &e,
+            admin,
+            clawback_admin,
+            token_address,
+            default_jurisdiction,
+        );
     }
 
     /// Sets the clawback admin. @auth Requires admin auth.
@@ -424,7 +514,10 @@ impl ComplianceContract {
 
     /// Returns the configured token contract address.
     pub fn get_token_address(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::TokenAddress).expect("Token address not set")
+        e.storage()
+            .instance()
+            .get(&DataKey::TokenAddress)
+            .expect("Token address not set")
     }
 
     /// Returns the default jurisdiction for clawback operations.
@@ -479,7 +572,16 @@ impl ComplianceContract {
         legal_reference: Option<String>,
         notes: Option<String>,
     ) {
-        clawback(e, caller, from, amount, reason, jurisdiction, legal_reference, notes);
+        clawback(
+            e,
+            caller,
+            from,
+            amount,
+            reason,
+            jurisdiction,
+            legal_reference,
+            notes,
+        );
     }
 
     /// Returns a specific clawback audit record by ID.
@@ -493,7 +595,12 @@ impl ComplianceContract {
     }
 
     /// Returns clawback records for a specific address with pagination.
-    pub fn get_clawbacks_for_address(e: Env, addr: Address, limit: u32, offset: u32) -> Vec<ClawbackRecord> {
+    pub fn get_clawbacks_for_address(
+        e: Env,
+        addr: Address,
+        limit: u32,
+        offset: u32,
+    ) -> Vec<ClawbackRecord> {
         get_clawbacks_for_address(&e, addr, limit, offset)
     }
 

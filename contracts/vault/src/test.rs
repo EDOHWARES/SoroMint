@@ -1,12 +1,12 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, vec, Env};
+use soroban_sdk::{testutils::Address as _, Env};
 
 #[test]
 fn test_initialize() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, VaultContract);
+    let contract_id = env.register(VaultContract, ());
     let client = VaultContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -20,8 +20,8 @@ fn test_initialize() {
 fn test_add_collateral_config() {
     let env = Env::default();
     env.mock_all_auths();
-    
-    let contract_id = env.register_contract(None, VaultContract);
+
+    let contract_id = env.register(VaultContract, ());
     let client = VaultContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -37,8 +37,8 @@ fn test_add_collateral_config() {
 fn test_vault_health_calculation() {
     let env = Env::default();
     env.mock_all_auths();
-    
-    let contract_id = env.register_contract(None, VaultContract);
+
+    let contract_id = env.register(VaultContract, ());
     let client = VaultContractClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
@@ -52,7 +52,7 @@ fn test_vault_health_calculation() {
 #[should_panic(expected = "reentrancy detected")]
 fn test_reentrancy_guard_panics_on_double_lock() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, VaultContract);
+    let contract_id = env.register(VaultContract, ());
     env.as_contract(&contract_id, || {
         let _guard1 = reentrancy::ReentrancyGuard::lock(&env, "test_func");
         let _guard2 = reentrancy::ReentrancyGuard::lock(&env, "test_func");
@@ -62,7 +62,7 @@ fn test_reentrancy_guard_panics_on_double_lock() {
 #[test]
 fn test_reentrancy_guard_unlocks_on_drop() {
     let env = Env::default();
-    let contract_id = env.register_contract(None, VaultContract);
+    let contract_id = env.register(VaultContract, ());
     env.as_contract(&contract_id, || {
         {
             let _guard = reentrancy::ReentrancyGuard::lock(&env, "test_func");

@@ -58,7 +58,7 @@ fn test_factory_deploys_and_initializes_token() {
     let token_address = factory_client.create_token(&salt, &token_admin, &decimal, &name, &symbol);
 
     // Verify the token was deployed and is accessible
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // The token should be initialized with 0 balance for the admin
     assert_eq!(token_client.balance(&token_admin), 0);
@@ -90,7 +90,7 @@ fn test_mint_on_factory_deployed_token() {
         &String::from_str(&e, "MTK"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Mint tokens to user
     token_client.mint(&user, &1000i128);
@@ -138,8 +138,8 @@ fn test_factory_deploys_multiple_tokens() {
     assert!(tokens.contains(&token2));
 
     // Verify tokens are independent
-    let client1 = token::Client::new(&e, &token1);
-    let client2 = token::Client::new(&e, &token2);
+    let client1 = soromint_token::SoroMintTokenClient::new(&e, &token1);
+    let client2 = soromint_token::SoroMintTokenClient::new(&e, &token2);
 
     assert_eq!(client1.supply(), 0);
     assert_eq!(client2.supply(), 0);
@@ -232,7 +232,7 @@ fn test_token_events_through_factory_deployment() {
         &String::from_str(&e, "EVT"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Perform mint
     token_client.mint(&user, &750i128);
@@ -268,18 +268,19 @@ fn test_complex_workflow_deploy_mint_transfer_mint() {
         &String::from_str(&e, "CMPLX"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Step 2: Initial admin mints tokens
     token_client.mint(&user, &1000i128);
     assert_eq!(token_client.balance(&user), 1000);
 
-    // Step 3: Transfer ownership to new admin
-    token_client.transfer_ownership(&new_admin);
+    // Step 3: User transfers tokens to new_admin
+    token_client.transfer(&user, &new_admin, &500i128);
 
-    // Step 4: New admin mints more tokens
+    // Step 4: Admin mints more tokens to user
     token_client.mint(&user, &500i128);
-    assert_eq!(token_client.balance(&user), 1500);
+    assert_eq!(token_client.balance(&user), 1000);
+    assert_eq!(token_client.balance(&new_admin), 500);
     assert_eq!(token_client.supply(), 1500);
 }
 
@@ -304,7 +305,7 @@ fn test_burn_on_factory_deployed_token() {
         &String::from_str(&e, "BURN"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Mint and then burn
     token_client.mint(&user, &2000i128);
@@ -339,7 +340,7 @@ fn test_multiple_users_on_factory_token() {
         &String::from_str(&e, "MULTI"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Mint to multiple users
     token_client.mint(&user1, &100i128);
@@ -438,7 +439,7 @@ fn test_burn_insufficient_balance_on_factory_token() {
         &String::from_str(&e, "ERR"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Mint some tokens
     token_client.mint(&user, &100i128);
@@ -512,7 +513,7 @@ fn test_supply_invariant_across_operations() {
         &String::from_str(&e, "INV"),
     );
 
-    let token_client = token::Client::new(&e, &token_address);
+    let token_client = soromint_token::SoroMintTokenClient::new(&e, &token_address);
 
     // Initial state
     assert_eq!(token_client.supply(), 0);

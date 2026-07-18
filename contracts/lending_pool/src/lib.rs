@@ -8,7 +8,7 @@ mod events;
 mod test;
 
 use soroban_sdk::{contract, contractimpl, token, Address, Env, Vec};
-use types::{AssetConfig, DataKey};
+use types::{AssetConfig, DataKey, ConfigKey};
 use oracle::OracleClient;
 
 #[contract]
@@ -55,6 +55,22 @@ impl LendingPool {
         let new_collateral = current
             .checked_add(amount)
             .expect("collateral addition overflow");
+        e.storage().persistent().set(&key, &new_collateral);
+        events::emit_deposit(&e, &user, &asset, amount);
+    }
+
+    pub fn withdraw(e: Env, user: Address, asset: Address, amount: i128) {
+        user.require_auth();
+        if amount <= 0 { panic!("amount must be positive"); }
+
+        let config: AssetConfig = e.storage().instance().get(&DataKey::Config(ConfigKey::AssetConfig(asset.clone()))).expect("asset not supported");
+        if !config.is_active { panic!("asset not active"); }
+
+        let key = DataKey::UserCollateral(user.clone(), asset.clone());
+        let current: i128 = e.storage().persistent().get(&key).unwrap_or(0);
+        if amount > current { panic!("insufficient collateral"); }
+
+        let new_collateral = current - amount;
         e.storage().persistent().set(&key, &new_collateral);
 
         if !Self::is_healthy(e.clone(), user.clone()) {

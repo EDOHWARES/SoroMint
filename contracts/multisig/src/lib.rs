@@ -6,7 +6,7 @@ mod events;
 mod test;
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, Address, Bytes, Env, String, Symbol, Vec,
 };
 
 #[contracttype]
@@ -95,8 +95,7 @@ impl MultiSigAdmin {
             .set(&DataKey::PendingTx(next_id), &tx);
         e.storage().instance().set(&DataKey::Config(ConfigKey::TxCounter), &next_id);
 
-        e.events()
-            .publish((symbol_short!("tx_prop"),), (next_id, proposer));
+        events::emit_tx_proposed(&e, next_id, &proposer);
         next_id
     }
 
@@ -128,8 +127,7 @@ impl MultiSigAdmin {
             .persistent()
             .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events()
-            .publish((symbol_short!("tx_appr"),), (tx_id, signer));
+        events::emit_tx_approved(&e, tx_id, &signer);
     }
 
     /// Executes a pending transaction if the threshold of signatures has been met.
@@ -161,8 +159,7 @@ impl MultiSigAdmin {
             .persistent()
             .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events()
-            .publish((symbol_short!("tx_exec"),), (tx_id, executor));
+        events::emit_tx_executed(&e, tx_id, &executor);
     }
 
     /// Returns the details of a specific transaction.

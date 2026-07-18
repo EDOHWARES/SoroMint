@@ -26,13 +26,13 @@ const DELAY: u64 = 48 * 60 * 60;
 // ---------------------------------------------------------------------------
 
 #[contracttype]
-#[derive(Clone)]
-#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConfigKey {
     Admin,
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Config(ConfigKey),
     /// Stores the scheduled execution timestamp for a given operation id.
@@ -69,8 +69,7 @@ const OP_CANCELLED: Symbol = symbol_short!("op_cancel");
 /// of the same operation at a different time.
 fn operation_id(e: &Env, operation: &FactoryOperation, eta: u64) -> BytesN<32> {
     // Encode the discriminant + eta into a fixed-size byte array so we can
-    // hash it with the SDK's built-in SHA-256.
-    let mut buf = [0u8; 40];
+    let mut buf = [0u8; 41];
 
     // Discriminant byte
     let disc: u8 = match operation {

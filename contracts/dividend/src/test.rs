@@ -4,7 +4,7 @@
 //!
 //! Test strategy:
 //! - Use `soroban_sdk::testutils` for address generation and auth mocking.
-//! - Use `env.register_stellar_asset_contract(admin)` (soroban-sdk 22.x API)
+//! - Use `env.register_stellar_asset_contract_v2(admin)` (soroban-sdk 22.x API)
 //!   to create a mock XLM SAC in the test environment.
 //! - `StellarAssetClient` is used to mint XLM balances for test accounts.
 //! - Each test is self-contained: fresh Env + mock_all_auths.
@@ -21,14 +21,15 @@ use soroban_sdk::{
 // ---------------------------------------------------------------------------
 
 /// Creates a mock XLM SAC and returns its Address.
-/// In soroban-sdk 22.x, `register_stellar_asset_contract` takes an admin
-/// address and returns the SAC contract Address directly.
+/// In soroban-sdk 22.x, `register_stellar_asset_contract_v2` takes an admin
+/// address and returns a contract struct which has an `.address()` method.
 fn create_xlm_token(env: &Env, admin: &Address) -> Address {
-    env.register_stellar_asset_contract(admin.clone())
+    env.register_stellar_asset_contract_v2(admin.clone())
+        .address()
 }
 
 /// Mints `amount` stroops of the SAC token to `to`.
-fn mint_xlm(env: &Env, xlm_id: &Address, admin: &Address, to: &Address, amount: i128) {
+fn mint_xlm(env: &Env, xlm_id: &Address, _admin: &Address, to: &Address, amount: i128) {
     let sac = StellarAssetClient::new(env, xlm_id);
     sac.mint(to, &amount);
 }
@@ -46,7 +47,7 @@ fn test_initialize() {
     let token_contract = Address::generate(&env);
     let xlm_token = create_xlm_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_token);
 
@@ -54,8 +55,14 @@ fn test_initialize() {
     assert_eq!(client.token_contract(), token_contract);
     assert_eq!(client.global_dps(), 0i128);
     assert_eq!(client.total_distributed(), 0i128);
-    assert_eq!(client.version(), soroban_sdk::String::from_str(&env, "1.0.0"));
-    assert_eq!(client.status(), soroban_sdk::String::from_str(&env, "alive"));
+    assert_eq!(
+        client.version(),
+        soroban_sdk::String::from_str(&env, "1.0.0")
+    );
+    assert_eq!(
+        client.status(),
+        soroban_sdk::String::from_str(&env, "alive")
+    );
 }
 
 #[test]
@@ -68,7 +75,7 @@ fn test_double_initialize() {
     let token_contract = Address::generate(&env);
     let xlm_token = create_xlm_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
 
     client.initialize(&admin, &token_contract, &xlm_token);
@@ -90,7 +97,7 @@ fn test_deposit_zero_amount() {
     let token_contract = Address::generate(&env);
     let xlm_id = create_xlm_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -110,7 +117,7 @@ fn test_deposit_zero_supply() {
     // Give admin some XLM so the transfer wouldn't fail for a different reason.
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -130,7 +137,7 @@ fn test_deposit_updates_dps_and_total() {
     // Fund admin with XLM.
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -164,7 +171,7 @@ fn test_claim_zero_when_nothing_deposited() {
     let token_contract = Address::generate(&env);
     let xlm_id = create_xlm_token(&env, &admin);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -186,7 +193,7 @@ fn test_single_holder_receives_all() {
     // Fund admin with XLM.
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -228,7 +235,7 @@ fn test_proportional_distribution_70_30() {
     // Fund issuer.
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -249,7 +256,7 @@ fn test_proportional_distribution_70_30() {
 
     assert_eq!(claimable_a, 70_000_000i128); // 70 XLM
     assert_eq!(claimable_b, 30_000_000i128); // 30 XLM
-    // Totals must be exact — no precision loss for clean integer percentages.
+                                             // Totals must be exact — no precision loss for clean integer percentages.
     assert_eq!(claimable_a + claimable_b, deposit_amount);
 
     // Execute claims.
@@ -273,7 +280,7 @@ fn test_multiple_deposits_accumulate() {
 
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -309,7 +316,7 @@ fn test_late_holder_only_claims_after_join() {
 
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -351,7 +358,7 @@ fn test_zero_balance_holder_claims_nothing() {
 
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 
@@ -377,7 +384,7 @@ fn test_holder_debt_pointer_updated_after_claim() {
 
     mint_xlm(&env, &xlm_id, &admin, &admin, 1_000_000_000i128);
 
-    let contract_id = env.register_contract(None, DividendDistributor);
+    let contract_id = env.register(DividendDistributor, ());
     let client = DividendDistributorClient::new(&env, &contract_id);
     client.initialize(&admin, &token_contract, &xlm_id);
 

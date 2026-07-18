@@ -5,12 +5,12 @@ pub fn emit_rules_updated(e: &Env) {
 }
 
 pub fn emit_word_blocked(e: &Env, word: &String) {
-    e.events().publish((symbol_short!("blocked"),), word);
+    e.events().publish((symbol_short!("blocked"),), word.clone());
 }
 
 pub fn emit_word_unblocked(e: &Env, word: &String) {
     e.events()
-        .publish((symbol_short!("unblock"),), word);
+        .publish((symbol_short!("unblock"),), word.clone());
 }
 
 pub fn emit_token_whitelisted(e: &Env, token: &Address) {

@@ -2,9 +2,9 @@
 
 use super::*;
 use soroban_sdk::{
-    contract, contractimpl,
+    contract, contractimpl, symbol_short,
     testutils::{Address as _, Events as _},
-    Address, Env, Symbol, Vec,
+    Address, Env, IntoVal, Symbol,
 };
 
 // Event topic constants
@@ -32,13 +32,17 @@ impl MockToken {
             panic!("already initialized");
         }
         e.storage().instance().set(&MockTokenKey::Admin, &admin);
-        e.storage().instance().set(&MockTokenKey::ClawbackAdmin, &clawback_admin);
+        e.storage()
+            .instance()
+            .set(&MockTokenKey::ClawbackAdmin, &clawback_admin);
         e.storage().instance().set(&MockTokenKey::Supply, &0i128);
     }
 
     pub fn set_balance(e: Env, admin: Address, addr: Address, amount: i128) {
         admin.require_auth();
-        e.storage().persistent().set(&MockTokenKey::Balance(addr), &amount);
+        e.storage()
+            .persistent()
+            .set(&MockTokenKey::Balance(addr), &amount);
     }
 
     pub fn set_supply(e: Env, admin: Address, supply: i128) {
@@ -47,7 +51,10 @@ impl MockToken {
     }
 
     pub fn get_balance(e: Env, addr: Address) -> i128 {
-        e.storage().persistent().get(&MockTokenKey::Balance(addr)).unwrap_or(0)
+        e.storage()
+            .persistent()
+            .get(&MockTokenKey::Balance(addr))
+            .unwrap_or(0)
     }
 
     pub fn get_supply(e: Env) -> i128 {
@@ -55,16 +62,30 @@ impl MockToken {
     }
 
     pub fn clawback(e: Env, from: Address, amount: i128) {
-        let clawback_admin: Address = e.storage().instance().get(&MockTokenKey::ClawbackAdmin).unwrap();
+        let clawback_admin: Address = e
+            .storage()
+            .instance()
+            .get(&MockTokenKey::ClawbackAdmin)
+            .unwrap();
         clawback_admin.require_auth();
 
-        let from_balance = e.storage().persistent().get::<_, i128>(&MockTokenKey::Balance(from.clone())).unwrap_or(0);
+        let from_balance = e
+            .storage()
+            .persistent()
+            .get::<_, i128>(&MockTokenKey::Balance(from.clone()))
+            .unwrap_or(0);
         if from_balance < amount {
             panic!("insufficient balance for clawback");
         }
-        e.storage().persistent().set(&MockTokenKey::Balance(from), &(from_balance - amount));
+        e.storage()
+            .persistent()
+            .set(&MockTokenKey::Balance(from), &(from_balance - amount));
 
-        let mut supply = e.storage().instance().get::<_, i128>(&MockTokenKey::Supply).unwrap();
+        let mut supply = e
+            .storage()
+            .instance()
+            .get::<_, i128>(&MockTokenKey::Supply)
+            .unwrap();
         supply -= amount;
         e.storage().instance().set(&MockTokenKey::Supply, &supply);
     }
@@ -574,14 +595,20 @@ fn test_clawback_record_stored_and_retrievable() {
     assert_eq!(rec1.amount, 100);
     assert_eq!(rec1.reason, ClawbackReason::Fraud);
     assert_eq!(rec1.jurisdiction, Jurisdiction::EU);
-    assert_eq!(rec1.legal_reference, Some(String::from_str(&e, "First seizure")));
+    assert_eq!(
+        rec1.legal_reference,
+        Some(String::from_str(&e, "First seizure"))
+    );
     assert_eq!(rec1.notes, None);
 
     let rec_id2 = 2u64;
     let rec2 = client.get_clawback_record(&rec_id2).unwrap();
     assert_eq!(rec2.reason, ClawbackReason::Sanctions);
     assert_eq!(rec2.jurisdiction, Jurisdiction::EU);
-    assert_eq!(rec2.legal_reference, Some(String::from_str(&e, "Case #12345")));
+    assert_eq!(
+        rec2.legal_reference,
+        Some(String::from_str(&e, "Case #12345"))
+    );
 
     let limit = 1u32;
     let recent = client.get_recent_clawbacks(&limit);
@@ -637,10 +664,13 @@ fn test_clawback_event_emitted() {
     );
 
     let events = e.events().all();
-    let event = events.iter().find(|ev| {
-        let topic0: Symbol = ev.1.get(0).unwrap().into_val(&e);
-        topic0 == CLAWBACK_TOPIC
-    }).expect("Clawback event missing");
+    let event = events
+        .iter()
+        .find(|ev| {
+            let topic0: Symbol = ev.1.get(0).unwrap().into_val(&e);
+            topic0 == CLAWBACK_TOPIC
+        })
+        .expect("Clawback event missing");
     let topics = &event.1;
     let data = &event.2;
     assert_eq!(topics.len(), 3);
@@ -649,7 +679,14 @@ fn test_clawback_event_emitted() {
     assert_eq!(executor, clawback_admin);
     assert_eq!(target, from_user);
 
-    let (amount, reason_str, jurisdiction_str, lr, n, ts): (i128, String, String, Option<String>, Option<String>, u64) = data.into_val(&e);
+    let (amount, reason_str, jurisdiction_str, lr, n, _ts): (
+        i128,
+        String,
+        String,
+        Option<String>,
+        Option<String>,
+        u64,
+    ) = data.into_val(&e);
     assert_eq!(amount, 50);
     assert_eq!(reason_str, String::from_str(&e, "fraud"));
     assert_eq!(jurisdiction_str, String::from_str(&e, "US"));
@@ -801,12 +838,15 @@ fn test_clawback_event_topic_order() {
     );
 
     let events = e.events().all();
-    let event = events.iter().find(|ev| {
-        let topic0: Symbol = ev.1.get(0).unwrap().into_val(&e);
-        topic0 == CLAWBACK_TOPIC
-    }).expect("Clawback event missing");
+    let event = events
+        .iter()
+        .find(|ev| {
+            let topic0: Symbol = ev.1.get(0).unwrap().into_val(&e);
+            topic0 == CLAWBACK_TOPIC
+        })
+        .expect("Clawback event missing");
     let topics = &event.1;
-    let data = &event.2;
+    let _data = &event.2;
     assert_eq!(topics.len(), 3);
     let executor: Address = topics.get(1).unwrap().into_val(&e);
     let target: Address = topics.get(2).unwrap().into_val(&e);

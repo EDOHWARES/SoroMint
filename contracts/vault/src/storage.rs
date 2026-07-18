@@ -14,6 +14,7 @@ pub enum DataKey {
     Vault(u64),
     UserVaults(Address),
     Collateral(Address),
+    Reentrancy(Symbol),
 }
 
 #[contracttype]

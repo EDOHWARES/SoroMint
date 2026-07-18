@@ -1,6 +1,13 @@
 use crate::*;
 use soroban_sdk::{Env, String, Vec};
 
+fn to_std_string(s: &String) -> alloc::string::String {
+    let mut buf = alloc::vec::Vec::new();
+    buf.resize(s.len() as usize, 0);
+    s.copy_into_slice(&mut buf);
+    alloc::string::String::from_utf8(buf).unwrap()
+}
+
 /// Validate token name
 pub fn validate_name(
     e: &Env,
@@ -8,7 +15,7 @@ pub fn validate_name(
     rules: &ValidationRules,
     blocked_words: &Vec<String>,
 ) -> ValidationResult {
-    let name_str = name.to_string();
+    let name_str = to_std_string(name);
     let name_len = name_str.len() as u32;
 
     // Check if empty
@@ -79,7 +86,7 @@ pub fn validate_symbol(
     rules: &ValidationRules,
     blocked_words: &Vec<String>,
 ) -> ValidationResult {
-    let symbol_str = symbol.to_string();
+    let symbol_str = to_std_string(symbol);
     let symbol_len = symbol_str.len() as u32;
 
     // Check if empty
@@ -159,7 +166,7 @@ pub fn validate_description(
     rules: &ValidationRules,
     blocked_words: &Vec<String>,
 ) -> ValidationResult {
-    let desc_str = description.to_string();
+    let desc_str = to_std_string(description);
     let desc_len = desc_str.len() as u32;
 
     // Description can be empty (optional)
@@ -201,7 +208,7 @@ fn contains_blocked_word(text: &str, blocked_words: &Vec<String>) -> bool {
     let text_lower = text.to_lowercase();
 
     for blocked in blocked_words.iter() {
-        let blocked_lower = blocked.to_string().to_lowercase();
+        let blocked_lower = to_std_string(&blocked).to_lowercase();
         if text_lower.contains(&blocked_lower) {
             return true;
         }

@@ -1,11 +1,8 @@
-#![no_std]
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
 };
 
-#[cfg(test)]
-mod test_access;
 
 #[contracttype]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -2,7 +2,6 @@ use soroban_sdk::{contracttype, Address};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[contracttype]
 pub enum ConfigKey {
     Admin,
     SmtToken,
@@ -12,6 +11,7 @@ pub enum ConfigKey {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Config(ConfigKey),
     UserCollateral(Address, Address),

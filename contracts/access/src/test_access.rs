@@ -1,11 +1,13 @@
 #![cfg(test)]
 
 use super::*;
+use crate::access::AccessContractClient;
 use soroban_sdk::{
     contract, contractimpl,
     testutils::{Address as _, Events as _},
-    Address, Env, IntoVal,
+    Address, Env, IntoVal, Symbol,
 };
+use crate::access::{initialize_admin, grant_role, revoke_role, require_role, has_role};
 
 #[contract]
 pub struct AccessTestContract;
@@ -126,7 +128,7 @@ fn test_events_emitted() {
 
     let t0: Symbol = last_event.1.get(0).unwrap().into_val(&e);
     let t1: Address = last_event.1.get(1).unwrap().into_val(&e);
-    assert_eq!(t0, ROLE_GRANTED);
+    assert_eq!(t0, soroban_sdk::symbol_short!("role_gr"));
     assert_eq!(t1, admin);
 
     let val: (Address, u32) = last_event.2.into_val(&e);
@@ -205,7 +207,7 @@ proptest! {
         let dot_count = buf[..len].iter().filter(|&&b| b == b'.').count();
         prop_assert_eq!(dot_count, 2);
         for &b in &buf[..len] {
-            prop_assert!(b == b'.' || b.is_ascii_digit());
+            prop_assert!(b == b'.' || u8::is_ascii_digit(&b));
         }
     }
 

@@ -1,14 +1,9 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
+use soroban_sdk::{testutils::{Address as _, Ledger}, Address, BytesN, Env};
 
-// Import the factory contract WASM for cross-contract testing.
-mod factory {
-    soroban_sdk::contractimport!(
-        file = "../../target/wasm32-unknown-unknown/release/soromint_factory.wasm"
-    );
-}
+use soromint_factory::{TokenFactory, TokenFactoryClient};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,8 +50,8 @@ fn test_initialize_twice_panics() {
 
 #[test]
 fn test_queue_operation_returns_id() {
-    let (_, _, client) = setup();
-    let hash = dummy_wasm_hash(&soroban_sdk::Env::default(), 1);
+    let (e, _, client) = setup();
+    let hash = dummy_wasm_hash(&e, 1);
     let op = FactoryOperation::UpdateWasmHash(hash);
     // Should not panic and should return a 32-byte id
     let _op_id = client.queue_operation(&op);
@@ -157,8 +152,8 @@ fn test_full_flow_update_wasm_hash() {
     timelock_client.initialize(&admin);
 
     // Deploy factory with the timelock as its admin
-    let factory_id = e.register(factory::TokenFactory, ());
-    let factory_client = factory::Client::new(&e, &factory_id);
+    let factory_id = e.register(TokenFactory, ());
+    let factory_client = TokenFactoryClient::new(&e, &factory_id);
 
     // Use a placeholder wasm hash for initialization (no real WASM needed here)
     let initial_hash = BytesN::from_array(&e, &[0u8; 32]);

@@ -5,7 +5,7 @@ mod events;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
 
 #[contracttype]
 pub enum ConfigKey {
@@ -46,19 +46,31 @@ pub struct PriceOracle;
 #[contractimpl]
 impl PriceOracle {
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
+        if e.storage()
+            .instance()
+            .has(&DataKey::Config(ConfigKey::Admin))
+        {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
-        
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Admin), &admin);
+
         // Initialize empty trusted sources list
         let trusted_sources: Vec<Address> = Vec::new(&e);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &trusted_sources);
+        e.storage().instance().set(
+            &DataKey::Config(ConfigKey::TrustedSources),
+            &trusted_sources,
+        );
     }
 
     /// Add a trusted price source
     pub fn add_trusted_source(e: Env, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .unwrap();
         admin.require_auth();
 
         let mut sources: Vec<Address> = e
@@ -75,17 +87,23 @@ impl PriceOracle {
         }
 
         sources.push_back(source.clone());
-        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &sources);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::TrustedSources), &sources);
 
         events::emit_source_added(&e, &source);
     }
 
     /// Remove a trusted price source
     pub fn remove_trusted_source(e: Env, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .unwrap();
         admin.require_auth();
 
-        let mut sources: Vec<Address> = e
+        let sources: Vec<Address> = e
             .storage()
             .instance()
             .get(&DataKey::Config(ConfigKey::TrustedSources))
@@ -106,23 +124,23 @@ impl PriceOracle {
             panic!("source not found");
         }
 
-        e.storage().instance().set(&DataKey::Config(ConfigKey::TrustedSources), &new_sources);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::TrustedSources), &new_sources);
 
         events::emit_source_removed(&e, &source);
     }
 
     /// Report external price data (can be called by trusted sources or admin)
-    pub fn report_price(
-        e: Env,
-        reporter: Address,
-        token: Address,
-        price: i128,
-        decimals: u32,
-    ) {
+    pub fn report_price(e: Env, reporter: Address, token: Address, price: i128, decimals: u32) {
         reporter.require_auth();
 
         // Verify reporter is admin or trusted source
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .unwrap();
         let sources: Vec<Address> = e
             .storage()
             .instance()
@@ -171,7 +189,11 @@ impl PriceOracle {
 
     /// Legacy set_price function (admin only)
     pub fn set_price(e: Env, token: Address, price: i128, source: Address) {
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap();
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .unwrap();
         admin.require_auth();
 
         if price <= 0 {
