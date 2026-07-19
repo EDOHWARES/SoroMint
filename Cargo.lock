@@ -1629,6 +1629,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-deploy-test-token"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-dividend"
 version = "1.0.0"
 dependencies = [
@@ -1639,9 +1646,9 @@ dependencies = [
 name = "soromint-factory"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "proptest",
  "soroban-sdk",
- "soromint-token",
 ]
 
 [[package]]
@@ -1693,6 +1700,7 @@ name = "soromint-streaming"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "soromint-token",
 ]
 
 [[package]]
@@ -1710,6 +1718,7 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "soroban-sdk",
+ "soromint-access",
  "soromint-lifecycle",
 ]
 

@@ -7,10 +7,14 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+legacy-token-tests = []
+
 [dependencies]
 soroban-sdk = "22.0.0"
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.0", features = ["testutils"] }
-soromint-token = { path = "../token" }
 proptest = "1"
+ed25519-dalek = "2.1"

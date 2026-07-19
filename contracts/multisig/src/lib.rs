@@ -6,7 +6,7 @@ mod events;
 mod test;
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, contracttype, Address, Env, String, Symbol, Val, Vec,
 };
 
 #[contracttype]
@@ -28,7 +28,7 @@ pub struct PendingTransaction {
     pub id: u64,
     pub target: Address,
     pub function: Symbol,
-    pub args: Bytes,
+    pub args: Vec<Val>,
     pub signatures: Vec<Address>,
     pub executed: bool,
 }
@@ -39,7 +39,7 @@ pub struct MultiSigAdmin;
 #[contractimpl]
 impl MultiSigAdmin {
     /// Initializes the multi-sig contract with a list of signers and a threshold.
-    /// 
+    ///
     /// # Arguments
     /// * `signers` - A list of addresses that are authorized to sign transactions.
     /// * `threshold` - The minimum number of signatures required to execute a transaction.
@@ -50,19 +50,25 @@ impl MultiSigAdmin {
         if threshold == 0 || threshold > signers.len() {
             panic!("invalid threshold");
         }
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Signers), &signers);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Threshold), &threshold);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::TxCounter), &0u64);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Signers), &signers);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Threshold), &threshold);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::TxCounter), &0u64);
     }
 
     /// Proposes a new transaction to be executed by the multi-sig contract.
-    /// 
+    ///
     /// # Arguments
     /// * `proposer` - The address of the signer proposing the transaction.
     /// * `target` - The address of the contract to be called.
     /// * `function` - The name of the function to be called on the target contract.
-    /// * `args` - The serialized arguments for the function call.
-    /// 
+    /// * `args` - The arguments for the function call.
+    ///
     /// # Returns
     /// The ID of the newly proposed transaction.
     pub fn propose_tx(
@@ -70,12 +76,16 @@ impl MultiSigAdmin {
         proposer: Address,
         target: Address,
         function: Symbol,
-        args: Bytes,
+        args: Vec<Val>,
     ) -> u64 {
         proposer.require_auth();
         Self::require_signer(&e, &proposer);
 
-        let tx_id: u64 = e.storage().instance().get(&DataKey::Config(ConfigKey::TxCounter)).unwrap_or(0);
+        let tx_id: u64 = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::TxCounter))
+            .unwrap_or(0);
         let next_id = tx_id + 1;
 
         let mut sigs = Vec::new(&e);
@@ -93,15 +103,16 @@ impl MultiSigAdmin {
         e.storage()
             .persistent()
             .set(&DataKey::PendingTx(next_id), &tx);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::TxCounter), &next_id);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::TxCounter), &next_id);
 
-        e.events()
-            .publish((symbol_short!("tx_prop"),), (next_id, proposer));
+        events::emit_tx_proposed(&e, next_id, &proposer);
         next_id
     }
 
     /// Approves a pending transaction.
-    /// 
+    ///
     /// # Arguments
     /// * `signer` - The address of the signer approving the transaction.
     /// * `tx_id` - The ID of the transaction to approve.
@@ -128,12 +139,12 @@ impl MultiSigAdmin {
             .persistent()
             .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events()
-            .publish((symbol_short!("tx_appr"),), (tx_id, signer));
+        events::emit_tx_approved(&e, tx_id, &signer);
     }
 
     /// Executes a pending transaction if the threshold of signatures has been met.
-    /// 
+    /// Invokes the target contract function with the stored arguments.
+    ///
     /// # Arguments
     /// * `executor` - The address of the signer executing the transaction.
     /// * `tx_id` - The ID of the transaction to execute.
@@ -151,18 +162,24 @@ impl MultiSigAdmin {
             panic!("transaction already executed");
         }
 
-        let threshold: u32 = e.storage().instance().get(&DataKey::Config(ConfigKey::Threshold)).unwrap();
+        let threshold: u32 = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Threshold))
+            .unwrap();
         if tx.signatures.len() < threshold {
             panic!("insufficient signatures");
         }
 
+        // Mark executed before the cross-contract call to prevent reentrancy replay.
         tx.executed = true;
         e.storage()
             .persistent()
             .set(&DataKey::PendingTx(tx_id), &tx);
 
-        e.events()
-            .publish((symbol_short!("tx_exec"),), (tx_id, executor));
+        e.invoke_contract::<()>(&tx.target, &tx.function, tx.args.clone());
+
+        events::emit_tx_executed(&e, tx_id, &executor, &tx.signatures);
     }
 
     /// Returns the details of a specific transaction.
@@ -175,23 +192,33 @@ impl MultiSigAdmin {
 
     /// Returns the list of authorized signers.
     pub fn get_signers(e: Env) -> Vec<Address> {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::Signers)).unwrap()
+        e.storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Signers))
+            .unwrap()
     }
 
     /// Returns the signature threshold for the multi-sig contract.
     pub fn get_threshold(e: Env) -> u32 {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::Threshold)).unwrap()
+        e.storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Threshold))
+            .unwrap()
     }
 
     fn require_signer(e: &Env, addr: &Address) {
-        let signers: Vec<Address> = e.storage().instance().get(&DataKey::Config(ConfigKey::Signers)).unwrap();
+        let signers: Vec<Address> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Signers))
+            .unwrap();
         if !signers.iter().any(|s| s == addr.clone()) {
             panic!("not a signer");
         }
     }
 
     pub fn version(e: Env) -> String {
-        String::from_str(&e, "1.0.0")
+        String::from_str(&e, "1.1.0")
     }
 
     pub fn status(e: Env) -> String {

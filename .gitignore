@@ -43,6 +43,7 @@ yarn-error.log*
 *.swp
 *.bak
 Cargo.lock
+contracts/factory/test_snapshots/
 contracts/factory/test_snapshots/test_factory/test_double_initialize.1.json
 contracts/factory/test_snapshots/test_factory/test_initialize_and_create_token.1.json
 contracts/factory/test_snapshots/test_factory/test_update_wasm_hash_not_admin.1.json

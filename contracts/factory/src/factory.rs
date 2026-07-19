@@ -1,6 +1,10 @@
+use crate::multisig::{
+    build_deploy_payload_hash, require_threshold, verify_multisig_signatures, MultisigDeployPayload,
+    OwnerSignature,
+};
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, String,
-    Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, IntoVal,
+    String, Symbol, Vec,
 };
 
 #[contracttype]
@@ -8,11 +12,14 @@ pub enum ConfigKey {
     Admin,
     WasmHash,
     Tokens,
+    MultisigOwners,
 }
 
 #[contracttype]
 pub enum DataKey {
     Config(ConfigKey),
+    /// Marks a multisig deploy payload hash as consumed (replay protection).
+    UsedPayload(BytesN<32>),
 }
 
 #[contract]
@@ -278,5 +285,139 @@ impl TokenFactory {
         e.storage()
             .instance()
             .set(&DataKey::Config(ConfigKey::WasmHash), &new_wasm_hash);
+    }
+
+    /// Registers the ed25519 public keys authorized to approve multisig deployments.
+    ///
+    /// # Authorization
+    /// Requires the factory administrator to authorize.
+    pub fn set_multisig_owners(e: Env, owners: Vec<BytesN<32>>) {
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .expect("not initialized");
+        admin.require_auth();
+
+        if owners.is_empty() {
+            panic!("owners required");
+        }
+
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::MultisigOwners), &owners);
+    }
+
+    /// Returns the registered multisig owner public keys.
+    pub fn get_multisig_owners(e: Env) -> Vec<BytesN<32>> {
+        e.storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::MultisigOwners))
+            .unwrap_or(Vec::new(&e))
+    }
+
+    /// Deploys a token contract after verifying a multisig threshold of owner signatures.
+    ///
+    /// # Arguments
+    /// * `salt`       - Unique 32-byte salt for deployment.
+    /// * `admin`      - Administrator of the new token.
+    /// * `decimal`    - Token decimals.
+    /// * `name`       - Token name.
+    /// * `symbol`     - Token symbol.
+    /// * `signatures` - Ed25519 signatures over the deploy payload hash.
+    /// * `threshold`  - Minimum number of unique valid signatures required.
+    /// * `nonce`      - Unique nonce included in the signed payload (anti-replay).
+    ///
+    /// # Panics
+    /// * Below-threshold valid signatures
+    /// * Duplicate signatures from the same owner key
+    /// * Replayed payload (same signed parameters + nonce)
+    /// * Unknown / invalid cryptographic signatures
+    ///
+    /// # Events
+    /// Emits `(factory, msigdep)` with `(token, admin, signer_keys, nonce)`.
+    pub fn deploy_multisig(
+        e: Env,
+        salt: BytesN<32>,
+        admin: Address,
+        decimal: u32,
+        name: String,
+        symbol: String,
+        signatures: Vec<OwnerSignature>,
+        threshold: u32,
+        nonce: u64,
+    ) -> Address {
+        let owners: Vec<BytesN<32>> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::MultisigOwners))
+            .expect("multisig owners not configured");
+
+        if threshold == 0 || threshold > owners.len() {
+            panic!("invalid threshold");
+        }
+
+        let payload = MultisigDeployPayload {
+            salt: salt.clone(),
+            admin: admin.clone(),
+            decimal,
+            name: name.clone(),
+            symbol: symbol.clone(),
+            nonce,
+        };
+        let payload_hash = build_deploy_payload_hash(&e, &payload);
+
+        if e.storage()
+            .persistent()
+            .has(&DataKey::UsedPayload(payload_hash.clone()))
+        {
+            panic!("payload already used");
+        }
+
+        let message: Bytes = payload_hash.clone().into();
+        let valid_signers =
+            verify_multisig_signatures(&e, &owners, &message, &signatures);
+        require_threshold(valid_signers.len(), threshold);
+
+        // Consume the payload before deployment to prevent replay if deploy re-enters.
+        e.storage()
+            .persistent()
+            .set(&DataKey::UsedPayload(payload_hash), &true);
+
+        let wasm_hash: BytesN<32> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::WasmHash))
+            .expect("not initialized");
+
+        let address = e
+            .deployer()
+            .with_current_contract(salt)
+            .deploy_v2(wasm_hash, ());
+
+        let init_args = soroban_sdk::vec![
+            &e,
+            admin.clone().into_val(&e),
+            decimal.into_val(&e),
+            name.into_val(&e),
+            symbol.into_val(&e),
+        ];
+        e.invoke_contract::<()>(&address, &Symbol::new(&e, "initialize"), init_args);
+
+        let mut tokens: Vec<Address> = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Tokens))
+            .unwrap_or(Vec::new(&e));
+        tokens.push_back(address.clone());
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Tokens), &tokens);
+
+        let topics = (symbol_short!("factory"), symbol_short!("msigdep"));
+        e.events()
+            .publish(topics, (address.clone(), admin, valid_signers, nonce));
+
+        address
     }
 }

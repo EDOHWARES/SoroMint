@@ -8,6 +8,7 @@ members = [
     "contracts/amm_pool",
     "contracts/backstop",
     "contracts/compliance",
+    "contracts/deploy_test_token",
     "contracts/dividend",
     "contracts/factory",
     "contracts/flash_loan",
