@@ -55,6 +55,10 @@ jobs:
           cache: ${{ matrix.package-manager }}
           cache-dependency-path: ${{ matrix.lockfile }}
 
+      - name: Enable pnpm
+        if: matrix.package-manager == 'pnpm'
+        run: corepack enable
+
       - name: Install dependencies
         working-directory: ${{ matrix.path }}
         run: ${{ matrix.package-manager }} ci

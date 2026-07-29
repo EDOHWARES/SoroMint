@@ -31,6 +31,9 @@ jobs:
             server/pnpm-lock.yaml
             client/pnpm-lock.yaml
 
+      - name: Enable pnpm
+        run: corepack enable
+
       - name: Install Dependencies
         run: pnpm install
 
