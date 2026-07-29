@@ -16,7 +16,7 @@ module.exports = [
       node,
     },
     rules: {
-      'no-unused-vars': 'warn',
+      'no-unused-vars': 'off',
       'no-console': 'off',
       'node/no-unsupported-features/es-syntax': 'off',
       'node/no-process-exit': 'off',
