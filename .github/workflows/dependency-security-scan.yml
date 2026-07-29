@@ -37,10 +37,12 @@ jobs:
         include:
           - app: server
             path: ./server
-            lockfile: ./server/package-lock.json
+            lockfile: ./server/pnpm-lock.yaml
+            package-manager: pnpm
           - app: client
             path: ./client
             lockfile: ./client/package-lock.json
+            package-manager: npm
 
     steps:
       - name: Checkout
@@ -50,16 +52,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
+          cache: ${{ matrix.package-manager }}
           cache-dependency-path: ${{ matrix.lockfile }}
 
       - name: Install dependencies
         working-directory: ${{ matrix.path }}
-        run: npm ci
+        run: ${{ matrix.package-manager }} ci
 
       - name: Run npm audit
         working-directory: ${{ matrix.path }}
-        run: npm audit --audit-level=moderate
+        run: ${{ matrix.package-manager }} audit --audit-level=moderate
 
   codeql:
     name: CodeQL Analysis
