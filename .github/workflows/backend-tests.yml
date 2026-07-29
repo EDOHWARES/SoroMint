@@ -22,6 +22,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
@@ -33,6 +38,6 @@ jobs:
         run: pnpm install
 
       - name: Run Backend Tests
-        run: pnpm test -- --ci --coverage --forceExit
+        run: npx jest --ci --coverage --forceExit
         env:
           NODE_ENV: test
