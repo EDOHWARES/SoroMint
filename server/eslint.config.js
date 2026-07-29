@@ -6,7 +6,7 @@ module.exports = [
     files: ['**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
-      sourceType: 'commonjs',
+      sourceType: 'module',
       globals: {
         node: 'readonly',
         jest: 'readonly',
@@ -21,6 +21,7 @@ module.exports = [
       'node/no-unsupported-features/es-syntax': 'off',
       'node/no-process-exit': 'off',
     },
+    ignores: ['load-tests/**'],
   },
   {
     files: ['tests/**/*.js'],
