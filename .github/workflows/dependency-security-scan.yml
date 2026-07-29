@@ -49,14 +49,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        if: matrix.package-manager == 'pnpm'
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          pnpm-version: 10
           cache: ${{ matrix.package-manager }}
           cache-dependency-path: ${{ matrix.lockfile }}
 

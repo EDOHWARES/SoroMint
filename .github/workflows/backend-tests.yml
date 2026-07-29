@@ -22,13 +22,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Enable pnpm
-        run: corepack enable
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          pnpm-version: 10
           cache: 'pnpm'
           cache-dependency-path: |
             server/pnpm-lock.yaml
