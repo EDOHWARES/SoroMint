@@ -22,6 +22,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        run: npm install -g pnpm@10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -30,9 +33,6 @@ jobs:
           cache-dependency-path: |
             server/pnpm-lock.yaml
             client/pnpm-lock.yaml
-
-      - name: Install pnpm
-        run: npm install -g pnpm@10
 
       - name: Install Dependencies
         run: pnpm install
