@@ -13,6 +13,7 @@
     "no-console": "off",
     "node/no-unsupported-features/es-syntax": "off",
     "node/no-unsupported-features/node-builtins": "off",
+    "node/no-missing-require": "off",
     "node/no-process-exit": "off"
   },
   "overrides": [
