@@ -39,10 +39,6 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
-        env:
-          ESLINT_USE_FLAT_CONFIG: false
 
       - name: Check Prettier Formatting
         run: npm run format
-        env:
-          ESLINT_USE_FLAT_CONFIG: false
