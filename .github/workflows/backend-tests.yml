@@ -38,6 +38,6 @@ jobs:
         run: pnpm install
 
       - name: Run Backend Tests
-        run: pnpm test -- --ci --coverage --forceExit
+        run: npx jest --ci --coverage --forceExit
         env:
           NODE_ENV: test
