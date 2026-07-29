@@ -1,0 +1,6 @@
+allowBuilds:
+  '@scarf/scarf': set this to true or false
+  mongodb-memory-server: set this to true or false
+  msgpackr-extract: set this to true or false
+  sqlite3: set this to true or false
+  unrs-resolver: set this to true or false
