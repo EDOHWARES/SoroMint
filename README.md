@@ -14,12 +14,29 @@ A full-stack Soroban Token Minting platform.
 - [Freighter Wallet](https://www.stellar.org/freighter/) (Browser extension)
 
 ### 2. Infrastructure
-Spin up the local MongoDB instance:
+Spin up the local development environment (MongoDB, Redis, and Stellar Quickstart):
 ```bash
 docker-compose up -d
 ```
 
-### 3. Backend Setup
+This starts:
+- **MongoDB** on port `27017`
+- **Redis** on port `6379`
+- **Stellar Quickstart** (standalone Soroban RPC) on port `8000`
+
+### 3. Bootstrap the Local Network
+Run the bootstrap script to fund test accounts and deploy mock contracts:
+```bash
+chmod +x scripts/bootstrap-local-network.sh
+./scripts/bootstrap-local-network.sh
+```
+
+The script will:
+1. Wait for the Stellar Quickstart RPC to become ready
+2. Fund test accounts via the built-in friendbot
+3. Deploy mock contracts from the `contracts/` directory
+
+### 4. Backend Setup
 ```bash
 cd server
 npm install
@@ -28,12 +45,23 @@ cp .env.example .env
 npm run dev
 ```
 
-### 4. Frontend Setup
+### 5. Frontend Setup
 ```bash
 cd client
 npm install
 npm run dev
 ```
+
+## Local Development Environment
+
+The `docker-compose.yml` includes a `stellar-quickstart` service that provides a standalone Stellar network with Soroban RPC and Horizon. This eliminates the need for public testnet/futurenet access during local development.
+
+### Configuration
+- **Local RPC URL**: `http://localhost:8000`
+- **Network Passphrase**: `Standalone Network ; February 2017`
+- **Friendbot**: `http://localhost:8000/friendbot`
+
+The `.env.example` is pre-configured with these local endpoints. Copy it to `.env` and set `ADMIN_SECRET_KEY` to a keypair generated with `soroban keys generate` for contract deployment and account funding.
 
 ## Environment Variables
 Ensure your `.env` file in the `/server` directory contains:
