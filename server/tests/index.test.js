@@ -73,7 +73,7 @@ describe('Server Index', () => {
 	    jest.doMock("../middleware/security-headers", () => ({ securityHeaders: (req, res, next) => next() }));
 	    jest.doMock("../services/backup-service", () => ({ scheduleBackups: jest.fn() }));
 	    jest.doMock("../config/sentry", () => ({ initSentry: jest.fn() }));
-    jest.doMock("../middleware/error-handler", () => ({
+    jest.doMock("../middleware/error-handler", () => ({ asyncHandler: jest.fn((fn) => fn) }));
     jest.doMock('../config/swagger', () => ({ setupSwagger: jest.fn() }));
     jest.doMock('../routes/auth-routes', () => (req, res, next) => next());
     jest.doMock('../routes/status-routes', () => (req, res, next) => next());
@@ -190,6 +190,7 @@ describe('Server Index', () => {
     jest.doMock("../middleware/error-handler", () => ({
       errorHandler: "error-handler",
       notFoundHandler: "not-found-handler",
+    }));
     jest.doMock('../config/swagger', () => ({ setupSwagger }));
     jest.doMock('../routes/auth-routes', () => 'auth-routes');
     jest.doMock('../routes/status-routes', () => 'status-routes');

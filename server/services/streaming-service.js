@@ -58,8 +58,6 @@ class StreamingService {
     stopLedger,
     isPublic = false
   ) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -147,8 +145,6 @@ class StreamingService {
   }
 
   async withdraw(contractId, sourceKeypair, streamId, amount) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -185,8 +181,6 @@ class StreamingService {
   }
 
   async cancelStream(contractId, sourceKeypair, streamId) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(sourceKeypair.publicKey());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       sourceKeypair.publicKey()
@@ -240,8 +234,6 @@ class StreamingService {
   }
 
   async getStream(contractId, streamId) {
-    const contract = this.getContract(contractId);
-    const sourceAccount = await this.server.getAccount(contract.address().toString());
     const contract = new Contract(contractId);
     const sourceAccount = await this.server.getAccount(
       contract.address().toString()

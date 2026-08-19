@@ -216,52 +216,11 @@ router.get('/:vaultId/health', authenticate, asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      vaultId,
       collateralToken,
       amount
-    );
-
-/**
- * @openapi
- * @route GET /api/vault/user/{userAddress}
- * @name getUserVaults
- * @description Get all vaults owned by a specific user
- * @tags Vault
- * @security BearerAuth
- * @param {string} userAddress - User's Stellar public key
- * @param {string} vaultContractId - Vault contract address
- * @returns {array} 200 - Array of user's vaults
- */
-router.get('/user/:userAddress', authenticate, asyncHandler(async (req, res) => {
-  const { userAddress } = req.params;
-  const { vaultContractId } = req.query;
-
-router.post(
-  '/:vaultId/mint',
-  authenticate,
-  asyncHandler(async (req, res) => {
-    const { vaultId } = req.params;
-    const { vaultContractId, smtAmount } = req.body;
-
-    const vault = await vaultService.mintMore(
-      vaultContractId,
-      vaultId,
-      smtAmount
-    );
-
-/**
- * @openapi
- * @route GET /api/vault/liquidatable/list
- * @name getLiquidatableVaults
- * @description Get all vaults eligible for liquidation
- * @tags Vault
- * @security BearerAuth
- * @param {string} vaultContractId - Vault contract address
- * @param {number} threshold - Health factor threshold (default: 130)
- * @returns {array} 200 - Array of liquidatable vaults
- */
-router.get('/liquidatable/list', authenticate, asyncHandler(async (req, res) => {
-  const { vaultContractId, threshold } = req.query;
+    }
+  });
+}));
 
 router.post(
   '/:vaultId/repay',
@@ -379,5 +338,4 @@ router.get(
     });
   })
 );
-
 module.exports = router;

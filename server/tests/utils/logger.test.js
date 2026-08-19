@@ -64,7 +64,8 @@ describe('Logger Utility', () => {
           requestId: 'req-123',
           traceId: 'trace-123',
         }),
-      }),
+      })
+    });
     process.env.NODE_ENV = originalEnv;
   });
 
@@ -557,7 +558,8 @@ describe('Logger Utility', () => {
       name: 'Error',
       message: 'boom',
       code: 'E_BOOM',
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+    });
+    expect(mockLogger.debug).toHaveBeenCalledWith(
         'Route registered',
         expect.objectContaining({
           method: 'PUT',
@@ -646,7 +648,10 @@ describe('Logger Utility', () => {
 
     logger.http = originalHttp;
   });
-        originalUrl: '/api/status',
+
+  it('handles truncated requests', () => {
+    const mockReq = {
+      originalUrl: '/api/status',
         ip: '127.0.0.1',
         connection: { remoteAddress: '127.0.0.1' },
         get: jest.fn(() => 'TestAgent'),

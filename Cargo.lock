@@ -15,13 +15,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai_metadata_validator"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -913,13 +906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "metadata_validator"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1645,14 +1631,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soromint-lending-pool"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
- "soromint-lifecycle",
-]
-
-[[package]]
 name = "soromint-lifecycle"
 version = "0.1.0"
 dependencies = [
@@ -1693,6 +1671,7 @@ name = "soromint-streaming"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "soromint-token",
 ]
 
 [[package]]
@@ -1710,6 +1689,7 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "soroban-sdk",
+ "soromint-access",
  "soromint-lifecycle",
 ]
 

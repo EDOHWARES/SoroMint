@@ -23,10 +23,7 @@ const { errorHandler } = require('../../middleware/error-handler');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const User = require('../../models/User');
-const Webhook = require('../../models/Webhook');
 const { generateToken } = require('../../middleware/auth');
-const { errorHandler } = require('../../middleware/error-handler');
-const webhookRoutes = require('../../routes/webhook-routes');
 
 let mongoServer;
 let app;
@@ -237,4 +234,9 @@ describe('POST /api/webhooks', () => {
       expect(res.status).toBe(404);
     });
   });
+});
+});
+});
+});
+});
 });

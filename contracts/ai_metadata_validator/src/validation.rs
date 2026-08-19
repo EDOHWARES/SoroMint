@@ -9,7 +9,7 @@ pub fn validate_name(
     rules: &ValidationRules,
     blocked_words: &Vec<String>,
 ) -> ValidationResult {
-    let name_str = name.to_string();
+    let name_str = alloc::string::String::from_utf8(name.to_alloc_vec()).unwrap();
     let name_len = name_str.len() as u32;
     let mut errors = Vec::new(e);
     let mut risk_score = 0u32;

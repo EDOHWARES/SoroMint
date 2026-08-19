@@ -489,8 +489,6 @@ const logShutdownInfo = (reason) => {
 
 const logDatabaseConnection = (success, error = null) => {
   if (success) {
-    logger.info('MongoDB Connected');
-    return;
     logger.info('MongoDB Connected', {
       timestamp: new Date().toISOString(),
     });
@@ -500,10 +498,6 @@ const logDatabaseConnection = (success, error = null) => {
       timestamp: new Date().toISOString(),
     });
   }
-
-  logger.error('MongoDB Connection Error', {
-    error: error || 'Unknown error',
-  });
 };
 
 const logRouteRegistration = (method, routePath) => {
@@ -535,4 +529,5 @@ Object.assign(logger, {
 });
 
 module.exports = logger;
-};
+
+})};

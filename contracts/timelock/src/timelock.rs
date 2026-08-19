@@ -27,7 +27,6 @@ const DELAY: u64 = 48 * 60 * 60;
 
 #[contracttype]
 #[derive(Clone)]
-#[contracttype]
 pub enum ConfigKey {
     Admin,
 }

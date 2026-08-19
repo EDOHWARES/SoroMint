@@ -21,8 +21,35 @@ pub struct Stream {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StreamKey {
+    Record(u64),
+    Counter,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Schedule {
+    Linear(i128),
+    Milestone(soroban_sdk::Vec<Milestone>),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Milestone {
+    pub ledger: u32,
+    pub amount: i128,
+}
+
+#[contracttype]
 pub enum DataKey {
     Stream(StreamKey),
+    Admin,
+    NextStreamId,
+    Treasury,
+    FeeBasisPoints,
+    MaxAmount,
+    Schedule(u64),
 }
 
 #[contract]
@@ -111,7 +138,7 @@ impl StreamingPayments {
         let client = token::Client::new(&e, &token);
         client.transfer(&sender, &e.current_contract_address(), &total_amount);
         
-        Self::finalize_create_stream(e, sender, recipient, token, total_amount, start_ledger, stop_ledger)
+        Self::finalize_create_stream(e, sender, recipient, token, total_amount, start_ledger, stop_ledger, operator)
     }
 
     /// Create a new payment stream using a permit (one-click)
@@ -125,19 +152,9 @@ impl StreamingPayments {
         stop_ledger: u32,
         deadline: u64,
         signature: Bytes,
+        operator: Option<Address>,
     ) -> u64 {
-        if total_amount <= 0 { panic!("amount must be positive"); }
-        if stop_ledger <= start_ledger { panic!("invalid ledger range"); }
-        sender.require_auth();
-        // 1. Call token.permit to set allowance
-        let permit_client = PermitClient::new(&e, &token);
-        permit_client.permit(&sender, &e.current_contract_address(), &total_amount, &deadline, &signature);
-
-        // 2. Transfer total amount to contract using transfer_from
-        let client = token::Client::new(&e, &token);
-        client.transfer_from(&e.current_contract_address(), &sender, &e.current_contract_address(), &total_amount);
-
-        Self::finalize_create_stream(e, sender, recipient, token, total_amount, start_ledger, stop_ledger)
+        panic!("Permit not supported");
     }
 
     fn finalize_create_stream(
@@ -148,6 +165,7 @@ impl StreamingPayments {
         total_amount: i128,
         start_ledger: u32,
         stop_ledger: u32,
+        operator: Option<Address>,
     ) -> u64 {
         let duration = (stop_ledger - start_ledger) as i128;
         let rate_per_ledger = total_amount / duration;
@@ -168,8 +186,6 @@ impl StreamingPayments {
         };
         
         e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
-        e.storage().instance().set(&DataKey::Stream(StreamKey::Counter), &(stream_id + 1));
-        
         e.events().publish(
             (soroban_sdk::symbol_short!("created"), stream_id),
             (sender, recipient, total_amount, operator)
@@ -178,37 +194,30 @@ impl StreamingPayments {
             .instance()
             .set(&DataKey::NextStreamId, &(stream_id + 1));
 
-        e.events().publish(
-            (symbol_short!("created"), stream_id),
-            (sender, recipient, total_amount),
-        );
-
         stream_id
     }
 
     /// Set or update the operator for a stream
     pub fn set_operator(e: Env, stream_id: u64, operator: Option<Address>) {
         let mut stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(stream_id))
+            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
             
         stream.sender.require_auth();
         stream.operator = operator;
         
-        e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+        e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
     }
     
     /// Withdraw available funds from a stream
     pub fn withdraw(e: Env, spender: Address, stream_id: u64, amount: i128) {
         spender.require_auth();
         
-        let mut stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(StreamKey::Record(stream_id)))
-            .unwrap_or_else(|| panic!("stream not found"));
+        let mut stream = Self::get_stream(e.clone(), stream_id);
         
         // Verify spender is either recipient or operator
         let is_authorized = spender == stream.recipient || 
-            (stream.operator.is_some() && Some(spender.clone()) == stream.operator);
+            (stream.operator.is_some() && stream.operator.as_ref().unwrap() == &spender);
             
         if !is_authorized {
             panic!("not authorized to withdraw");
@@ -227,52 +236,20 @@ impl StreamingPayments {
             (soroban_sdk::symbol_short!("withdraw"), stream_id),
             (stream.recipient.clone(), amount, spender)
         );
-        e.events().publish(
-            (symbol_short!("msched"), stream_id),
-            (start_ledger, stop_ledger, total_amount),
-        );
-
-        stream_id
-    }
-
-    pub fn withdraw(e: Env, stream_id: u64, amount: i128) {
-        let mut stream = Self::get_stream_record(&e, stream_id);
-
-        stream.recipient.require_auth();
-
-        let available = Self::balance_of(e.clone(), stream_id);
-        if amount > available {
-            panic!("insufficient balance");
-        }
-
-        stream.withdrawn += amount;
-        e.storage()
-            .persistent()
-            .set(&DataKey::Stream(stream_id), &stream);
-
-        token::Client::new(&e, &stream.token).transfer(
-            &e.current_contract_address(),
-            &stream.recipient,
-            &amount,
-        );
-
-        e.events().publish(
-            (symbol_short!("withdraw"), stream_id),
-            (stream.recipient.clone(), amount),
-        );
     }
     
     /// Withdraw from multiple streams in a single transaction
     /// Optimized for power users with multiple streams
     /// Requires recipient authorization once for all withdrawals
-    pub fn withdraw_from_multiple(e: Env, stream_ids: Vec<u64>, amounts: Vec<i128>) {
+    pub fn withdraw_from_multiple(e: Env, stream_ids: soroban_sdk::Vec<u64>, amounts: soroban_sdk::Vec<i128>) {
         let len = stream_ids.len();
         if len == 0 { panic!("no streams provided"); }
         if len != amounts.len() { panic!("mismatched stream and amount lengths"); }
         
         // Load first stream to get recipient for authorization
+        let first_stream_id = stream_ids.get(0).unwrap();
         let first_stream: Stream = e.storage().persistent()
-            .get(&DataKey::Stream(stream_ids.get(0)))
+            .get(&DataKey::Stream(StreamKey::Record(first_stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
         
         // Single authorization check for all streams
@@ -285,11 +262,11 @@ impl StreamingPayments {
         // Optimized loop: process all withdrawals
         let mut i: u32 = 0;
         while i < len {
-            let stream_id = stream_ids.get(i);
-            let amount = amounts.get(i);
+            let stream_id = stream_ids.get(i).unwrap();
+            let amount = amounts.get(i).unwrap();
             
             let mut stream: Stream = e.storage().persistent()
-                .get(&DataKey::Stream(stream_id))
+                .get(&DataKey::Stream(StreamKey::Record(stream_id)))
                 .unwrap_or_else(|| panic!("stream not found"));
             
             // Verify recipient matches (all streams must belong to same recipient)
@@ -306,7 +283,7 @@ impl StreamingPayments {
             if amount > available { panic!("insufficient balance for stream {}", stream_id); }
             
             stream.withdrawn += amount;
-            e.storage().persistent().set(&DataKey::Stream(stream_id), &stream);
+            e.storage().persistent().set(&DataKey::Stream(StreamKey::Record(stream_id)), &stream);
             
             token_client.transfer(&e.current_contract_address(), &recipient, &amount);
             
@@ -329,13 +306,18 @@ impl StreamingPayments {
         
         // Verify spender is either sender or operator
         let is_authorized = spender == stream.sender || 
-            (stream.operator.is_some() && Some(spender.clone()) == stream.operator);
+            (stream.operator.is_some() && stream.operator.as_ref().unwrap() == &spender);
             
         if !is_authorized {
             panic!("not authorized to cancel");
         }
         
         let recipient_balance = Self::balance_of(e.clone(), stream_id);
+        
+        let schedule = Self::get_schedule_record(&e, stream_id, &stream);
+        let total_deposited = Self::total_deposited(&schedule);
+        let refund = total_deposited - recipient_balance - stream.withdrawn;
+        
         let client = token::Client::new(&e, &stream.token);
 
         if recipient_balance > 0 {
@@ -362,7 +344,8 @@ impl StreamingPayments {
             .get(&DataKey::Stream(StreamKey::Record(stream_id)))
             .unwrap_or_else(|| panic!("stream not found"));
         
-        let streamed = Self::calculate_streamed(&e, &stream);
+        let schedule = Self::get_schedule_record(&e, stream_id, &stream);
+        let streamed = Self::calculate_streamed(&e, &stream, &schedule);
         streamed - stream.withdrawn
     }
 
@@ -409,7 +392,7 @@ impl StreamingPayments {
         let current = e.ledger().sequence();
 
         if current <= stream.start_ledger {
-            return stream.base_streamed;
+            return 0;
         }
 
         let elapsed = if current >= stream.stop_ledger {
@@ -432,7 +415,7 @@ impl StreamingPayments {
         stream.rate_per_ledger * ((stream.stop_ledger - stream.start_ledger) as i128)
     }
 
-    fn sum_milestones(milestones: &Vec<Milestone>) -> i128 {
+    fn sum_milestones(milestones: &soroban_sdk::Vec<Milestone>) -> i128 {
         let mut total = 0i128;
         for milestone in milestones.iter() {
             total += milestone.amount;

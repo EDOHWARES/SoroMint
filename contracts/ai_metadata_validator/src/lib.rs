@@ -13,6 +13,8 @@
 
 #![no_std]
 
+extern crate alloc;
+
 mod events;
 mod patterns;
 mod validation;

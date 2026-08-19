@@ -3,10 +3,6 @@
 const express = require('express');
 const Stream = require('../models/Stream');
 const StreamingService = require('../services/streaming-service');
-const { asyncHandler } = require('../middleware/error-handler');
-const { body, param, validationResult } = require('express-validator');
-const { getCacheService } = require('../services/cache-service');
-const Stream = require('../models/Stream');
 const { body, param, query, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error-handler');
@@ -40,18 +36,7 @@ const createStreamingRouter = ({
 } = {}) => {
   const router = express.Router();
 
-  router.post(
-    '/streams',
-    [
-      body('sender').isString().notEmpty(),
-      body('recipient').isString().notEmpty(),
-      body('tokenAddress').isString().notEmpty(),
-      body('totalAmount').isString().notEmpty(),
-      body('startLedger').isInt({ min: 0 }),
-      body('stopLedger').isInt({ min: 0 }),
-      validate,
-    ],
-    asyncHandler(async (req, res) => {
+
 const escapeCSV = (val) => {
   if (val == null) return '""';
   const str = String(val).replace(/"/g, '""');
@@ -118,11 +103,6 @@ router.post(
         stopLedger,
       } = req.body;
       const service = getService();
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
       const feeService = new PlatformFeeService();
 
       // Calculate platform fee
@@ -147,8 +127,11 @@ router.post(
       res
         .status(201)
         .json({ success: true, streamId: result.streamId, txHash: result.hash });
-    })
-  );
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
   router.post(
     '/streams/:streamId/withdraw',
@@ -158,16 +141,24 @@ router.post(
       validate,
     ],
     asyncHandler(async (req, res) => {
-        .json({
-          success: true,
-          streamId: result.streamId,
-          txHash: result.hash,
-        });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+      const { streamId } = req.params;
+      const { amount } = req.body;
+      const service = getService();
+      
+      const result = await service.withdraw(
+        getContractId(),
+        req.sourceKeypair,
+        streamId,
+        amount
+      );
+      
+      res.json({
+        success: true,
+        streamId: result.streamId,
+        txHash: result.hash,
+      });
+    })
+  );
 
 /**
  * @openapi
@@ -181,35 +172,30 @@ router.post(
  * @returns {object} 200 - Withdrawal confirmation with txHash
  * @returns {object} 400 - Validation error
  */
-router.post(
-  '/streams/:streamId/withdraw',
-  [
-    param('streamId').isInt({ min: 0 }),
-    body('amount').isString().notEmpty(),
-    validate,
-  ],
-  async (req, res, next) => {
-    try {
+  router.post(
+    '/streams/:streamId/withdraw',
+    [
+      param('streamId').isInt({ min: 0 }),
+      body('amount').isString().notEmpty(),
+      validate,
+    ],
+    asyncHandler(async (req, res) => {
       const { streamId } = req.params;
       const { amount } = req.body;
       const service = getService();
+      
       const result = await service.withdraw(
         getContractId(),
         req.sourceKeypair,
         streamId,
         amount
       );
-
-      notifyStreamWebhooks('stream.withdrawn', {
-        streamId: Number(streamId),
-        amount,
+      
+      res.json({
+        success: true,
+        streamId: result.streamId,
         txHash: result.hash,
       });
-      // Invalidate balance cache on withdrawal
-      const cacheService = getCacheService();
-      await cacheService.delete(`stream:balance:${streamId}`);
-
-      res.json({ success: true, txHash: result.hash });
     })
   );
 
@@ -245,15 +231,6 @@ router.post(
       const service = getService();
       const stream = await service.getStream(getContractId(), streamId);
 
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
-
-      const stream = await service.getStream(
-        process.env.STREAMING_CONTRACT_ID,
-        streamId
-      );
 
       if (!stream) {
         return res.status(404).json({ error: 'Stream not found' });
@@ -269,12 +246,6 @@ router.post(
     asyncHandler(async (req, res) => {
       const { streamId } = req.params;
       const service = getService();
-      const balance = await service.getStreamBalance(getContractId(), streamId);
-
-      const service = new StreamingService(
-        process.env.SOROBAN_RPC_URL,
-        process.env.NETWORK_PASSPHRASE
-      );
 
       const cacheService = getCacheService();
       const cacheKey = `stream:balance:${streamId}`;
@@ -288,9 +259,6 @@ router.post(
           );
         },
         { ttl: 5 }
-      const balance = await service.getStreamBalance(
-        process.env.STREAMING_CONTRACT_ID,
-        streamId
       );
 
       res.json({ success: true, balance });

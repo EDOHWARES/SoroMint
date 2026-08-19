@@ -41,6 +41,32 @@ pub enum AccountKey {
     Nonce(Address),
 }
 
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SnapshotKey {
+    Supply(u32),
+    Account(Address, u32),
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum DataKey {
+    Config(ConfigKey),
+    Account(AccountKey),
+    Admin,
+    Decimals,
+    Name,
+    Symbol,
+    Supply,
+    Transferable,
+    FeeConfig,
+    TotalSupply,
+    Verified(Address),
+    Snapshot(Address, u32),
+    SupplySnapshot(u32),
+    Nonce(Address),
+}
+
 // Rolling 24-hour window state for a minter
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -76,18 +102,6 @@ impl SoroMintToken {
 
     fn write_allowance(e: &Env, from: &Address, spender: &Address, amount: i128) {
         e.storage().persistent().set(&DataKey::Account(AccountKey::Allowance(from.clone(), spender.clone())), &amount);
-    }
-
-    fn admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).unwrap()
-    }
-
-    pub fn is_transferable(e: Env) -> bool {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::IsTransferable)).unwrap_or(true)
-    }
-
-    pub fn supply(e: Env) -> i128 {
-        e.storage().instance().get(&DataKey::TotalSupply).unwrap_or(0)
     }
 
     fn move_balance(e: &Env, from: &Address, to: &Address, amount: i128) -> (i128, i128) {
@@ -251,7 +265,7 @@ impl SoroMintToken {
     }
 
     pub fn snapshot_supply(e: Env, ledger: u32) -> Option<i128> {
-        e.storage().persistent().get(&DataKey::Snapshot(SnapshotKey::Supply(ledger)))
+        e.storage().persistent().get(&DataKey::SupplySnapshot(ledger))
     }
 
     pub fn supply(e: Env) -> i128 {
@@ -268,7 +282,7 @@ impl SoroMintToken {
         let nonce = Self::nonce(e.clone(), from.clone());
         e.storage().persistent().set(&DataKey::Nonce(from.clone()), &(nonce + 1));
         Self::write_allowance(&e, &from, &spender, amount);
-        events::emit_approve(&e, &from, &spender, amount);
+        events::emit_approve(&e, &from, &spender, amount, 0);
     }
 }
 
@@ -282,7 +296,7 @@ impl TokenInterface for SoroMintToken {
         if !Self::is_transferable(e.clone()) { panic!("Token is non-transferable"); }
         from.require_auth();
         Self::write_allowance(&e, &from, &spender, amount);
-        events::emit_approve(&e, &from, &spender, amount);
+        events::emit_approve(&e, &from, &spender, amount, _expiration_ledger);
     }
 
     fn balance(e: Env, id: Address) -> i128 {

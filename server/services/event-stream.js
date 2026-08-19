@@ -154,7 +154,7 @@ class HorizonEventStream {
     if (typeof this._stopFn === 'function') {
       try {
         this._stopFn();
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
       this._stopFn = null;
     }
   }
