@@ -63,18 +63,23 @@ const DeploymentAuditSchema = new mongoose.Schema(
 );
 
 /**
- * @notice Index for efficient lookup by user
+ * @notice Composite index for the most common user timeline query
  */
-DeploymentAuditSchema.index({ userId: 1 });
+DeploymentAuditSchema.index({ userId: 1, createdAt: -1 });
 
 /**
- * @notice Index for efficient lookup by status
+ * @notice Composite index for status-based filtering and ordering
  */
-DeploymentAuditSchema.index({ status: 1 });
+DeploymentAuditSchema.index({ status: 1, createdAt: -1 });
 
 /**
- * @notice Index for efficient lookup by date
+ * @notice Composite index for user + status history lookups
  */
-DeploymentAuditSchema.index({ createdAt: -1 });
+DeploymentAuditSchema.index({ userId: 1, status: 1, createdAt: -1 });
+
+/**
+ * @notice Index for token name lookups used in admin filters
+ */
+DeploymentAuditSchema.index({ tokenName: 1, createdAt: -1 });
 
 module.exports = mongoose.model('DeploymentAudit', DeploymentAuditSchema);

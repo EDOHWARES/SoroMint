@@ -244,6 +244,19 @@ describe('Deployment Audit Logs', () => {
       expect(response.body[0].tokenName).toBe('User Token 2');
     });
 
+    it('should define composite indexes for the common audit log queries', () => {
+      const indexDefinitions = DeploymentAudit.schema.indexes().map(([fields]) => fields);
+      const userRecent = indexDefinitions.some(
+        (fields) => fields.userId === 1 && fields.createdAt === -1
+      );
+      const statusRecent = indexDefinitions.some(
+        (fields) => fields.status === 1 && fields.createdAt === -1
+      );
+
+      expect(userRecent).toBe(true);
+      expect(statusRecent).toBe(true);
+    });
+
     it('should deny non-admin access to admin endpoint', async () => {
       const response = await request(app)
         .get('/api/admin/logs')
