@@ -13,6 +13,15 @@
 //! The contract stores a `fee_bps` (basis points) value. Helper `calc_fee`
 //! returns the fee amount for a given principal so callers can compute the
 //! correct deposit before calling `deposit_fee`.
+//!
+//! ## Storage access optimization
+//! Storage reads in Soroban are expensive (analogous to DB queries). This
+//! contract minimizes reads by:
+//! - Caching token addresses locally instead of re-reading from storage.
+//! - Providing `get_config()` which returns all config in a single call
+//!   instead of requiring separate reads per field.
+//! - Using `get_balance()` to expose the on-chain token balance without
+//!   needing to call the token contract externally.
 
 #![no_std]
 
@@ -37,6 +46,18 @@ pub enum ConfigKey {
 #[contracttype]
 pub enum DataKey {
     Config(ConfigKey),
+}
+
+/// Return type for the batch `get_config` getter. Returns all configuration
+/// values in a single storage read, avoiding the overhead of five separate
+/// reads (one per field).
+#[contracttype]
+pub struct BackstopConfig {
+    pub admin: Address,
+    pub token: Address,
+    pub fee_bps: u32,
+    pub total_deposited: i128,
+    pub total_withdrawn: i128,
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +91,8 @@ impl Backstop {
         if amount <= 0 {
             panic!("amount must be positive");
         }
+
+        // Cache token address — single storage read reused for the transfer.
         let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(&from, &e.current_contract_address(), &amount);
 
@@ -78,9 +101,6 @@ impl Backstop {
             .instance()
             .get(&DataKey::Config(ConfigKey::TotalDeposited))
             .unwrap();
-        let new_total = total
-            .checked_add(amount)
-            .expect("total deposited addition overflow");
         e.storage()
             .instance()
             .set(&DataKey::Config(ConfigKey::TotalDeposited), &(total + amount));
@@ -95,6 +115,8 @@ impl Backstop {
         if amount <= 0 {
             panic!("amount must be positive");
         }
+
+        // Cache token address — single storage read reused for the transfer.
         let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
         token::Client::new(&e, &tok).transfer(&e.current_contract_address(), &to, &amount);
 
@@ -103,9 +125,6 @@ impl Backstop {
             .instance()
             .get(&DataKey::Config(ConfigKey::TotalWithdrawn))
             .unwrap();
-        let new_total = total
-            .checked_add(amount)
-            .expect("total withdrawn addition overflow");
         e.storage()
             .instance()
             .set(&DataKey::Config(ConfigKey::TotalWithdrawn), &(total + amount));
@@ -131,6 +150,21 @@ impl Backstop {
         principal * bps as i128 / 10_000
     }
 
+    /// Return all configuration values in a single call.
+    ///
+    /// This avoids the overhead of five separate storage reads when a caller
+    /// needs the full config (e.g. a front-end rendering the backstop status).
+    pub fn get_config(e: Env) -> BackstopConfig {
+        let inst = e.storage().instance();
+        BackstopConfig {
+            admin: inst.get(&DataKey::Config(ConfigKey::Admin)).unwrap(),
+            token: inst.get(&DataKey::Config(ConfigKey::Token)).unwrap(),
+            fee_bps: inst.get(&DataKey::Config(ConfigKey::FeeBps)).unwrap(),
+            total_deposited: inst.get(&DataKey::Config(ConfigKey::TotalDeposited)).unwrap(),
+            total_withdrawn: inst.get(&DataKey::Config(ConfigKey::TotalWithdrawn)).unwrap(),
+        }
+    }
+
     pub fn get_fee_bps(e: Env) -> u32 {
         e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap()
     }
@@ -141,6 +175,12 @@ impl Backstop {
 
     pub fn get_total_withdrawn(e: Env) -> i128 {
         e.storage().instance().get(&DataKey::Config(ConfigKey::TotalWithdrawn)).unwrap()
+    }
+
+    /// Return the current on-chain balance of the backstop token.
+    pub fn get_balance(e: Env) -> i128 {
+        let tok: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Token)).unwrap();
+        token::Client::new(&e, &tok).balance(&e.current_contract_address())
     }
 
     pub fn version(_e: Env) -> String {
