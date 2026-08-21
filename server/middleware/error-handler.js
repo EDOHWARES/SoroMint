@@ -10,7 +10,15 @@
  *      detected from Accept-Language header or other i18next detection methods.
  */
 
-const { logger, withRequestContext } = require('../utils/logger');
+const loggerModule = require('../utils/logger');
+const logger =
+  loggerModule && typeof loggerModule.warn === 'function'
+    ? loggerModule
+    : loggerModule?.logger && typeof loggerModule.logger.warn === 'function'
+      ? loggerModule.logger
+      : console;
+const withRequestContext =
+  loggerModule?.withRequestContext || ((req, metadata = {}) => metadata);
 const { captureException, addBreadcrumb } = require('../config/sentry');
 const { getI18n } = require('../config/i18n');
 
