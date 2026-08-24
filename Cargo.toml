@@ -20,6 +20,7 @@ members = [
     "contracts/streaming",
     "contracts/timelock",
     "contracts/token",
+    "contracts/twap_oracle",
     "contracts/upgradeable",
     "contracts/vault",
     "contracts/vesting",

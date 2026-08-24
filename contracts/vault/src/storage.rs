@@ -6,6 +6,9 @@ pub enum ConfigKey {
     SmtToken,
     Oracle,
     Counter,
+    TwapOracle,
+    DivergenceBps,
+    LiqPaused,
 }
 
 #[contracttype]
@@ -33,4 +36,13 @@ pub struct CollateralConfig {
     pub min_collateral_ratio: u32,
     pub liquidation_threshold: u32,
     pub liquidation_penalty: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TwapConfig {
+    pub twap_oracle: Address,
+    pub divergence_threshold_bps: u32,
+    pub liquidations_paused: bool,
+    pub configured: bool,
 }
