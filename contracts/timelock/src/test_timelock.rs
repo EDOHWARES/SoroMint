@@ -1,14 +1,11 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
-
-// Import the factory contract WASM for cross-contract testing.
-mod factory {
-    soroban_sdk::contractimport!(
-        file = "../../target/wasm32-unknown-unknown/release/soromint_factory.wasm"
-    );
-}
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address, BytesN, Env,
+};
+use soromint_factory::{TokenFactory, TokenFactoryClient};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,8 +52,8 @@ fn test_initialize_twice_panics() {
 
 #[test]
 fn test_queue_operation_returns_id() {
-    let (_, _, client) = setup();
-    let hash = dummy_wasm_hash(&soroban_sdk::Env::default(), 1);
+    let (e, _, client) = setup();
+    let hash = dummy_wasm_hash(&e, 1);
     let op = FactoryOperation::UpdateWasmHash(hash);
     // Should not panic and should return a 32-byte id
     let _op_id = client.queue_operation(&op);
@@ -157,8 +154,8 @@ fn test_full_flow_update_wasm_hash() {
     timelock_client.initialize(&admin);
 
     // Deploy factory with the timelock as its admin
-    let factory_id = e.register(factory::TokenFactory, ());
-    let factory_client = factory::Client::new(&e, &factory_id);
+    let factory_id = e.register(TokenFactory, ());
+    let factory_client = TokenFactoryClient::new(&e, &factory_id);
 
     // Use a placeholder wasm hash for initialization (no real WASM needed here)
     let initial_hash = BytesN::from_array(&e, &[0u8; 32]);
@@ -193,4 +190,46 @@ fn test_version_and_status() {
     let (e, _, client) = setup();
     assert_eq!(client.version(), soroban_sdk::String::from_str(&e, "1.0.0"));
     assert_eq!(client.status(), soroban_sdk::String::from_str(&e, "alive"));
+}
+
+// ---------------------------------------------------------------------------
+// UpgradeProxy
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_queue_upgrade_records_eta() {
+    let (e, _, client) = setup();
+    let proxy = Address::generate(&e);
+    let hash = dummy_wasm_hash(&e, 7);
+    let eta = e.ledger().timestamp() + 48 * 60 * 60;
+
+    client.queue_upgrade(&proxy, &hash);
+
+    let op = FactoryOperation::UpgradeProxy(proxy, hash);
+    assert_eq!(client.get_operation_eta(&op, &eta), Some(eta));
+}
+
+#[test]
+#[should_panic(expected = "timelock delay not elapsed")]
+fn test_execute_upgrade_before_delay_panics() {
+    let (e, _, client) = setup();
+    let proxy = Address::generate(&e);
+    let hash = dummy_wasm_hash(&e, 8);
+    let eta = e.ledger().timestamp() + 48 * 60 * 60;
+    client.queue_upgrade(&proxy, &hash);
+    client.execute_upgrade(&proxy, &hash, &eta);
+}
+
+#[test]
+#[should_panic(expected = "target mismatch")]
+fn test_execute_upgrade_target_mismatch_panics() {
+    let (e, _, client) = setup();
+    let proxy = Address::generate(&e);
+    let hash = dummy_wasm_hash(&e, 9);
+    let eta = e.ledger().timestamp() + 48 * 60 * 60;
+    client.queue_upgrade(&proxy, &hash);
+    e.ledger().with_mut(|l| l.timestamp += 48 * 60 * 60 + 1);
+
+    let other = Address::generate(&e);
+    client.execute_operation(&other, &FactoryOperation::UpgradeProxy(proxy, hash), &eta);
 }
