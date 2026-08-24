@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   BookOpenText,
   Vote,
+  Users,
   ShieldCheck,
   ScrollText,
   ArrowLeftRight,
@@ -27,6 +28,7 @@ import ThemeToggle from "./components/ThemeToggle";
 
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
+const MultisigDashboard = lazy(() => import("./pages/Multisig/Multisig"));
 const BackstopDashboard = lazy(() => import("./pages/Backstop/Backstop"));
 const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
 const BridgeReceiverDashboard = lazy(() =>
@@ -42,6 +44,7 @@ const views = [
   { id: "governance", label: "Governance", icon: Vote },
   { id: "bridge", label: "Bridge", icon: ArrowLeftRight },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
+  { id: "multisig", label: "Multisig", icon: Users },
   { id: "backstop", label: "Backstop", icon: ShieldCheck },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
 ];
@@ -430,12 +433,18 @@ function App() {
         >
           <DeveloperHub />
         </Suspense>
+      ) : activeView === "multisig" ? (
       ) : activeView === "backstop" ? (
       ) : activeView === "audit-log" ? (
         <Suspense
           fallback={
             <div className="glass-card flex min-h-[320px] items-center justify-center">
               <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-purple-500">
+                  Multisig
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading multisig contract…
                 <p className="text-sm uppercase tracking-[0.3em] text-emerald-500">
                   Backstop
                 </p>
@@ -454,12 +463,14 @@ function App() {
           <ErrorBoundary
             fallbackRender={({ resetErrorBoundary }) => (
               <SectionCrashCard
+                title="Multisig Unavailable"
                 title="Backstop Unavailable"
                 title="Audit Log Unavailable"
                 onRetry={resetErrorBoundary}
               />
             )}
           >
+            <MultisigDashboard />
             <BackstopDashboard />
             <ZKAuditLogDashboard />
           </ErrorBoundary>
