@@ -3,7 +3,15 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const { AppError } = require('./error-handler');
-const { logger, withRequestContext } = require('../utils/logger');
+const loggerModule = require('../utils/logger');
+const logger =
+  loggerModule && typeof loggerModule.warn === 'function'
+    ? loggerModule
+    : loggerModule?.logger && typeof loggerModule.logger.warn === 'function'
+      ? loggerModule.logger
+      : console;
+const withRequestContext =
+  loggerModule?.withRequestContext || ((req, metadata = {}) => metadata);
 
 /**
  * @title JWT Authentication Middleware

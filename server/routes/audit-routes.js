@@ -9,6 +9,8 @@ const { asyncHandler, AppError } = require('../middleware/error-handler');
 const router = express.Router();
 
 const CSV_HEADERS = 'id,tokenName,contractId,status,errorMessage,createdAt\n';
+const USER_LOG_PROJECTION = 'userId tokenName contractId status errorMessage createdAt';
+const ADMIN_LOG_PROJECTION = 'userId tokenName contractId status errorMessage createdAt';
 
 const escapeCSV = (val) => {
   if (val == null) return '';
@@ -41,8 +43,10 @@ const rowToCSV = (doc) =>
  */
 router.get('/logs', authenticate, asyncHandler(async (req, res) => {
   const logs = await DeploymentAudit.find({ userId: req.user._id })
+    .select(USER_LOG_PROJECTION)
     .sort({ createdAt: -1 })
-    .limit(50);
+    .limit(50)
+    .lean();
   res.json(logs);
 }));
 
@@ -86,6 +90,7 @@ router.get('/logs/export', authenticate, asyncHandler(async (req, res) => {
     res.write(CSV_HEADERS);
 
     const cursor = DeploymentAudit.find(filter)
+      .select('tokenName contractId status errorMessage createdAt')
       .sort({ createdAt: -1 })
       .cursor();
 
@@ -122,6 +127,7 @@ router.get('/admin/logs', authenticate, authorize('admin'), asyncHandler(async (
     if (tokenName) filter.tokenName = new RegExp(tokenName, 'i');
 
     const logs = await DeploymentAudit.find(filter)
+      .select(ADMIN_LOG_PROJECTION)
       .populate('userId', 'publicKey username')
       .sort({ createdAt: -1 })
       .limit(100);
