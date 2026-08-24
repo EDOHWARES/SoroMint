@@ -11,7 +11,8 @@
 //! 3. The admin may call `cancel_operation` at any time before execution.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Symbol,
+    contract, contractimpl, contracttype, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env,
+    IntoVal, String, Symbol,
 };
 
 // ---------------------------------------------------------------------------
@@ -43,12 +44,18 @@ pub enum DataKey {
 // Operation types
 // ---------------------------------------------------------------------------
 
-/// The set of factory operations that can be queued through the timelock.
+/// Operations that can be queued through the timelock.
+///
+/// Variant order is part of the on-chain encoding. New variants must be
+/// appended so previously queued ids remain stable.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FactoryOperation {
     /// Update the WASM hash used by the factory for future token deployments.
     UpdateWasmHash(BytesN<32>),
+    /// Replace the WASM of an existing proxy. The proxy will only accept this
+    /// call when it originates from this timelock after the 48-hour delay.
+    UpgradeProxy(Address, BytesN<32>),
 }
 
 // ---------------------------------------------------------------------------
@@ -67,28 +74,24 @@ const OP_CANCELLED: Symbol = symbol_short!("op_cancel");
 /// the eta (earliest execution timestamp).  Using both fields prevents replay
 /// of the same operation at a different time.
 fn operation_id(e: &Env, operation: &FactoryOperation, eta: u64) -> BytesN<32> {
-    // Encode the discriminant + eta into a fixed-size byte array so we can
-    // hash it with the SDK's built-in SHA-256.
-    let mut buf = [0u8; 40];
-
-    // Discriminant byte
-    let disc: u8 = match operation {
-        FactoryOperation::UpdateWasmHash(_) => 0,
-    };
-    buf[0] = disc;
-
-    // eta as big-endian u64 (8 bytes)
-    let eta_bytes = eta.to_be_bytes();
-    buf[1..9].copy_from_slice(&eta_bytes);
-
-    // For UpdateWasmHash, embed the 32-byte hash starting at offset 9
-    let hash_bytes = match operation {
-        FactoryOperation::UpdateWasmHash(hash) => hash.to_array(),
-    };
-    buf[9..41].copy_from_slice(&hash_bytes);
-
-    // SHA-256 over the 41 meaningful bytes
-    e.crypto().sha256(&soroban_sdk::Bytes::from_slice(e, &buf[..41])).into()
+    match operation {
+        FactoryOperation::UpdateWasmHash(hash) => {
+            // Keep the original 41-byte encoding so existing queued factory
+            // operations (and their test snapshots) remain stable.
+            let mut buf = [0u8; 41];
+            buf[0] = 0;
+            buf[1..9].copy_from_slice(&eta.to_be_bytes());
+            buf[9..41].copy_from_slice(&hash.to_array());
+            e.crypto().sha256(&Bytes::from_slice(e, &buf)).into()
+        }
+        FactoryOperation::UpgradeProxy(proxy, hash) => {
+            let mut payload = Bytes::from_slice(e, &[1u8]);
+            payload.extend_from_slice(&eta.to_be_bytes());
+            payload.append(&proxy.clone().to_xdr(e));
+            payload.append(&hash.clone().to_xdr(e));
+            e.crypto().sha256(&payload).into()
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -112,10 +115,15 @@ impl TimelockContract {
     /// # Panics
     /// Panics if the contract has already been initialised.
     pub fn initialize(e: Env, admin: Address) {
-        if e.storage().instance().has(&DataKey::Config(ConfigKey::Admin)) {
+        if e.storage()
+            .instance()
+            .has(&DataKey::Config(ConfigKey::Admin))
+        {
             panic!("already initialized");
         }
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Admin), &admin);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Admin), &admin);
     }
 
     // -----------------------------------------------------------------------
@@ -137,7 +145,11 @@ impl TimelockContract {
     /// # Events
     /// Emits `op_queue` with `(operation_id, eta)`.
     pub fn queue_operation(e: Env, operation: FactoryOperation) -> BytesN<32> {
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized");
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .expect("not initialized");
         admin.require_auth();
 
         let now = e.ledger().timestamp();
@@ -149,12 +161,11 @@ impl TimelockContract {
             panic!("operation already queued");
         }
 
-        e.storage().persistent().set(&DataKey::Op(op_id.clone()), &eta);
+        e.storage()
+            .persistent()
+            .set(&DataKey::Op(op_id.clone()), &eta);
 
-        e.events().publish(
-            (OP_QUEUED, admin),
-            (op_id.clone(), eta),
-        );
+        e.events().publish((OP_QUEUED, admin), (op_id.clone(), eta));
 
         op_id
     }
@@ -189,22 +200,39 @@ impl TimelockContract {
         // Remove before executing to prevent re-entrancy
         e.storage().persistent().remove(&DataKey::Op(op_id.clone()));
 
-        // Dispatch the operation to the factory
         match operation {
             FactoryOperation::UpdateWasmHash(new_wasm_hash) => {
                 let args = soroban_sdk::vec![&e, new_wasm_hash.into()];
-                e.invoke_contract::<()>(
-                    &factory,
-                    &Symbol::new(&e, "update_wasm_hash"),
-                    args,
-                );
+                e.invoke_contract::<()>(&factory, &Symbol::new(&e, "update_wasm_hash"), args);
+            }
+            FactoryOperation::UpgradeProxy(proxy, new_wasm_hash) => {
+                if factory != proxy {
+                    panic!("target mismatch");
+                }
+                let upgrade_args = soroban_sdk::vec![&e, new_wasm_hash.into_val(&e)];
+                e.invoke_contract::<()>(&proxy, &Symbol::new(&e, "upgrade"), upgrade_args);
+                // Runs against the *new* WASM so schema migrations are atomic
+                // with the hash swap. The whole transaction reverts on panic.
+                e.invoke_contract::<()>(&proxy, &Symbol::new(&e, "migrate"), soroban_sdk::vec![&e]);
             }
         }
 
-        e.events().publish(
-            (OP_EXECUTED,),
-            (op_id, factory),
-        );
+        e.events().publish((OP_EXECUTED,), (op_id, factory));
+    }
+
+    /// Convenience wrapper: queue an `UpgradeProxy` operation.
+    pub fn queue_upgrade(e: Env, proxy: Address, new_wasm_hash: BytesN<32>) -> BytesN<32> {
+        Self::queue_operation(e, FactoryOperation::UpgradeProxy(proxy, new_wasm_hash))
+    }
+
+    /// Convenience wrapper: execute a previously queued `UpgradeProxy` operation.
+    pub fn execute_upgrade(e: Env, proxy: Address, new_wasm_hash: BytesN<32>, eta: u64) {
+        Self::execute_operation(
+            e,
+            proxy.clone(),
+            FactoryOperation::UpgradeProxy(proxy, new_wasm_hash),
+            eta,
+        )
     }
 
     /// Cancels a queued operation before it is executed.
@@ -219,7 +247,11 @@ impl TimelockContract {
     /// # Events
     /// Emits `op_cancel` with `operation_id`.
     pub fn cancel_operation(e: Env, operation: FactoryOperation, eta: u64) {
-        let admin: Address = e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized");
+        let admin: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .expect("not initialized");
         admin.require_auth();
 
         let op_id = operation_id(&e, &operation, eta);
@@ -230,10 +262,7 @@ impl TimelockContract {
 
         e.storage().persistent().remove(&DataKey::Op(op_id.clone()));
 
-        e.events().publish(
-            (OP_CANCELLED, admin),
-            op_id,
-        );
+        e.events().publish((OP_CANCELLED, admin), op_id);
     }
 
     // -----------------------------------------------------------------------
@@ -253,7 +282,10 @@ impl TimelockContract {
 
     /// Returns the current timelock admin address.
     pub fn get_admin(e: Env) -> Address {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::Admin)).expect("not initialized")
+        e.storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::Admin))
+            .expect("not initialized")
     }
 
     /// Returns the minimum delay in seconds (48 hours).

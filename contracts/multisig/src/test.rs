@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, vec, Env};
+use soroban_sdk::{testutils::Address as _, vec, Address, Bytes, BytesN, Env};
 
 #[test]
 fn test_initialize() {
@@ -50,7 +50,7 @@ fn test_propose_and_approve() {
     client.initialize(&signers, &2);
 
     let function = Symbol::new(&env, "mint");
-    let args = vec![&env, 0u8];
+    let args = Bytes::from_slice(&env, &[0u8]);
 
     let tx_id = client.propose_tx(&signer1, &target, &function, &args);
     assert_eq!(tx_id, 1);
@@ -84,7 +84,7 @@ fn test_execute_with_threshold() {
     client.initialize(&signers, &2);
 
     let function = Symbol::new(&env, "mint");
-    let args = vec![&env, 0u8];
+    let args = Bytes::from_slice(&env, &[0u8]);
 
     let tx_id = client.propose_tx(&signer1, &target, &function, &args);
     client.approve_tx(&signer2, &tx_id);
@@ -112,7 +112,7 @@ fn test_execute_without_threshold() {
     client.initialize(&signers, &2);
 
     let function = Symbol::new(&env, "mint");
-    let args = vec![&env, 0u8];
+    let args = Bytes::from_slice(&env, &[0u8]);
 
     let tx_id = client.propose_tx(&signer1, &target, &function, &args);
 
@@ -136,7 +136,61 @@ fn test_unauthorized_propose() {
     client.initialize(&signers, &1);
 
     let function = Symbol::new(&env, "mint");
-    let args = vec![&env, 0u8];
+    let args = Bytes::from_slice(&env, &[0u8]);
 
     client.propose_tx(&unauthorized, &target, &function, &args);
+}
+
+#[test]
+fn test_propose_and_approve_upgrade() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(MultiSigAdmin, ());
+    let client = MultiSigAdminClient::new(&env, &contract_id);
+
+    let signer1 = Address::generate(&env);
+    let signer2 = Address::generate(&env);
+    let timelock = Address::generate(&env);
+    let proxy = Address::generate(&env);
+    let hash = BytesN::from_array(&env, &[1u8; 32]);
+
+    client.initialize(&vec![&env, signer1.clone(), signer2.clone()], &2);
+
+    let tx_id = client.propose_upgrade(&signer1, &timelock, &proxy, &hash);
+    assert_eq!(tx_id, 1);
+
+    let proposal = client.get_upgrade(&tx_id);
+    assert_eq!(proposal.timelock, timelock);
+    assert_eq!(proposal.proxy, proxy);
+    assert_eq!(proposal.wasm_hash, hash);
+    assert_eq!(proposal.queued, false);
+    assert_eq!(proposal.signatures.len(), 1);
+
+    client.approve_upgrade(&signer2, &tx_id);
+    assert_eq!(client.get_upgrade(&tx_id).signatures.len(), 2);
+}
+
+#[test]
+#[should_panic(expected = "already signed")]
+fn test_double_approve_upgrade_panics() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(MultiSigAdmin, ());
+    let client = MultiSigAdminClient::new(&env, &contract_id);
+
+    let signer1 = Address::generate(&env);
+    let timelock = Address::generate(&env);
+    let proxy = Address::generate(&env);
+
+    client.initialize(&vec![&env, signer1.clone()], &1);
+
+    let tx_id = client.propose_upgrade(
+        &signer1,
+        &timelock,
+        &proxy,
+        &BytesN::from_array(&env, &[2u8; 32]),
+    );
+    client.approve_upgrade(&signer1, &tx_id);
 }
