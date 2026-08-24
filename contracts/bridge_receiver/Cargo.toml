@@ -6,7 +6,7 @@ publish = false
 
 [lib]
 path = "src/bridge_receiver.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = "22.0.0"

@@ -4,6 +4,7 @@ resolver = "2"
 members = [
     "contracts/access",
     "contracts/amm_factory",
+    "contracts/bridge_receiver",
     "contracts/amm_pool",
     "contracts/backstop",
     "contracts/compliance",
