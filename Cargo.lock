@@ -1667,6 +1667,7 @@ dependencies = [
 name = "soromint-oracle"
 version = "1.0.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
