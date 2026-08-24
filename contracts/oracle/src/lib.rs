@@ -5,6 +5,9 @@ mod events;
 #[cfg(test)]
 mod test;
 
+#[cfg(test)]
+mod test_fuzz;
+
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec, Map};
 
 #[contracttype]
