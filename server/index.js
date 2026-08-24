@@ -54,6 +54,7 @@ const dividendRoutes = require('./routes/dividend-routes');
 const streamingRoutes = require('./routes/streaming-routes');
 const streamSearchRoutes = require('./routes/stream-search-routes');
 const bridgeRoutes = require('./routes/bridge-routes');
+const backstopRoutes = require('./routes/backstop-routes');
 const adminRoutes = require('./routes/admin-routes');
 
 const createApp = ({
@@ -98,6 +99,7 @@ const createApp = ({
   app.use('/api/streaming', streamingRoutes);
   app.use('/api/streaming', streamSearchRoutes);
   app.use('/api/bridge', bridgeRoutes);
+  app.use('/api', backstopRoutes);
   app.use('/api/admin', adminRoutes);
 
   app.use(notFoundHandler);
