@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   BookOpenText,
   Vote,
+  ShieldCheck,
   ScrollText,
   ArrowLeftRight,
   Factory,
@@ -26,6 +27,7 @@ import ThemeToggle from "./components/ThemeToggle";
 
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
+const BackstopDashboard = lazy(() => import("./pages/Backstop/Backstop"));
 const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
 const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
@@ -40,6 +42,7 @@ const views = [
   { id: "governance", label: "Governance", icon: Vote },
   { id: "bridge", label: "Bridge", icon: ArrowLeftRight },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
+  { id: "backstop", label: "Backstop", icon: ShieldCheck },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
@@ -427,11 +430,17 @@ function App() {
         >
           <DeveloperHub />
         </Suspense>
+      ) : activeView === "backstop" ? (
       ) : activeView === "audit-log" ? (
         <Suspense
           fallback={
             <div className="glass-card flex min-h-[320px] items-center justify-center">
               <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-emerald-500">
+                  Backstop
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading insurance fund status…
                 <p className="text-sm uppercase tracking-[0.3em] text-violet-500">
                   Audit Log
                 </p>
@@ -445,11 +454,13 @@ function App() {
           <ErrorBoundary
             fallbackRender={({ resetErrorBoundary }) => (
               <SectionCrashCard
+                title="Backstop Unavailable"
                 title="Audit Log Unavailable"
                 onRetry={resetErrorBoundary}
               />
             )}
           >
+            <BackstopDashboard />
             <ZKAuditLogDashboard />
           </ErrorBoundary>
         </Suspense>
