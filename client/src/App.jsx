@@ -13,6 +13,7 @@ import {
   BookOpenText,
   Vote,
   ShieldCheck,
+  ScrollText,
   ArrowLeftRight,
   Factory,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import ThemeToggle from "./components/ThemeToggle";
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
 const BackstopDashboard = lazy(() => import("./pages/Backstop/Backstop"));
+const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
 const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
 );
@@ -41,6 +43,7 @@ const views = [
   { id: "bridge", label: "Bridge", icon: ArrowLeftRight },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
   { id: "backstop", label: "Backstop", icon: ShieldCheck },
+  { id: "audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
 /**
@@ -428,6 +431,7 @@ function App() {
           <DeveloperHub />
         </Suspense>
       ) : activeView === "backstop" ? (
+      ) : activeView === "audit-log" ? (
         <Suspense
           fallback={
             <div className="glass-card flex min-h-[320px] items-center justify-center">
@@ -437,6 +441,11 @@ function App() {
                 </p>
                 <p className="text-lg font-medium dark:text-white">
                   Loading insurance fund status…
+                <p className="text-sm uppercase tracking-[0.3em] text-violet-500">
+                  Audit Log
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading deployment audit trail…
                 </p>
               </div>
             </div>
@@ -446,11 +455,13 @@ function App() {
             fallbackRender={({ resetErrorBoundary }) => (
               <SectionCrashCard
                 title="Backstop Unavailable"
+                title="Audit Log Unavailable"
                 onRetry={resetErrorBoundary}
               />
             )}
           >
             <BackstopDashboard />
+            <ZKAuditLogDashboard />
           </ErrorBoundary>
         </Suspense>
       ) : (
