@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   BookOpenText,
   Vote,
+  ScrollText,
   ArrowLeftRight,
   Factory,
 } from "lucide-react";
@@ -25,6 +26,7 @@ import ThemeToggle from "./components/ThemeToggle";
 
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
+const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
 const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
 );
@@ -38,6 +40,7 @@ const views = [
   { id: "governance", label: "Governance", icon: Vote },
   { id: "bridge", label: "Bridge", icon: ArrowLeftRight },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
+  { id: "audit-log", label: "Audit Log", icon: ScrollText },
 ];
 
 /**
@@ -423,6 +426,32 @@ function App() {
           }
         >
           <DeveloperHub />
+        </Suspense>
+      ) : activeView === "audit-log" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-violet-500">
+                  Audit Log
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading deployment audit trail…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Audit Log Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <ZKAuditLogDashboard />
+          </ErrorBoundary>
         </Suspense>
       ) : (
         <main className="grid grid-cols-1 gap-8 lg:grid-cols-3">
