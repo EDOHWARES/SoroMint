@@ -147,14 +147,12 @@
     [],
     [],
     [],
-    [],
-    [],
     []
   ],
   "ledger": {
     "protocol_version": 22,
-    "sequence_number": 0,
-    "timestamp": 0,
+    "sequence_number": 1,
+    "timestamp": 60,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
@@ -853,7 +851,7 @@
                                 "symbol": "last_ledger"
                               },
                               "val": {
-                                "u32": 0
+                                "u32": 1
                               }
                             },
                             {
@@ -861,7 +859,7 @@
                                 "symbol": "last_timestamp"
                               },
                               "val": {
-                                "u64": 0
+                                "u64": 60
                               }
                             },
                             {
@@ -871,7 +869,7 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 0
+                                  "lo": 150000000
                                 }
                               }
                             },
@@ -882,7 +880,7 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 0
+                                  "lo": 2400000000
                                 }
                               }
                             }

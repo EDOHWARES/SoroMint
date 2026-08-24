@@ -1706,6 +1706,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-twap-oracle"
+version = "1.0.0"
+dependencies = [
+ "soroban-sdk",
+ "soromint-amm-pool",
+ "soromint-token",
+]
+
+[[package]]
 name = "soromint-upgradeable"
 version = "2.0.0"
 dependencies = [

@@ -8,7 +8,11 @@ pub fn get_price(e: &Env, oracle: &Address, token: &Address) -> i128 {
 }
 
 /// Get multiple prices in batch
-pub fn get_prices(e: &Env, oracle: &Address, tokens: &soroban_sdk::Vec<Address>) -> soroban_sdk::Vec<i128> {
+pub fn get_prices(
+    e: &Env,
+    oracle: &Address,
+    tokens: &soroban_sdk::Vec<Address>,
+) -> soroban_sdk::Vec<i128> {
     let args = soroban_sdk::vec![e, tokens.into_val(e)];
     e.invoke_contract::<soroban_sdk::Vec<i128>>(oracle, &Symbol::new(e, "get_prices"), args)
 }
@@ -17,4 +21,16 @@ pub fn get_prices(e: &Env, oracle: &Address, tokens: &soroban_sdk::Vec<Address>)
 pub fn has_price(e: &Env, oracle: &Address, token: &Address) -> bool {
     let args = soroban_sdk::vec![e, token.into_val(e)];
     e.invoke_contract::<bool>(oracle, &Symbol::new(e, "has_price"), args)
+}
+
+/// TWAP price from the peripheral oracle (quote per token, 7 decimals).
+pub fn get_twap_price(e: &Env, twap_oracle: &Address, token: &Address) -> i128 {
+    let args = soroban_sdk::vec![e, token.into_val(e)];
+    e.invoke_contract::<i128>(twap_oracle, &Symbol::new(e, "get_price"), args)
+}
+
+/// Whether the TWAP oracle has enough history for `token`.
+pub fn has_twap(e: &Env, twap_oracle: &Address, token: &Address) -> bool {
+    let args = soroban_sdk::vec![e, token.into_val(e)];
+    e.invoke_contract::<bool>(twap_oracle, &Symbol::new(e, "has_twap"), args)
 }
