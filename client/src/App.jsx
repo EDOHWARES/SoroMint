@@ -13,6 +13,8 @@ import {
   BookOpenText,
   Vote,
   ScrollText,
+  ArrowLeftRight,
+  Factory,
 } from "lucide-react";
 
 // UI Components & Stores
@@ -25,12 +27,18 @@ import ThemeToggle from "./components/ThemeToggle";
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
 const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
+const BridgeReceiverDashboard = lazy(() =>
+  import("./components/BridgeReceiverDashboard")
+);
+const TokenFactory = lazy(() => import("./pages/TokenFactory/TokenFactory"));
 
 const API_BASE = "http://localhost:5000/api";
 
 const views = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "token-factory", label: "Token Factory", icon: Factory },
   { id: "governance", label: "Governance", icon: Vote },
+  { id: "bridge", label: "Bridge", icon: ArrowLeftRight },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
 ];
@@ -324,7 +332,33 @@ function App() {
         setView={setActiveView}
       />
 
-      {activeView === "governance" ? (
+      {activeView === "token-factory" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-stellar-blue">
+                  Token Factory
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading factory…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Token Factory Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <TokenFactory authToken={null} />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "governance" ? (
         <Suspense
           fallback={
             <div className="glass-card flex min-h-[320px] items-center justify-center">
@@ -348,6 +382,32 @@ function App() {
             )}
           >
             <VotingDashboard address={address} authToken={null} />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "bridge" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-stellar-blue">
+                  Bridge
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading bridge receiver…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Bridge Receiver Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <BridgeReceiverDashboard authToken={null} />
           </ErrorBoundary>
         </Suspense>
       ) : activeView === "developer-hub" ? (
