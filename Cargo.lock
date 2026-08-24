@@ -1607,6 +1607,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "soromint-bridge-receiver"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soromint-compliance"
 version = "0.1.0"
 dependencies = [
