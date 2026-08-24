@@ -18,5 +18,10 @@ const SorobanEventSchema = new mongoose.Schema(
 SorobanEventSchema.index({ contractId: 1, ledger: -1 });
 SorobanEventSchema.index({ eventType: 1, ledgerClosedAt: -1 });
 SorobanEventSchema.index({ contractId: 1, eventType: 1, ledgerClosedAt: -1 });
+SorobanEventSchema.index({
+  contractId: 1,
+  inSuccessfulContractCall: 1,
+  ledgerClosedAt: -1,
+});
 
 module.exports = mongoose.model('SorobanEvent', SorobanEventSchema);

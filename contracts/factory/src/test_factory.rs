@@ -311,3 +311,71 @@ proptest! {
         let _ = client.status();
     }
 }
+
+proptest! {
+    // Fuzz: create_token with randomized inputs (valid and invalid)
+    #[test]
+    fn prop_fuzz_create_token(salt_bytes in any::<[u8;32]>(), decimal in any::<u32>(), name_vec in prop::collection::vec('a'..'z', 0..40), symbol_vec in prop::collection::vec('A'..'Z', 0..10)) {
+        use std::panic::catch_unwind;
+
+        let (e, admin, client) = setup();
+        let wasm_hash = e.deployer().upload_contract_wasm(token::WASM);
+        client.initialize(&admin, &wasm_hash);
+
+        let salt = BytesN::from_array(&e, &salt_bytes);
+        let token_admin = Address::generate(&e);
+        let name_str: String = String::from_str(&e, &String::from_utf8(name_vec.clone().into_iter().map(|c| c as u8).collect()).unwrap_or_default());
+        let symbol_str: String = String::from_str(&e, &String::from_utf8(symbol_vec.clone().into_iter().map(|c| c as u8).collect()).unwrap_or_default());
+
+        // Attempt creation inside catch_unwind so we can assert registry state is not corrupted on panic
+        let res = catch_unwind(|| {
+            let _ = client.create_token(&salt, &token_admin, &decimal, &name_str, &symbol_str);
+        });
+
+        let tokens = client.get_tokens();
+        if res.is_err() {
+            // If the call panicked, the registry must remain empty
+            prop_assert_eq!(tokens.len(), 0);
+        } else {
+            // Successful deploy should have exactly one token registered and its metadata match
+            prop_assert_eq!(tokens.len(), 1);
+            let token_address = tokens.get(0).unwrap();
+            let token_client = token::Client::new(&e, &token_address);
+            prop_assert_eq!(token_client.decimals(), decimal);
+            prop_assert_eq!(token_client.name(), name_str);
+            prop_assert_eq!(token_client.symbol(), symbol_str);
+        }
+    }
+
+    // Fuzz: update_wasm_hash authorized vs unauthorized
+    #[test]
+    fn prop_fuzz_update_wasm_hash_auth(new_hash in any::<[u8;32]>()) {
+        use std::panic::catch_unwind;
+
+        // Authorized update (using mocked auths via setup)
+        let (e, admin, client) = setup();
+        let wasm_hash = e.deployer().upload_contract_wasm(token::WASM);
+        client.initialize(&admin, &wasm_hash);
+        let new_hash_bn = BytesN::from_array(&e, &new_hash);
+        client.update_wasm_hash(&new_hash_bn);
+        // verify updated
+        // There's no direct getter for WasmHash, but re-initializing should fail if already initialized; instead ensure create_token still uses wasm (smoke)
+        // Try creating a token to ensure contract still functional
+        let salt = BytesN::from_array(&e, &[7;32]);
+        let token_admin = Address::generate(&e);
+        let name = String::from_str(&e, "FuzzToken");
+        let symbol = String::from_str(&e, "FZ");
+        let _ = client.create_token(&salt, &token_admin, &8u32, &name, &symbol);
+
+        // Unauthorized update should panic when not providing auth
+        let e2 = Env::default();
+        let admin2 = Address::generate(&e2);
+        let factory_id = e2.register(TokenFactory, ());
+        let client2 = TokenFactoryClient::new(&e2, &factory_id);
+        client2.initialize(&admin2, &BytesN::from_array(&e2, &[0;32]));
+        let bad_res = catch_unwind(|| {
+            client2.update_wasm_hash(&BytesN::from_array(&e2, &new_hash));
+        });
+        prop_assert!(bad_res.is_err());
+    }
+}

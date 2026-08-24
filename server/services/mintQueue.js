@@ -25,9 +25,7 @@ const rpcServer = new SorobanRpc.Server(RPC_URL);
 
 if (!process.env.ADMIN_SECRET_KEY) {
   logger.warn('ADMIN_SECRET_KEY is not set in the environment variables');
-  console.warn(
-    'WARNING: ADMIN_SECRET_KEY is not set in the environment variables!'
-  );
+
 }
 
 // 4. Create the Worker
@@ -98,8 +96,9 @@ const mintWorker = new Worker(
         txHash: sendResponse.hash,
       });
       
-      console.log(
-        `[MintWorker] Transaction submitted with hash ${sendResponse.hash}. Waiting for ledger...`
+      logger.info(
+        `[MintWorker] Transaction submitted with hash ${sendResponse.hash}. Waiting for ledger...`,
+        { transactionId: sendResponse.hash }
       );
 
       let txStatus = await rpcServer.getTransaction(sendResponse.hash);
@@ -125,8 +124,9 @@ const mintWorker = new Worker(
           amount,
           txHash: sendResponse.hash,
         });
-        console.log(
-          `[MintWorker] Successfully minted ${amount} tokens to ${recipientAddress} via contract ${contractId}`
+        logger.info(
+          `[MintWorker] Successfully minted ${amount} tokens to ${recipientAddress} via contract ${contractId}`,
+          { transactionId: sendResponse.hash }
         );
         return { success: true, txHash: sendResponse.hash };
       }
@@ -143,9 +143,9 @@ const mintWorker = new Worker(
         error,
       });
       throw error; 
-      console.error(
-        `[MintWorker] Failed to execute mint for job ${job.id}:`,
-        error
+      logger.error(
+        `[MintWorker] Failed to execute mint for job ${job.id}: ${error.message}`,
+        { error, jobId: job.id }
       );
       throw error;
     }
@@ -181,8 +181,9 @@ export async function scheduleMint(payload, executeAt) {
     executeAt: executeAt.toISOString(),
     delayMs: delay,
   });
-  console.log(
-    `[MintQueue] Scheduled mint job ${job.id} for ${executeAt.toISOString()}`
+  logger.info(
+    `[MintQueue] Scheduled mint job ${job.id} for ${executeAt.toISOString()}`,
+    { jobId: job.id, executeAt: executeAt.toISOString() }
   );
   return job.id;
 }

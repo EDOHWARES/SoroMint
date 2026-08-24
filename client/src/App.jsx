@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   BookOpenText,
   Vote,
+  Factory,
 } from "lucide-react";
 
 // UI Components & Stores
@@ -23,11 +24,13 @@ import ThemeToggle from "./components/ThemeToggle";
 
 const DeveloperHub = lazy(() => import("./components/developer-hub"));
 const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
+const TokenFactory = lazy(() => import("./pages/TokenFactory/TokenFactory"));
 
 const API_BASE = "http://localhost:5000/api";
 
 const views = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "token-factory", label: "Token Factory", icon: Factory },
   { id: "governance", label: "Governance", icon: Vote },
   { id: "developer-hub", label: "Developer Hub", icon: BookOpenText },
 ];
@@ -321,7 +324,33 @@ function App() {
         setView={setActiveView}
       />
 
-      {activeView === "governance" ? (
+      {activeView === "token-factory" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-stellar-blue">
+                  Token Factory
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading factory…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Token Factory Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <TokenFactory authToken={null} />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "governance" ? (
         <Suspense
           fallback={
             <div className="glass-card flex min-h-[320px] items-center justify-center">

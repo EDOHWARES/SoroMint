@@ -22,6 +22,9 @@ const router = express.Router();
  * @param {integer} limit - Results per page (optional, default: 50)
  * @returns {object} 200 - Events with pagination metadata
  */
+const EVENT_LIST_PROJECTION =
+  'contractId eventType ledger ledgerClosedAt txHash inSuccessfulContractCall createdAt updatedAt';
+
 router.get('/events', authenticate, async (req, res) => {
   try {
     const {
@@ -44,6 +47,7 @@ router.get('/events', authenticate, async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const events = await SorobanEvent.find(query)
+      .select(EVENT_LIST_PROJECTION)
       .sort({ ledger: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -77,7 +81,24 @@ router.get('/events', authenticate, async (req, res) => {
  */
 router.get('/events/stats', authenticate, async (req, res) => {
   try {
+    const {
+      contractId,
+      eventType,
+      startLedger,
+      endLedger,
+    } = req.query;
+
+    const query = {};
+    if (contractId) query.contractId = contractId;
+    if (eventType) query.eventType = eventType;
+    if (startLedger || endLedger) {
+      query.ledger = {};
+      if (startLedger) query.ledger.$gte = parseInt(startLedger);
+      if (endLedger) query.ledger.$lte = parseInt(endLedger);
+    }
+
     const stats = await SorobanEvent.aggregate([
+      { $match: query },
       {
         $group: {
           _id: '$contractId',
