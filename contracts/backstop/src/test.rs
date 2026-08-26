@@ -51,6 +51,62 @@ fn test_calc_fee() {
     assert_eq!(client.calc_fee(&10_000i128), 100);
 }
 
+#[test]
+fn test_get_config() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (admin, depositor, token_addr) = setup(&e);
+
+    let contract_id = e.register(Backstop, ());
+    let client = BackstopClient::new(&e, &contract_id);
+
+    client.initialize(&admin, &token_addr, &50u32);
+
+    let config = client.get_config();
+    assert_eq!(config.admin, admin);
+    assert_eq!(config.token, token_addr);
+    assert_eq!(config.fee_bps, 50u32);
+    assert_eq!(config.total_deposited, 0);
+    assert_eq!(config.total_withdrawn, 0);
+
+    client.deposit_fee(&depositor, &500i128);
+
+    let config = client.get_config();
+    assert_eq!(config.total_deposited, 500);
+    assert_eq!(config.total_withdrawn, 0);
+
+    client.withdraw(&depositor, &200i128);
+
+    let config = client.get_config();
+    assert_eq!(config.total_deposited, 500);
+    assert_eq!(config.total_withdrawn, 200);
+}
+
+#[test]
+fn test_get_balance() {
+    let e = Env::default();
+    e.mock_all_auths();
+
+    let (admin, depositor, token_addr) = setup(&e);
+    let token = TokenClient::new(&e, &token_addr);
+
+    let contract_id = e.register(Backstop, ());
+    let client = BackstopClient::new(&e, &contract_id);
+
+    client.initialize(&admin, &token_addr, &50u32);
+
+    assert_eq!(client.get_balance(), 0);
+
+    client.deposit_fee(&depositor, &750i128);
+    assert_eq!(client.get_balance(), 750);
+    assert_eq!(token.balance(&contract_id), 750);
+
+    client.withdraw(&depositor, &250i128);
+    assert_eq!(client.get_balance(), 500);
+    assert_eq!(token.balance(&contract_id), 500);
+}
+
 // --- Fuzz tests ---
 
 proptest! {

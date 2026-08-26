@@ -5,6 +5,7 @@
   },
   "auth": [
     [],
+    [],
     []
   ],
   "ledger": {
@@ -44,7 +45,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Admin"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Admin"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -56,7 +64,71 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Oracle"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Counter"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u64": 0
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "DivergenceBps"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "val": {
+                          "u32": 500
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "LiqPaused"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": false
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Oracle"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -68,24 +140,19 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "SmtToken"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "SmtToken"
+                                }
+                              ]
                             }
                           ]
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "VaultCounter"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "u64": 0
                         }
                       }
                     ]
@@ -121,36 +188,5 @@
       ]
     ]
   },
-  "events": [
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "init"
-              }
-            ],
-            "data": {
-              "vec": [
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                },
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                },
-                {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                }
-              ]
-            }
-          }
-        }
-      },
-      "failed_call": false
-    }
-  ]
+  "events": []
 }

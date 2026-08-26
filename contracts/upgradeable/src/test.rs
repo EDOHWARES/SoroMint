@@ -3,45 +3,74 @@
 use super::*;
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 
-#[test]
-fn test_initialize_and_version() {
+fn setup() -> (Env, Address, ProxyRouterClient<'static>) {
     let e = Env::default();
     e.mock_all_auths();
 
-    let admin = Address::generate(&e);
-    let contract_id = e.register(Upgradeable, ());
-    let client = UpgradeableClient::new(&e, &contract_id);
+    let timelock = Address::generate(&e);
+    let contract_id = e.register(ProxyRouter, ());
+    let client = ProxyRouterClient::new(&e, &contract_id);
+    client.initialize(&timelock);
 
-    client.initialize(&admin);
-    assert_eq!(client.get_admin(), admin);
-    assert_eq!(client.get_version(), 1);
+    (e, timelock, client)
 }
 
 #[test]
-fn test_set_admin() {
-    let e = Env::default();
-    e.mock_all_auths();
-
-    let admin = Address::generate(&e);
-    let new_admin = Address::generate(&e);
-    let contract_id = e.register(Upgradeable, ());
-    let client = UpgradeableClient::new(&e, &contract_id);
-
-    client.initialize(&admin);
-    client.set_admin(&new_admin);
-    assert_eq!(client.get_admin(), new_admin);
+fn test_initialize_and_version() {
+    let (e, timelock, client) = setup();
+    assert_eq!(client.get_timelock(), timelock);
+    assert_eq!(client.get_admin(), timelock);
+    assert_eq!(client.get_version(), 1);
+    assert_eq!(client.get_schema_version(), 1);
+    assert_eq!(client.get_counter(), 0);
+    assert_eq!(client.version(), String::from_str(&e, "2.0.0"));
+    assert_eq!(client.status(), String::from_str(&e, "alive"));
 }
 
 #[test]
 #[should_panic(expected = "already initialized")]
 fn test_double_initialize() {
+    let (_, timelock, client) = setup();
+    client.initialize(&timelock);
+}
+
+#[test]
+fn test_set_counter_persists() {
+    let (_, _, client) = setup();
+    client.set_counter(&7);
+    assert_eq!(client.get_counter(), 7);
+}
+
+#[test]
+fn test_upgrade_increments_impl_version_and_preserves_state() {
+    let (e, _, client) = setup();
+    client.set_counter(&42);
+
+    let dummy_hash = BytesN::from_array(&e, &[1u8; 32]);
+    client.upgrade(&dummy_hash);
+
+    assert_eq!(client.get_version(), 2);
+    assert_eq!(client.get_counter(), 42);
+    assert_eq!(client.get_schema_version(), 1);
+}
+
+#[test]
+fn test_migrate_is_noop_on_current_schema() {
+    let (_, _, client) = setup();
+    client.set_counter(&3);
+    client.migrate();
+    assert_eq!(client.get_schema_version(), 1);
+    assert_eq!(client.get_counter(), 3);
+}
+
+#[test]
+#[should_panic]
+fn test_upgrade_requires_auth() {
     let e = Env::default();
-    e.mock_all_auths();
+    let timelock = Address::generate(&e);
+    let contract_id = e.register(ProxyRouter, ());
+    let client = ProxyRouterClient::new(&e, &contract_id);
+    client.initialize(&timelock);
 
-    let admin = Address::generate(&e);
-    let contract_id = e.register(Upgradeable, ());
-    let client = UpgradeableClient::new(&e, &contract_id);
-
-    client.initialize(&admin);
-    client.initialize(&admin); // should panic
+    client.upgrade(&BytesN::from_array(&e, &[3u8; 32]));
 }

@@ -25,7 +25,7 @@
                   "symbol": "mint"
                 },
                 {
-                  "bytes": ""
+                  "bytes": "00"
                 }
               ]
             }
@@ -88,7 +88,7 @@
                         "symbol": "args"
                       },
                       "val": {
-                        "bytes": ""
+                        "bytes": "00"
                       }
                     },
                     {

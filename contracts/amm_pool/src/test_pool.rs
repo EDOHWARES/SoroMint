@@ -1,8 +1,18 @@
 #![cfg(test)]
 
-use crate::{AmmPool, AmmPoolClient, LiquidityPosition, PoolReserves};
-use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use crate::{AmmPool, AmmPoolClient, LiquidityPosition, PoolReserves, PRICE_SCALE};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address, Env, String,
+};
 use soromint_token::{SoroMintToken, SoroMintTokenClient};
+
+fn advance_ledger(e: &Env, seconds: u64) {
+    e.ledger().with_mut(|li| {
+        li.timestamp += seconds;
+        li.sequence_number += 1;
+    });
+}
 
 fn deploy_token(e: &Env, name: &str, symbol: &str) -> (Address, SoroMintTokenClient<'static>) {
     let admin = Address::generate(e);
@@ -169,5 +179,75 @@ fn test_remove_liquidity_returns_underlying_assets() {
             token_reserve: 750,
             quote_reserve: 3_000,
         }
+    );
+}
+
+#[test]
+fn test_oracle_accumulator_updates_once_per_ledger() {
+    let (e, pool, _token_id, token, _quote_id, quote) = setup_pool(30);
+    let provider = Address::generate(&e);
+
+    token.mint(&provider, &1_000i128);
+    quote.mint(&provider, &4_000i128);
+    pool.add_liquidity(&provider, &1_000i128, &4_000i128, &1i128);
+
+    let before = pool.oracle_snapshot();
+    let again = pool.sync_oracle();
+    assert_eq!(before, again);
+
+    advance_ledger(&e, 60);
+    let after = pool.sync_oracle();
+    let expected_token = 4 * PRICE_SCALE * 60;
+    let expected_quote = PRICE_SCALE / 4 * 60;
+    assert_eq!(
+        after.price_cumulative_token - before.price_cumulative_token,
+        expected_token
+    );
+    assert_eq!(
+        after.price_cumulative_quote - before.price_cumulative_quote,
+        expected_quote
+    );
+
+    let same_ledger = pool.sync_oracle();
+    assert_eq!(after, same_ledger);
+}
+
+#[test]
+fn test_spot_prices_match_reserve_ratio() {
+    let (e, pool, _token_id, token, _quote_id, quote) = setup_pool(30);
+    let provider = Address::generate(&e);
+
+    token.mint(&provider, &1_000i128);
+    quote.mint(&provider, &4_000i128);
+    pool.add_liquidity(&provider, &1_000i128, &4_000i128, &1i128);
+
+    let spots = pool.spot_prices();
+    assert_eq!(spots.token_price, 4 * PRICE_SCALE);
+    assert_eq!(spots.quote_price, PRICE_SCALE / 4);
+}
+
+#[test]
+fn test_oracle_uses_pre_trade_reserves_across_swap() {
+    let (e, pool, token_id, token, _quote_id, quote) = setup_pool(30);
+    let provider = Address::generate(&e);
+    let trader = Address::generate(&e);
+
+    token.mint(&provider, &1_000i128);
+    quote.mint(&provider, &1_000i128);
+    pool.add_liquidity(&provider, &1_000i128, &1_000i128, &1i128);
+
+    advance_ledger(&e, 30);
+    let after_idle = pool.sync_oracle();
+    assert_eq!(after_idle.price_cumulative_token, PRICE_SCALE * 30);
+
+    token.mint(&trader, &100i128);
+    pool.swap(&trader, &token_id, &100i128, &1i128);
+
+    let spots = pool.spot_prices();
+    advance_ledger(&e, 30);
+    let after_swap = pool.sync_oracle();
+    assert_eq!(
+        after_swap.price_cumulative_token - after_idle.price_cumulative_token,
+        spots.token_price * 30
     );
 }

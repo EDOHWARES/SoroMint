@@ -184,45 +184,6 @@
                             {
                               "vec": [
                                 {
-                                  "symbol": "CreationFee"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "val": {
-                          "i128": {
-                            "hi": 0,
-                            "lo": 0
-                          }
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "FeeToken"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "val": "void"
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
                                   "symbol": "Tokens"
                                 }
                               ]
@@ -231,25 +192,6 @@
                         },
                         "val": {
                           "vec": []
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Config"
-                            },
-                            {
-                              "vec": [
-                                {
-                                  "symbol": "Treasury"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                         }
                       },
                       {

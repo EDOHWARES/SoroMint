@@ -10,6 +10,7 @@ members = [
     "contracts/dividend",
     "contracts/factory",
     "contracts/flash_loan",
+    "contracts/lending_pool",
     "contracts/lifecycle",
     "contracts/lottery",
     "contracts/merkle_whitelist",
@@ -20,10 +21,13 @@ members = [
     "contracts/streaming",
     "contracts/timelock",
     "contracts/token",
+    "contracts/twap_oracle",
     "contracts/upgradeable",
     "contracts/vault",
     "contracts/vesting",
     "contracts/wrapper",
+    "contracts/zk_metadata_verifier",
+    "contracts/zk_mint_gateway",
 ]
 
 

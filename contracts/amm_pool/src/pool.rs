@@ -1,4 +1,5 @@
 use crate::events;
+use crate::oracle::{self, OracleSnapshot, SpotPrices};
 use core::cmp::min;
 use soroban_sdk::{contract, contractimpl, contracttype, token::TokenClient, Address, Env, String};
 
@@ -20,6 +21,7 @@ pub enum DataKey {
     ReserveQuote,
     TotalShares,
     ShareBalance(Address),
+    OracleState,
 }
 
 #[contracttype]
@@ -78,7 +80,10 @@ impl AmmPool {
         quote_token: Address,
         fee_bps: u32,
     ) {
-        if e.storage().instance().has(&DataKey::Config(ConfigKey::Factory)) {
+        if e.storage()
+            .instance()
+            .has(&DataKey::Config(ConfigKey::Factory))
+        {
             panic!("already initialized");
         }
         if token == quote_token {
@@ -88,15 +93,30 @@ impl AmmPool {
             panic!("fee too high");
         }
 
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Factory), &factory);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::Token), &token);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Factory), &factory);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::Token), &token);
         e.storage()
             .instance()
             .set(&DataKey::Config(ConfigKey::QuoteToken), &quote_token);
-        e.storage().instance().set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
+        e.storage()
+            .instance()
+            .set(&DataKey::Config(ConfigKey::FeeBps), &fee_bps);
         e.storage().instance().set(&DataKey::ReserveToken, &0i128);
         e.storage().instance().set(&DataKey::ReserveQuote, &0i128);
         e.storage().instance().set(&DataKey::TotalShares, &0i128);
+        oracle::write_snapshot(
+            &e,
+            &OracleSnapshot {
+                price_cumulative_token: 0,
+                price_cumulative_quote: 0,
+                last_timestamp: e.ledger().timestamp(),
+                last_ledger: e.ledger().sequence(),
+            },
+        );
 
         events::emit_initialized(&e, &factory, &token, &quote_token, fee_bps);
     }
@@ -148,6 +168,8 @@ impl AmmPool {
         if position.shares < min_shares {
             panic!("slippage exceeded");
         }
+
+        Self::sync_oracle_internal(&e);
 
         let token = TokenClient::new(&e, &Self::read_token(&e));
         let quote = TokenClient::new(&e, &Self::read_quote_token(&e));
@@ -228,6 +250,8 @@ impl AmmPool {
             panic!("slippage exceeded");
         }
 
+        Self::sync_oracle_internal(&e);
+
         let new_token_reserve = token_reserve.checked_sub(token_amount).unwrap();
         let new_quote_reserve = quote_reserve.checked_sub(quote_amount).unwrap();
         let new_total_shares = total_shares.checked_sub(shares).unwrap();
@@ -293,6 +317,8 @@ impl AmmPool {
             panic!("slippage exceeded");
         }
 
+        Self::sync_oracle_internal(&e);
+
         let token = TokenClient::new(&e, &input_token);
         let output = TokenClient::new(&e, &output_token);
         let pool_address = e.current_contract_address();
@@ -322,8 +348,24 @@ impl AmmPool {
         }
     }
 
+    /// Update the price accumulator for elapsed time using current (pre-trade) reserves.
+    /// Permissionless so keepers can keep the feed fresh when the pool is idle.
+    pub fn sync_oracle(e: Env) -> OracleSnapshot {
+        Self::sync_oracle_internal(&e)
+    }
+
+    /// Latest cumulative prices without mutating state.
+    pub fn oracle_snapshot(e: Env) -> OracleSnapshot {
+        oracle::read_snapshot(&e)
+    }
+
+    /// Instantaneous pool prices (quote per token and token per quote).
+    pub fn spot_prices(e: Env) -> SpotPrices {
+        oracle::compute_spot_prices(Self::read_reserve_token(&e), Self::read_reserve_quote(&e))
+    }
+
     pub fn version(e: Env) -> String {
-        String::from_str(&e, "1.0.0")
+        String::from_str(&e, "1.1.0")
     }
 
     pub fn status(e: Env) -> String {
@@ -332,6 +374,10 @@ impl AmmPool {
 }
 
 impl AmmPool {
+    fn sync_oracle_internal(e: &Env) -> OracleSnapshot {
+        oracle::sync(e, Self::read_reserve_token(e), Self::read_reserve_quote(e))
+    }
+
     fn read_factory(e: &Env) -> Address {
         e.storage()
             .instance()
@@ -354,7 +400,10 @@ impl AmmPool {
     }
 
     fn read_fee_bps(e: &Env) -> u32 {
-        e.storage().instance().get(&DataKey::Config(ConfigKey::FeeBps)).unwrap_or(0)
+        e.storage()
+            .instance()
+            .get(&DataKey::Config(ConfigKey::FeeBps))
+            .unwrap_or(0)
     }
 
     fn read_reserve_token(e: &Env) -> i128 {
@@ -399,12 +448,11 @@ impl AmmPool {
         let total_shares = Self::read_total_shares(e);
 
         if total_shares == 0 {
-            let shares =
-                Self::integer_sqrt(
-                    max_token_amount
-                        .checked_mul(max_quote_amount)
-                        .expect("initial liquidity multiplication overflow"),
-                );
+            let shares = Self::integer_sqrt(
+                max_token_amount
+                    .checked_mul(max_quote_amount)
+                    .expect("initial liquidity multiplication overflow"),
+            );
             if shares <= 0 {
                 panic!("initial liquidity too small");
             }
@@ -484,12 +532,11 @@ impl AmmPool {
             panic!("pool has no liquidity");
         }
 
-        let amount_in_after_fee =
-            amount_in
-                .checked_mul(BPS_DENOMINATOR - fee_bps)
-                .expect("swap fee multiplication overflow")
-                .checked_div(BPS_DENOMINATOR)
-                .expect("swap fee division failed");
+        let amount_in_after_fee = amount_in
+            .checked_mul(BPS_DENOMINATOR - fee_bps)
+            .expect("swap fee multiplication overflow")
+            .checked_div(BPS_DENOMINATOR)
+            .expect("swap fee division failed");
         if amount_in_after_fee <= 0 {
             panic!("swap amount too small");
         }
@@ -588,9 +635,7 @@ impl AmmPool {
         }
         min(
             x0,
-            value
-                .checked_div(x0)
-                .expect("sqrt final division failed"),
+            value.checked_div(x0).expect("sqrt final division failed"),
         )
     }
 }

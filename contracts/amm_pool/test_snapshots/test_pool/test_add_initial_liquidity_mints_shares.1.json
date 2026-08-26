@@ -201,10 +201,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Balance"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                  "vec": [
+                    {
+                      "symbol": "Balance"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                    }
+                  ]
                 }
               ]
             },
@@ -221,10 +228,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Balance"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                      "vec": [
+                        {
+                          "symbol": "Balance"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -249,10 +263,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Balance"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                  "vec": [
+                    {
+                      "symbol": "Balance"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                    }
+                  ]
                 }
               ]
             },
@@ -269,10 +290,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Balance"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                      "vec": [
+                        {
+                          "symbol": "Balance"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -375,6 +403,18 @@
                         "val": {
                           "string": "MINT"
                         }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Transferable"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": true
+                        }
                       }
                     ]
                   }
@@ -426,10 +466,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Balance"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                  "vec": [
+                    {
+                      "symbol": "Balance"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                    }
+                  ]
                 }
               ]
             },
@@ -446,10 +493,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Balance"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                      "vec": [
+                        {
+                          "symbol": "Balance"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -474,10 +528,17 @@
             "key": {
               "vec": [
                 {
-                  "symbol": "Balance"
+                  "symbol": "Account"
                 },
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                  "vec": [
+                    {
+                      "symbol": "Balance"
+                    },
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                    }
+                  ]
                 }
               ]
             },
@@ -494,10 +555,17 @@
                 "key": {
                   "vec": [
                     {
-                      "symbol": "Balance"
+                      "symbol": "Account"
                     },
                     {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                      "vec": [
+                        {
+                          "symbol": "Balance"
+                        },
+                        {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -600,6 +668,18 @@
                         "val": {
                           "string": "WXLM"
                         }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Transferable"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "bool": true
+                        }
                       }
                     ]
                   }
@@ -686,7 +766,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "Factory"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Factory"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -698,7 +785,14 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "FeeBps"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "FeeBps"
+                                }
+                              ]
                             }
                           ]
                         },
@@ -710,12 +804,89 @@
                         "key": {
                           "vec": [
                             {
-                              "symbol": "QuoteToken"
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "QuoteToken"
+                                }
+                              ]
                             }
                           ]
                         },
                         "val": {
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Config"
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "Token"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "val": {
+                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                        }
+                      },
+                      {
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "OracleState"
+                            }
+                          ]
+                        },
+                        "val": {
+                          "map": [
+                            {
+                              "key": {
+                                "symbol": "last_ledger"
+                              },
+                              "val": {
+                                "u32": 0
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "last_timestamp"
+                              },
+                              "val": {
+                                "u64": 0
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "price_cumulative_quote"
+                              },
+                              "val": {
+                                "i128": {
+                                  "hi": 0,
+                                  "lo": 0
+                                }
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "price_cumulative_token"
+                              },
+                              "val": {
+                                "i128": {
+                                  "hi": 0,
+                                  "lo": 0
+                                }
+                              }
+                            }
+                          ]
                         }
                       },
                       {
@@ -746,18 +917,6 @@
                             "hi": 0,
                             "lo": 1000
                           }
-                        }
-                      },
-                      {
-                        "key": {
-                          "vec": [
-                            {
-                              "symbol": "Token"
-                            }
-                          ]
-                        },
-                        "val": {
-                          "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                         }
                       },
                       {
