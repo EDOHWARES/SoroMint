@@ -1603,6 +1603,7 @@ dependencies = [
 name = "soromint-backstop"
 version = "1.0.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
