@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import QRCode from "qrcode.react";
+import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -9,13 +10,13 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("John Doe");
   const [avatarUrl, setAvatarUrl] = useState("https://via.placeholder.com/100");
 
-  const balances = {
+  const balances: Record<string, number> = {
     XLM: 120,
     BTC: 0.5,
     ETH: 2,
   };
 
-  const chartData = {
+  const chartData: ChartData<"doughnut"> = {
     labels: Object.keys(balances),
     datasets: [
       {
@@ -25,6 +26,10 @@ export default function ProfilePage() {
         borderWidth: 1,
       },
     ],
+  };
+
+  const chartOptions: ChartOptions<"doughnut"> = {
+    responsive: true,
   };
 
   return (
@@ -48,12 +53,12 @@ export default function ProfilePage() {
 
       <div style={{ marginTop: "2rem" }}>
         <h3>Wallet QR Code</h3>
-        <QRCode value="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
+        <QRCodeSVG value="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
       </div>
 
       <div style={{ marginTop: "2rem", width: 300 }}>
         <h3>Balance Breakdown</h3>
-        <Doughnut data={chartData} />
+        <Doughnut data={chartData} options={chartOptions} />
       </div>
     </div>
   );

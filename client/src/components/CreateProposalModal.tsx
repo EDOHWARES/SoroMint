@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
 import {
   X,
   Plus,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createProposal } from '../services/votingService';
+import type { Proposal } from '../types';
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -22,9 +23,9 @@ import { createProposal } from '../services/votingService';
  * Format a Date object as the string value required by <input type="datetime-local">.
  * Result format: "YYYY-MM-DDTHH:MM"
  */
-const toDatetimeLocal = (date) => {
+const toDatetimeLocal = (date: number | string | Date): string => {
   const d = new Date(date);
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, '0');
   return (
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
     `T${pad(d.getHours())}:${pad(d.getMinutes())}`
@@ -34,9 +35,25 @@ const toDatetimeLocal = (date) => {
 const getDefaultStartTime = () => toDatetimeLocal(Date.now() + 86_400_000);          // +1 day
 const getDefaultEndTime   = () => toDatetimeLocal(Date.now() + 8 * 86_400_000);       // +8 days
 
+// ─── Form state type ───────────────────────────────────────────────────────────
+
+interface ProposalForm {
+  title: string;
+  description: string;
+  choices: string[];
+  startTime: string;
+  endTime: string;
+  tags: string;
+  discussionUrl: string;
+  contractId: string;
+}
+
+type FormErrors = Partial<Record<keyof ProposalForm, string>>;
+type FormTouched = Partial<Record<keyof ProposalForm, boolean>>;
+
 // ─── Initial state factory ────────────────────────────────────────────────────
 
-const makeInitialForm = () => ({
+const makeInitialForm = (): ProposalForm => ({
   title:         '',
   description:   '',
   choices:       ['Yes', 'No'],
@@ -49,8 +66,8 @@ const makeInitialForm = () => ({
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const validate = (form) => {
-  const errors = {};
+const validate = (form: ProposalForm): FormErrors => {
+  const errors: FormErrors = {};
 
   if (!form.title.trim()) {
     errors.title = 'Title is required.';
@@ -88,7 +105,14 @@ const validate = (form) => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function FieldLabel({ children, htmlFor, required = false, hint }) {
+interface FieldLabelProps {
+  children: ReactNode;
+  htmlFor?: string;
+  required?: boolean;
+  hint?: string;
+}
+
+function FieldLabel({ children, htmlFor, required = false, hint }: FieldLabelProps) {
   return (
     <label
       htmlFor={htmlFor}
@@ -105,7 +129,11 @@ function FieldLabel({ children, htmlFor, required = false, hint }) {
   );
 }
 
-function FieldError({ message }) {
+interface FieldErrorProps {
+  message?: string;
+}
+
+function FieldError({ message }: FieldErrorProps) {
   if (!message) return null;
   return (
     <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
@@ -117,11 +145,18 @@ function FieldError({ message }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function CreateProposalModal({ open, onClose, token, onCreated }) {
-  const [form, setForm]           = useState(makeInitialForm);
-  const [errors, setErrors]       = useState({});
+export interface CreateProposalModalProps {
+  open: boolean;
+  onClose: () => void;
+  token: string | null;
+  onCreated: (proposal: Proposal) => void;
+}
+
+export default function CreateProposalModal({ open, onClose, token, onCreated }: CreateProposalModalProps) {
+  const [form, setForm]           = useState<ProposalForm>(makeInitialForm);
+  const [errors, setErrors]       = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [touched, setTouched]     = useState({});
+  const [touched, setTouched]     = useState<FormTouched>({});
 
   // Reset form whenever the modal is (re-)opened.
   useEffect(() => {
@@ -136,14 +171,14 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
   // Close on Escape key.
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
   // ── Field helpers ──────────────────────────────────────────────────────────
 
-  const setField = useCallback((key, value) => {
+  const setField = useCallback(<K extends keyof ProposalForm>(key: K, value: ProposalForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     // Clear that field's error once the user starts editing.
     setErrors((prev) => {
@@ -154,13 +189,13 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
     });
   }, []);
 
-  const markTouched = useCallback((key) => {
+  const markTouched = useCallback(<K extends keyof ProposalForm>(key: K) => {
     setTouched((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
   }, []);
 
   // ── Choice list helpers ────────────────────────────────────────────────────
 
-  const setChoice = (idx, value) => {
+  const setChoice = (idx: number, value: string) => {
     const updated = [...form.choices];
     updated[idx] = value;
     setField('choices', updated);
@@ -171,14 +206,14 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
     setField('choices', [...form.choices, '']);
   };
 
-  const removeChoice = (idx) => {
+  const removeChoice = (idx: number) => {
     if (form.choices.length <= 2) return;
     setField('choices', form.choices.filter((_, i) => i !== idx));
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Mark every field touched so all errors show.
@@ -195,7 +230,16 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
 
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: {
+        title: string;
+        description: string;
+        choices: string[];
+        startTime: string;
+        endTime: string;
+        tags?: string[];
+        discussionUrl?: string;
+        contractId?: string;
+      } = {
         title:       form.title.trim(),
         description: form.description.trim(),
         choices:     form.choices.map((c) => c.trim()).filter(Boolean),
@@ -213,12 +257,12 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
       if (form.discussionUrl.trim()) payload.discussionUrl = form.discussionUrl.trim();
       if (form.contractId.trim())    payload.contractId    = form.contractId.trim();
 
-      const created = await createProposal(payload, token);
+      const created = await createProposal(payload, token as string);
       toast.success('Proposal created successfully! 🎉');
-      onCreated(created);
+      onCreated(created as Proposal);
       onClose();
     } catch (err) {
-      toast.error(`Failed to create proposal: ${err.message}`);
+      toast.error(`Failed to create proposal: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -226,7 +270,7 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
 
   // ── Backdrop click ─────────────────────────────────────────────────────────
 
-  const handleBackdropClick = (e) => {
+  const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && !isSubmitting) onClose();
   };
 
@@ -234,7 +278,7 @@ export default function CreateProposalModal({ open, onClose, token, onCreated })
 
   if (!open) return null;
 
-  const charCount = (str, max) => (
+  const charCount = (str: string, max: number) => (
     <span
       className={`tabular-nums text-xs ${
         str.length > max * 0.9

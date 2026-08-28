@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Vote,
   Plus,
-  Loader2,
   BarChart3,
   Users,
   ShieldCheck,
@@ -13,15 +12,27 @@ import {
   CheckCheck,
   List,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { listProposals, getMyVotingPower } from '../services/votingService';
 import ProposalCard from './ProposalCard';
 import CreateProposalModal from './CreateProposalModal';
 import VoteModal from './VoteModal';
+import type { Proposal, ProposalStatus } from '../types';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
-const TABS = [
+type TabId = 'all' | ProposalStatus;
+
+interface TabDefinition {
+  id: TabId;
+  label: string;
+  Icon: LucideIcon;
+  emptyHeading: string;
+  emptyBody: string;
+}
+
+const TABS: TabDefinition[] = [
   {
     id:    'all',
     label: 'All',
@@ -104,7 +115,13 @@ function ProposalSkeleton() {
 
 // ─── Helper: empty state ──────────────────────────────────────────────────────
 
-function EmptyState({ tab, canCreate, onCreateClick }) {
+interface EmptyStateProps {
+  tab: TabId;
+  canCreate: boolean;
+  onCreateClick: () => void;
+}
+
+function EmptyState({ tab, canCreate, onCreateClick }: EmptyStateProps) {
   const cfg = TABS.find((t) => t.id === tab) || TABS[0];
   const Icon = cfg.Icon;
 
@@ -136,7 +153,12 @@ function EmptyState({ tab, canCreate, onCreateClick }) {
 
 // ─── Helper: error state ──────────────────────────────────────────────────────
 
-function ErrorState({ message, onRetry }) {
+interface ErrorStateProps {
+  message: string | null;
+  onRetry: () => void;
+}
+
+function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div className="glass-card col-span-full flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-200 dark:border-red-700/40 bg-red-50 dark:bg-red-900/20">
@@ -163,7 +185,12 @@ function ErrorState({ message, onRetry }) {
 
 // ─── Voting Power Badge ───────────────────────────────────────────────────────
 
-function VotingPowerBadge({ power, isLoading }) {
+interface VotingPowerBadgeProps {
+  power: number | null;
+  isLoading: boolean;
+}
+
+function VotingPowerBadge({ power, isLoading }: VotingPowerBadgeProps) {
   if (isLoading) {
     return (
       <div className="flex animate-pulse items-center gap-2 rounded-xl border border-stellar-blue/20 bg-stellar-blue/5 px-3 py-2">
@@ -191,21 +218,26 @@ function VotingPowerBadge({ power, isLoading }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function VotingDashboard({ address, authToken }) {
+export interface VotingDashboardProps {
+  address: string | null;
+  authToken: string | null;
+}
+
+export default function VotingDashboard({ address, authToken }: VotingDashboardProps) {
   // ── Core list state ────────────────────────────────────────────────────────
-  const [tab, setTab]             = useState('all');
-  const [proposals, setProposals] = useState([]);
+  const [tab, setTab]             = useState<TabId>('all');
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError]         = useState(null);
+  const [error, setError]         = useState<string | null>(null);
 
   // ── Voting power ───────────────────────────────────────────────────────────
-  const [votingPower, setVotingPower]         = useState(null);
+  const [votingPower, setVotingPower]         = useState<number | null>(null);
   const [isPowerLoading, setIsPowerLoading]   = useState(false);
 
   // ── Modal state ────────────────────────────────────────────────────────────
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showVoteModal, setShowVoteModal]     = useState(false);
-  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
 
   // ── Fetch proposals ────────────────────────────────────────────────────────
   const fetchProposals = useCallback(async () => {
@@ -214,11 +246,12 @@ export default function VotingDashboard({ address, authToken }) {
     try {
       const params = tab !== 'all' ? { status: tab } : {};
       const { proposals: data } = await listProposals(params);
-      setProposals(data);
+      setProposals(data as Proposal[]);
     } catch (err) {
-      setError(err.message || 'Unknown error');
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'Unknown error');
       // Only toast on non-initial loads to avoid double-noise on first render.
-      toast.error(`Could not load proposals: ${err.message}`);
+      toast.error(`Could not load proposals: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -253,12 +286,12 @@ export default function VotingDashboard({ address, authToken }) {
   }, [address, authToken]);
 
   // ── Modal handlers ─────────────────────────────────────────────────────────
-  const handleVote = useCallback((proposal) => {
+  const handleVote = useCallback((proposal: Proposal) => {
     setSelectedProposal(proposal);
     setShowVoteModal(true);
   }, []);
 
-  const handleViewResults = useCallback((proposal) => {
+  const handleViewResults = useCallback((proposal: Proposal) => {
     setSelectedProposal(proposal);
     setShowVoteModal(true);
   }, []);
@@ -270,7 +303,7 @@ export default function VotingDashboard({ address, authToken }) {
   }, []);
 
   const handleCreated = useCallback(
-    (newProposal) => {
+    (newProposal: Proposal) => {
       // Optimistically prepend the new proposal if the current tab would show it,
       // then refresh to get server-computed fields (tally, voteCount, etc.).
       if (tab === 'all' || tab === (newProposal?.status ?? 'pending')) {

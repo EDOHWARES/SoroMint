@@ -5,13 +5,21 @@ const DEFAULT_DESCRIPTION = 'Mint, manage, and deploy custom tokens on the Stell
 const DEFAULT_OG_IMAGE = 'https://soromint.io/og-image.png';
 const BASE_URL = 'https://soromint.io';
 
+export interface SEOProps {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  path?: string;
+  type?: string;
+}
+
 export default function SEO({
   title,
   description = DEFAULT_DESCRIPTION,
   ogImage = DEFAULT_OG_IMAGE,
   path = '/',
   type = 'website',
-}) {
+}: SEOProps) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} - Stellar Token Minting Platform`;
   const canonicalUrl = `${BASE_URL}${path}`;
 

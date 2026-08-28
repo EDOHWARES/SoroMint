@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -11,19 +12,37 @@ import {
   ShieldCheck,
   TerminalSquare,
 } from 'lucide-react'
-import { developerDocuments } from '../content/developer-documents'
+import { developerDocuments as rawDeveloperDocuments } from '../content/developer-documents'
 
 const API_DOCS_URL = 'http://localhost:5000/api-docs'
 const HEALTH_URL = 'http://localhost:5000/api/health'
 
-const categoryIcons = {
+interface DeveloperDocument {
+  id: string
+  category: string
+  title: string
+  summary: string
+  source: string
+  markdown: string
+}
+
+const developerDocuments = rawDeveloperDocuments as DeveloperDocument[]
+
+const categoryIcons: Record<string, LucideIcon> = {
   'Core API': FileCode2,
   Security: ShieldCheck,
   Operations: TerminalSquare,
   'Contributor Guide': FlaskConical,
 }
 
-function QuickLinkCard({ href, title, caption, value }) {
+interface QuickLinkCardProps {
+  href: string
+  title: string
+  caption: string
+  value: string
+}
+
+function QuickLinkCard({ href, title, caption, value }: QuickLinkCardProps) {
   return (
     <a
       href={href}
@@ -49,7 +68,7 @@ export default function DeveloperHub() {
   )
 
   const groupedDocuments = useMemo(() => {
-    return developerDocuments.reduce((groups, document) => {
+    return developerDocuments.reduce<Record<string, DeveloperDocument[]>>((groups, document) => {
       if (!groups[document.category]) {
         groups[document.category] = []
       }
