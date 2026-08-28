@@ -100,6 +100,7 @@
       "rejected": "مرفوض",
       "signers": "الموقّعون"
     }
+  },
   "nav": {
     "dashboard": "لوحة التحكم",
     "governance": "الحوكمة",
@@ -178,6 +179,43 @@
       "successful": "ناجحة",
       "failed": "فاشلة",
       "rate": "نسبة النجاح"
+    }
+  },
+  "compliance": {
+    "pageTitle": "الامتثال",
+    "pageSubtitle": "إدارة القائمة السوداء وسجلات تدقيق الاسترداد لامتثال العملات",
+    "badge": "القائمة السوداء والاسترداد",
+    "refreshButton": "تحديث",
+    "demoMode": "وضع تجريبي — بيانات وهمية",
+    "demoHint": "وضع تجريبي — الخادم الخلفي غير متصل. تُعرض بيانات وهمية.",
+    "fetchError": "فشل تحميل بيانات الامتثال",
+    "configTitle": "إعدادات العقد",
+    "admin": "المسؤول",
+    "clawbackAdmin": "مسؤول الاسترداد",
+    "tokenAddress": "عقد العملة",
+    "defaultJurisdiction": "الولاية الافتراضية",
+    "copy": "نسخ",
+    "copied": "تم نسخ العنوان إلى الحافظة",
+    "copyFailed": "فشل نسخ العنوان",
+    "blacklistTitle": "العناوين المحظورة",
+    "clawbacksTitle": "سجلات تدقيق الاسترداد",
+    "noBlacklist": "لا توجد عناوين محظورة",
+    "noClawbacks": "لا توجد سجلات استرداد بعد",
+    "bannedStatus": "محظور",
+    "allowedStatus": "مسموح",
+    "colAddress": "العنوان",
+    "colStatus": "الحالة",
+    "colReason": "السبب",
+    "colUpdated": "آخر تحديث",
+    "colSource": "عنوان المصدر",
+    "colAmount": "المبلغ",
+    "colJurisdiction": "الولاية",
+    "colDate": "التاريخ",
+    "metrics": {
+      "blacklisted": "محظورون",
+      "clawbacks": "عمليات الاسترداد",
+      "events": "أحداث الامتثال",
+      "jurisdiction": "الولاية"
     }
   }
 }
