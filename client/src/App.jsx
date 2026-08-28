@@ -17,6 +17,7 @@ import {
   ScrollText,
   ArrowLeftRight,
   Factory,
+  Scale,
 } from "lucide-react";
 
 // UI Components & Stores
@@ -31,6 +32,7 @@ const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
 const MultisigDashboard = lazy(() => import("./pages/Multisig/Multisig"));
 const BackstopDashboard = lazy(() => import("./pages/Backstop/Backstop"));
 const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
+const ComplianceDashboard = lazy(() => import("./pages/Compliance/Compliance"));
 const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
 );
@@ -47,6 +49,7 @@ const views = [
   { id: "multisig", label: "Multisig", icon: Users },
   { id: "backstop", label: "Backstop", icon: ShieldCheck },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
+  { id: "compliance", label: "Compliance", icon: Scale },
 ];
 
 /**
@@ -473,6 +476,32 @@ function App() {
             <MultisigDashboard />
             <BackstopDashboard />
             <ZKAuditLogDashboard />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "compliance" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-emerald-500">
+                  Compliance
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading compliance status…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Compliance Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <ComplianceDashboard />
           </ErrorBoundary>
         </Suspense>
       ) : (

@@ -100,6 +100,7 @@
       "rejected": "Rejected",
       "signers": "Signers"
     }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "governance": "Governance",
@@ -178,6 +179,43 @@
       "successful": "Successful",
       "failed": "Failed",
       "rate": "Success Rate"
+    }
+  },
+  "compliance": {
+    "pageTitle": "Compliance",
+    "pageSubtitle": "Blacklist management and clawback audit records for token compliance",
+    "badge": "Blacklist & Clawback",
+    "refreshButton": "Refresh",
+    "demoMode": "Running in demo mode — using mock data",
+    "demoHint": "Running in demo mode — backend API not connected. Showing mock data.",
+    "fetchError": "Failed to load compliance data",
+    "configTitle": "Contract Configuration",
+    "admin": "Admin",
+    "clawbackAdmin": "Clawback Admin",
+    "tokenAddress": "Token Contract",
+    "defaultJurisdiction": "Default Jurisdiction",
+    "copy": "Copy",
+    "copied": "Address copied to clipboard",
+    "copyFailed": "Failed to copy address",
+    "blacklistTitle": "Blacklisted Addresses",
+    "clawbacksTitle": "Clawback Audit Records",
+    "noBlacklist": "No blacklisted addresses",
+    "noClawbacks": "No clawback records yet",
+    "bannedStatus": "Banned",
+    "allowedStatus": "Allowed",
+    "colAddress": "Address",
+    "colStatus": "Status",
+    "colReason": "Reason",
+    "colUpdated": "Updated",
+    "colSource": "Source Address",
+    "colAmount": "Amount",
+    "colJurisdiction": "Jurisdiction",
+    "colDate": "Date",
+    "metrics": {
+      "blacklisted": "Blacklisted",
+      "clawbacks": "Clawbacks",
+      "events": "Compliance Events",
+      "jurisdiction": "Jurisdiction"
     }
   }
 }
