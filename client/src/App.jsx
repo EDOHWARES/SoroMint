@@ -13,10 +13,10 @@ import {
   BookOpenText,
   Vote,
   Users,
-  ShieldCheck,
   ScrollText,
   ArrowLeftRight,
   Factory,
+  Landmark,
 } from "lucide-react";
 
 // UI Components & Stores
@@ -31,6 +31,7 @@ const VotingDashboard = lazy(() => import("./components/VotingDashboard"));
 const MultisigDashboard = lazy(() => import("./pages/Multisig/Multisig"));
 const BackstopDashboard = lazy(() => import("./pages/Backstop/Backstop"));
 const ZKAuditLogDashboard = lazy(() => import("./pages/ZKAuditLog/ZKAuditLog"));
+const VaultDashboard = lazy(() => import("./pages/Vault/Vault"));
 const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
 );
@@ -47,6 +48,7 @@ const views = [
   { id: "multisig", label: "Multisig", icon: Users },
   { id: "backstop", label: "Backstop", icon: ShieldCheck },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
+  { id: "vault", label: "Vault", icon: Landmark },
 ];
 
 /**
@@ -473,6 +475,32 @@ function App() {
             <MultisigDashboard />
             <BackstopDashboard />
             <ZKAuditLogDashboard />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "vault" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-cyan-500">
+                  Vault
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading vault status…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Vault Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <VaultDashboard />
           </ErrorBoundary>
         </Suspense>
       ) : (
