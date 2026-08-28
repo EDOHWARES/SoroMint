@@ -17,6 +17,7 @@ import {
   ScrollText,
   ArrowLeftRight,
   Factory,
+  LineChart,
 } from "lucide-react";
 
 // UI Components & Stores
@@ -35,6 +36,7 @@ const BridgeReceiverDashboard = lazy(() =>
   import("./components/BridgeReceiverDashboard")
 );
 const TokenFactory = lazy(() => import("./pages/TokenFactory/TokenFactory"));
+const OracleDashboard = lazy(() => import("./pages/Oracle/Oracle"));
 
 const API_BASE = "http://localhost:5000/api";
 
@@ -47,6 +49,7 @@ const views = [
   { id: "multisig", label: "Multisig", icon: Users },
   { id: "backstop", label: "Backstop", icon: ShieldCheck },
   { id: "audit-log", label: "Audit Log", icon: ScrollText },
+  { id: "oracle", label: "Oracle", icon: LineChart },
 ];
 
 /**
@@ -473,6 +476,32 @@ function App() {
             <MultisigDashboard />
             <BackstopDashboard />
             <ZKAuditLogDashboard />
+          </ErrorBoundary>
+        </Suspense>
+      ) : activeView === "oracle" ? (
+        <Suspense
+          fallback={
+            <div className="glass-card flex min-h-[320px] items-center justify-center">
+              <div className="space-y-3 text-center">
+                <p className="text-sm uppercase tracking-[0.3em] text-blue-500">
+                  Oracle
+                </p>
+                <p className="text-lg font-medium dark:text-white">
+                  Loading price feed…
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <ErrorBoundary
+            fallbackRender={({ resetErrorBoundary }) => (
+              <SectionCrashCard
+                title="Oracle Unavailable"
+                onRetry={resetErrorBoundary}
+              />
+            )}
+          >
+            <OracleDashboard />
           </ErrorBoundary>
         </Suspense>
       ) : (
