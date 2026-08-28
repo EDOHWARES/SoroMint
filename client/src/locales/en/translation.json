@@ -10,7 +10,9 @@
     "dashboard": "Dashboard",
     "governance": "Governance",
     "developer-hub": "Developer Hub",
-    "backstop": "Backstop"
+    "token-factory": "Token Factory",
+    "vault": "Vault",
+    "streaming": "Streaming"
   },
   "mint": {
     "title": "Mint New Token",
@@ -100,11 +102,6 @@
       "rejected": "Rejected",
       "signers": "Signers"
     }
-  "nav": {
-    "dashboard": "Dashboard",
-    "governance": "Governance",
-    "developer-hub": "Developer Hub",
-    "token-factory": "Token Factory"
   },
   "factory": {
     "pageTitle": "Token Factory",
@@ -178,6 +175,93 @@
       "successful": "Successful",
       "failed": "Failed",
       "rate": "Success Rate"
+    }
+  },
+  "vault": {
+    "pageTitle": "Vault",
+    "pageSubtitle": "Mint SMT against collateral — monitor ratios and liquidation risk",
+    "live": "Live",
+    "demoBadge": "Demo Mode",
+    "refreshButton": "Refresh",
+    "demoMode": "Running in demo mode — using mock data",
+    "demoHint": "Running in demo mode — backend API not connected. Showing mock data.",
+    "fetchError": "Failed to load vault data",
+    "contractConfig": "Contract Configuration",
+    "contractId": "Contract ID",
+    "contractLink": "Contract Link",
+    "viewExplorer": "View on Explorer",
+    "owner": "Admin",
+    "liquidationThreshold": "Liquidation Threshold",
+    "copy": "Copy",
+    "copied": "Address copied to clipboard",
+    "copyFailed": "Failed to copy address",
+    "colVaultId": "Vault",
+    "colOwner": "Owner",
+    "colCollateral": "Collateral",
+    "colDebt": "Debt (SMT)",
+    "colRatio": "Ratio",
+    "colHealth": "Health",
+    "colStatus": "Status",
+    "colUpdated": "Updated",
+    "noVaults": "No vaults found",
+    "status": {
+      "active": "Active",
+      "liquidated": "Liquidated",
+      "closed": "Closed"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "at-risk": "At Risk",
+      "liquidated": "Liquidated",
+      "closed": "Closed"
+    },
+    "metrics": {
+      "total": "Total Vaults",
+      "active": "Active",
+      "atRisk": "At Risk",
+      "avgRatio": "Avg Collateralization"
+    }
+  },
+  "streaming": {
+    "pageTitle": "Streaming",
+    "pageSubtitle": "Create and monitor token streams — vest tokens linearly over time",
+    "live": "Live",
+    "demoBadge": "Demo Mode",
+    "refreshButton": "Refresh",
+    "demoMode": "Running in demo mode — using mock data",
+    "demoHint": "Running in demo mode — backend API not connected. Showing mock data.",
+    "fetchError": "Failed to load streaming data",
+    "contractConfig": "Contract Configuration",
+    "contractId": "Contract ID",
+    "contractLink": "Contract Link",
+    "viewExplorer": "View on Explorer",
+    "owner": "Admin",
+    "maxWindow": "Max Stream Window",
+    "copy": "Copy",
+    "copied": "Address copied to clipboard",
+    "copyFailed": "Failed to copy address",
+    "colStreamId": "Stream",
+    "colSender": "Sender",
+    "colRecipient": "Recipient",
+    "colRate": "Rate",
+    "colWindow": "Window",
+    "colWithdrawn": "Withdrawn",
+    "colVisibility": "Visibility",
+    "colStatus": "Status",
+    "noStreams": "No streams found",
+    "public": "Public",
+    "private": "Private",
+    "status": {
+      "active": "Active",
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "metrics": {
+      "total": "Total Streams",
+      "active": "Active",
+      "completed": "Completed",
+      "rate": "Total Rate / Ledger"
     }
   }
 }

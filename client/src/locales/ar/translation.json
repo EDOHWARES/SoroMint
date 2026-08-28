@@ -10,7 +10,9 @@
     "dashboard": "لوحة التحكم",
     "governance": "الحوكمة",
     "developer-hub": "مركز المطورين",
-    "backstop": "الحماية"
+    "token-factory": "مصنع العملات",
+    "vault": "الخزنة",
+    "streaming": "الدفق"
   },
   "mint": {
     "title": "سك عملة جديدة",
@@ -100,11 +102,6 @@
       "rejected": "مرفوض",
       "signers": "الموقّعون"
     }
-  "nav": {
-    "dashboard": "لوحة التحكم",
-    "governance": "الحوكمة",
-    "developer-hub": "مركز المطورين",
-    "token-factory": "مصنع العملات"
   },
   "factory": {
     "pageTitle": "مصنع العملات",
@@ -178,6 +175,93 @@
       "successful": "ناجحة",
       "failed": "فاشلة",
       "rate": "نسبة النجاح"
+    }
+  },
+  "vault": {
+    "pageTitle": "الخزنة",
+    "pageSubtitle": "سكّ SMT مقابل الضمانات — راقب نسب التغطية ومخاطر التصفية",
+    "live": "مباشر",
+    "demoBadge": "وضع تجريبي",
+    "refreshButton": "تحديث",
+    "demoMode": "وضع تجريبي — بيانات وهمية",
+    "demoHint": "وضع تجريبي — الخادم الخلفي غير متصل. تُعرض بيانات وهمية.",
+    "fetchError": "فشل تحميل بيانات الخزنة",
+    "contractConfig": "إعدادات العقد",
+    "contractId": "معرّف العقد",
+    "contractLink": "رابط العقد",
+    "viewExplorer": "عرض في المستكشف",
+    "owner": "المسؤول",
+    "liquidationThreshold": "حد التصفية",
+    "copy": "نسخ",
+    "copied": "تم نسخ العنوان إلى الحافظة",
+    "copyFailed": "فشل نسخ العنوان",
+    "colVaultId": "الخزنة",
+    "colOwner": "المالك",
+    "colCollateral": "الضمان",
+    "colDebt": "الدين (SMT)",
+    "colRatio": "النسبة",
+    "colHealth": "الصحة",
+    "colStatus": "الحالة",
+    "colUpdated": "آخر تحديث",
+    "noVaults": "لا توجد خزائن",
+    "status": {
+      "active": "نشطة",
+      "liquidated": "مُصفّاة",
+      "closed": "مغلقة"
+    },
+    "health": {
+      "healthy": "سليمة",
+      "at-risk": "في خطر",
+      "liquidated": "مُصفّاة",
+      "closed": "مغلقة"
+    },
+    "metrics": {
+      "total": "إجمالي الخزائن",
+      "active": "نشطة",
+      "atRisk": "في خطر",
+      "avgRatio": "متوسط التغطية"
+    }
+  },
+  "streaming": {
+    "pageTitle": "الدفق",
+    "pageSubtitle": "أنشئ وراقب دفقات الرموز — استحقاق خطّي عبر الوقت",
+    "live": "مباشر",
+    "demoBadge": "وضع تجريبي",
+    "refreshButton": "تحديث",
+    "demoMode": "وضع تجريبي — بيانات وهمية",
+    "demoHint": "وضع تجريبي — الخادم الخلفي غير متصل. تُعرض بيانات وهمية.",
+    "fetchError": "فشل تحميل بيانات الدفق",
+    "contractConfig": "إعدادات العقد",
+    "contractId": "معرّف العقد",
+    "contractLink": "رابط العقد",
+    "viewExplorer": "عرض في المستكشف",
+    "owner": "المسؤول",
+    "maxWindow": "أقصى نافذة للدفق",
+    "copy": "نسخ",
+    "copied": "تم نسخ العنوان إلى الحافظة",
+    "copyFailed": "فشل نسخ العنوان",
+    "colStreamId": "الدفق",
+    "colSender": "المرسِل",
+    "colRecipient": "المستلِم",
+    "colRate": "المعدل",
+    "colWindow": "النافذة",
+    "colWithdrawn": "المسحوب",
+    "colVisibility": "الظهور",
+    "colStatus": "الحالة",
+    "noStreams": "لا توجد دفقات",
+    "public": "عام",
+    "private": "خاص",
+    "status": {
+      "active": "نشط",
+      "scheduled": "مجدول",
+      "completed": "مكتمل",
+      "cancelled": "ملغى"
+    },
+    "metrics": {
+      "total": "إجمالي الدفقات",
+      "active": "نشطة",
+      "completed": "مكتملة",
+      "rate": "إجمالي المعدل / سجل"
     }
   }
 }
