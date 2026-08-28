@@ -267,6 +267,7 @@ export const cancelStream = async (streamId, token = null) => {
 export default {
   normaliseStream,
   normaliseStatus,
+  classifyStreamStatus,
   getStream,
   getStreamBalance,
   getStreamStatus,
