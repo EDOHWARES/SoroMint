@@ -14,10 +14,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { castVote, getMyVotingPower } from '../services/votingService';
+import type { Proposal, ProposalStatus } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return '—';
   try {
     return new Date(dateStr).toLocaleDateString(undefined, {
@@ -32,7 +33,7 @@ const formatDate = (dateStr) => {
   }
 };
 
-const truncateAddress = (addr) => {
+const truncateAddress = (addr: string | undefined | null): string => {
   if (!addr) return 'Unknown';
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -42,7 +43,7 @@ const truncateAddress = (addr) => {
  * Normalise the tally map — keys may be numeric strings ("0") or numbers (0).
  * Returns an array aligned with the `choices` array: [power0, power1, …]
  */
-const normaliseTally = (choices, tally) => {
+const normaliseTally = (choices: string[], tally: Record<string, number> | undefined): number[] => {
   return choices.map((_, idx) => {
     const val = tally?.[idx] ?? tally?.[String(idx)] ?? 0;
     return Number(val);
@@ -65,7 +66,12 @@ const BAR_COLORS = [
 
 // ─── Status badge config (re-used from ProposalCard) ─────────────────────────
 
-const STATUS_CONFIG = {
+interface StatusConfigEntry {
+  label: string;
+  className: string;
+}
+
+const STATUS_CONFIG: Record<ProposalStatus, StatusConfigEntry> = {
   active: {
     label: 'Active',
     className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-700/40',
@@ -86,7 +92,12 @@ const STATUS_CONFIG = {
 
 // ─── Sub-component: Voting Power Badge ───────────────────────────────────────
 
-function VotingPowerBadge({ isLoading, votingPower }) {
+interface VotingPowerBadgeProps {
+  isLoading: boolean;
+  votingPower: number | null;
+}
+
+function VotingPowerBadge({ isLoading, votingPower }: VotingPowerBadgeProps) {
   const noPower = !isLoading && votingPower !== null && votingPower === 0;
 
   if (isLoading) {
@@ -138,7 +149,14 @@ function VotingPowerBadge({ isLoading, votingPower }) {
 
 // ─── Sub-component: Results View (read-only tally) ────────────────────────────
 
-function ResultsView({ choices, tally, totalVotingPower, voteCount }) {
+interface ResultsViewProps {
+  choices: string[];
+  tally: Record<string, number> | undefined;
+  totalVotingPower: number | string | undefined;
+  voteCount: number | string | undefined;
+}
+
+function ResultsView({ choices, tally, totalVotingPower, voteCount }: ResultsViewProps) {
   const powers = normaliseTally(choices, tally);
   const total  = Number(totalVotingPower) || 0;
 
@@ -217,7 +235,14 @@ function ResultsView({ choices, tally, totalVotingPower, voteCount }) {
 
 // ─── Sub-component: Choice selector ──────────────────────────────────────────
 
-function ChoiceSelector({ choices, selected, onChange, disabled }) {
+interface ChoiceSelectorProps {
+  choices: string[];
+  selected: number | null;
+  onChange: (idx: number) => void;
+  disabled: boolean;
+}
+
+function ChoiceSelector({ choices, selected, onChange, disabled }: ChoiceSelectorProps) {
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -280,16 +305,25 @@ function ChoiceSelector({ choices, selected, onChange, disabled }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+export interface VoteModalProps {
+  open: boolean;
+  onClose: () => void;
+  proposal: Proposal | null;
+  token: string | null;
+  address: string | null;
+  onVoted: () => void;
+}
+
 export default function VoteModal({
   open,
   onClose,
   proposal,
   token,
-  address,
+  address: _address,
   onVoted,
-}) {
-  const [selectedChoice, setSelectedChoice] = useState(null);
-  const [votingPower, setVotingPower]         = useState(null);
+}: VoteModalProps) {
+  const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
+  const [votingPower, setVotingPower]         = useState<number | null>(null);
   const [isPowerLoading, setIsPowerLoading]   = useState(false);
   const [isSubmitting, setIsSubmitting]       = useState(false);
 
@@ -302,7 +336,7 @@ export default function VoteModal({
     setVotingPower(null);
 
     setIsPowerLoading(true);
-    getMyVotingPower(token, proposal?.contractId || null)
+    getMyVotingPower(token, proposal?.contractId || undefined)
       .then((data) => setVotingPower(data?.votingPower ?? 0))
       .catch(() => setVotingPower(0))
       .finally(() => setIsPowerLoading(false));
@@ -311,7 +345,7 @@ export default function VoteModal({
   // ── Close on Escape ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isSubmitting) onClose();
     };
     window.addEventListener('keydown', handler);
@@ -334,7 +368,7 @@ export default function VoteModal({
     creator      = '',
   } = proposal;
 
-  const proposalId = proposal._id || proposal.id;
+  const proposalId = (proposal._id || proposal.id) as string;
   const isActive   = status === 'active';
 
   const noPower   = votingPower !== null && Number(votingPower) === 0;
@@ -353,10 +387,10 @@ export default function VoteModal({
 
     setIsSubmitting(true);
     try {
-      await castVote(proposalId, selectedChoice, token);
+      await castVote(proposalId, selectedChoice, token as string);
 
       const choiceLabel =
-        choices[selectedChoice] || `Choice ${selectedChoice + 1}`;
+        choices[selectedChoice as number] || `Choice ${(selectedChoice as number) + 1}`;
       const powerDisplay = Number(votingPower).toLocaleString();
 
       toast.success(
@@ -368,7 +402,7 @@ export default function VoteModal({
     } catch (err) {
       // Surface the server's error message verbatim so the user gets context
       // (e.g. "You have already voted on this proposal").
-      toast.error(`Vote failed: ${err.message}`);
+      toast.error(`Vote failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -384,7 +418,7 @@ export default function VoteModal({
   ]);
 
   // ── Backdrop click ──────────────────────────────────────────────────────────
-  const handleBackdropClick = (e) => {
+  const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && !isSubmitting) onClose();
   };
 

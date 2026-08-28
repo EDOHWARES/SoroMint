@@ -5,14 +5,16 @@ export function PWAInstall() {
     // Listen for service worker updates
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('updatefound', () => {
-        const newWorker = navigator.serviceWorker.installing;
-        
+        const container = navigator.serviceWorker as unknown as { installing: { state: string; addEventListener: (type: string, listener: () => void) => void } | null };
+        const newWorker = container.installing;
+
         if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          const worker = newWorker;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
               // New content available
               console.log('New content available, refresh to update.');
-              
+
               // Optional: Show update notification to user
               if (confirm('New version available! Reload to update?')) {
                 window.location.reload();
@@ -27,13 +29,13 @@ export function PWAInstall() {
   return null;
 }
 
-export async function registerServiceWorker() {
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
+        scope: '/',
       });
-      
+
       console.log('Service Worker registered with scope:', registration.scope);
       return registration;
     } catch (error) {
@@ -44,7 +46,7 @@ export async function registerServiceWorker() {
   return null;
 }
 
-export async function unregisterServiceWorker() {
+export async function unregisterServiceWorker(): Promise<void> {
   if ('serviceWorker' in navigator) {
     const registration = await navigator.serviceWorker.ready;
     await registration.unregister();

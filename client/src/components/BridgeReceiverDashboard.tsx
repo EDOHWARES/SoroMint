@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeftRight,
   RefreshCw,
@@ -11,21 +11,23 @@ import {
   SkipForward,
   Wallet,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { getRelayerStatus } from '../services/bridgeService';
+import type { BridgeDirection, BridgeRelayerStatus } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatTimestamp = (value) => {
+const formatTimestamp = (value: string | null | undefined): string => {
   if (!value) return 'Never';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Never';
   return date.toLocaleString();
 };
 
-const formatNumber = (value) => Number(value ?? 0).toLocaleString();
+const formatNumber = (value: number | null | undefined): string => Number(value ?? 0).toLocaleString();
 
-const DIRECTION_LABELS = {
+const DIRECTION_LABELS: Record<BridgeDirection, string> = {
   both: 'Two-way',
   'soroban-to-evm': 'Soroban → EVM',
   'evm-to-soroban': 'EVM → Soroban',
@@ -33,7 +35,13 @@ const DIRECTION_LABELS = {
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ isOk, okLabel, badLabel }) {
+interface StatusBadgeProps {
+  isOk: boolean;
+  okLabel: string;
+  badLabel: string;
+}
+
+function StatusBadge({ isOk, okLabel, badLabel }: StatusBadgeProps) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
@@ -54,7 +62,14 @@ function StatusBadge({ isOk, okLabel, badLabel }) {
 
 // ─── Metric card ──────────────────────────────────────────────────────────────
 
-function MetricCard({ Icon, label, value, tone = 'text-stellar-blue' }) {
+interface MetricCardProps {
+  Icon: LucideIcon;
+  label: string;
+  value: number | string | null | undefined;
+  tone?: string;
+}
+
+function MetricCard({ Icon, label, value, tone = 'text-stellar-blue' }: MetricCardProps) {
   return (
     <div className="glass-card flex items-center gap-4 p-5">
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/5 dark:bg-white/5">
@@ -65,7 +80,7 @@ function MetricCard({ Icon, label, value, tone = 'text-stellar-blue' }) {
           {label}
         </p>
         <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-          {formatNumber(value)}
+          {formatNumber(value as number | null | undefined)}
         </p>
       </div>
     </div>
@@ -88,10 +103,14 @@ function MetricSkeleton() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function BridgeReceiverDashboard({ authToken = null }) {
-  const [status, setStatus] = useState(null);
+export interface BridgeReceiverDashboardProps {
+  authToken?: string | null;
+}
+
+export default function BridgeReceiverDashboard({ authToken = null }: BridgeReceiverDashboardProps) {
+  const [status, setStatus] = useState<BridgeRelayerStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (!authToken) return;
@@ -100,10 +119,11 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
     setError(null);
     try {
       const data = await getRelayerStatus(authToken);
-      setStatus(data);
+      setStatus(data as BridgeRelayerStatus);
     } catch (err) {
-      setError(err.message || 'Unknown error');
-      toast.error(`Could not load bridge status: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'Unknown error');
+      toast.error(`Could not load bridge status: ${message}`);
     } finally {
       setIsLoading(false);
     }
@@ -119,8 +139,8 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
   const showError = !isLoading && Boolean(error) && !status;
   const showContent = Boolean(status) && !showSkeletons;
 
-  const stats = status?.stats ?? {};
-  const queue = status?.queue ?? {};
+  const stats = status?.stats ?? undefined;
+  const queue = status?.queue ?? undefined;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -207,7 +227,7 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
       )}
 
       {/* Dashboard content */}
-      {showContent && (
+      {showContent && status && (
         <>
           {/* Status summary */}
           <div className="flex flex-wrap items-center gap-3">
@@ -229,23 +249,23 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
 
           {/* Metrics */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard Icon={Eye} label="Events observed" value={stats.observed} />
+            <MetricCard Icon={Eye} label="Events observed" value={stats?.observed} />
             <MetricCard
               Icon={CheckCheck}
               label="Commands relayed"
-              value={stats.relayed}
+              value={stats?.relayed}
               tone="text-emerald-500"
             />
             <MetricCard
               Icon={XCircle}
               label="Failed relays"
-              value={stats.failed}
+              value={stats?.failed}
               tone="text-red-500"
             />
             <MetricCard
               Icon={Inbox}
               label="Queue pending"
-              value={queue.pending}
+              value={queue?.pending}
               tone="text-amber-500"
             />
           </div>
@@ -263,7 +283,7 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
                     Events skipped
                   </dt>
                   <dd className="font-medium tabular-nums text-slate-900 dark:text-white">
-                    {formatNumber(stats.skipped)}
+                    {formatNumber(stats?.skipped)}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -271,7 +291,7 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
                     Currently processing
                   </dt>
                   <dd className="font-medium tabular-nums text-slate-900 dark:text-white">
-                    {formatNumber(queue.processing)}
+                    {formatNumber(queue?.processing)}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -279,7 +299,7 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
                     Last event observed
                   </dt>
                   <dd className="font-medium text-slate-900 dark:text-white">
-                    {formatTimestamp(stats.lastObservedAt)}
+                    {formatTimestamp(stats?.lastObservedAt)}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -287,7 +307,7 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
                     Last command relayed
                   </dt>
                   <dd className="font-medium text-slate-900 dark:text-white">
-                    {formatTimestamp(stats.lastRelayedAt)}
+                    {formatTimestamp(stats?.lastRelayedAt)}
                   </dd>
                 </div>
               </dl>
@@ -321,12 +341,12 @@ export default function BridgeReceiverDashboard({ authToken = null }) {
                   </dt>
                   <dd
                     className={`rounded-xl border p-3 text-sm ${
-                      stats.lastError
+                      stats?.lastError
                         ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-700/40 dark:bg-red-900/20 dark:text-red-400'
                         : 'border-black/5 bg-black/3 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-500'
                     }`}
                   >
-                    {stats.lastError ?? 'No errors recorded'}
+                    {stats?.lastError ?? 'No errors recorded'}
                   </dd>
                 </div>
               </dl>

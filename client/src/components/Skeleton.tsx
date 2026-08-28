@@ -1,6 +1,8 @@
-import React from 'react';
+export interface SkeletonCardProps {
+  className?: string;
+}
 
-export const SkeletonCard = ({ className = '' }) => {
+export const SkeletonCard = ({ className = '' }: SkeletonCardProps) => {
   return (
     <div className={`animate-pulse ${className}`}>
       <div className="bg-white/10 rounded-lg h-32 w-full"></div>
@@ -8,7 +10,11 @@ export const SkeletonCard = ({ className = '' }) => {
   );
 };
 
-export const SkeletonList = ({ count = 5 }) => {
+export interface SkeletonListProps {
+  count?: number;
+}
+
+export const SkeletonList = ({ count = 5 }: SkeletonListProps) => {
   return (
     <>
       {[...Array(count)].map((_, i) => (
@@ -46,12 +52,17 @@ export const SkeletonTokenForm = () => {
   );
 };
 
-export const SkeletonText = ({ lines = 1, className = '' }) => {
+export interface SkeletonTextProps {
+  lines?: number;
+  className?: string;
+}
+
+export const SkeletonText = ({ lines = 1, className = '' }: SkeletonTextProps) => {
   return (
     <div className={`${className}`}>
       {[...Array(lines)].map((_, i) => (
-        <div 
-          key={i} 
+        <div
+          key={i}
           className="animate-pulse bg-white/10 rounded h-4 mb-2 last:mb-0"
           style={{ width: `${100 - (i * 10)}%` }}
         ></div>
@@ -60,8 +71,12 @@ export const SkeletonText = ({ lines = 1, className = '' }) => {
   );
 };
 
-export const SkeletonAvatar = ({ size = 'md' }) => {
-  const sizeClasses = {
+export interface SkeletonAvatarProps {
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+}
+
+export const SkeletonAvatar = ({ size = 'md' }: SkeletonAvatarProps) => {
+  const sizeClasses: Record<string, string> = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
     lg: 'w-16 h-16',

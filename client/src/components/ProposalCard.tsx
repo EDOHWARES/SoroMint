@@ -1,6 +1,4 @@
-import React from 'react';
-import {
-  Clock,
+import { Clock,
   Users,
   BarChart3,
   CheckCircle2,
@@ -9,10 +7,17 @@ import {
   Tag,
   Link,
 } from 'lucide-react';
+import type { Proposal, ProposalStatus } from '../types';
 
 // ─── Status configuration ────────────────────────────────────────────────────
 
-const STATUS_CONFIG = {
+interface StatusConfigEntry {
+  label: string;
+  className: string;
+  pulse: boolean;
+}
+
+const STATUS_CONFIG: Record<ProposalStatus, StatusConfigEntry> = {
   active: {
     label: 'Active',
     className:
@@ -45,7 +50,7 @@ const STATUS_CONFIG = {
  * Format an ISO date string into a human-readable short form.
  * e.g. "Jun 12, 2025, 09:00 AM"
  */
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return '—';
   try {
     return new Date(dateStr).toLocaleDateString(undefined, {
@@ -63,11 +68,17 @@ const formatDate = (dateStr) => {
 /**
  * Truncate a Stellar G-address to "GABCD…WXYZ" form.
  */
-const truncateAddress = (addr) => {
+const truncateAddress = (addr: string | undefined | null): string => {
   if (!addr) return 'Unknown';
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 };
+
+interface ChoiceBar {
+  label: string;
+  power: number;
+  pct: number;
+}
 
 /**
  * Build a normalised array of { label, power, pct } objects from the
@@ -76,7 +87,11 @@ const truncateAddress = (addr) => {
  * The tally object coming from the API may use either numeric string keys
  * ("0", "1", …) or numeric keys depending on serialisation — we handle both.
  */
-const buildChoiceBars = (choices, tally, totalVotingPower) => {
+const buildChoiceBars = (
+  choices: string[],
+  tally: Record<string, number> | undefined,
+  totalVotingPower: number,
+): ChoiceBar[] => {
   return choices.map((label, idx) => {
     const power =
       (tally && (tally[idx] ?? tally[String(idx)] ?? 0)) || 0;
@@ -104,7 +119,13 @@ const BAR_COLORS = [
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ProposalCard({ proposal, onVote, onViewResults }) {
+export interface ProposalCardProps {
+  proposal: Proposal;
+  onVote: (proposal: Proposal) => void;
+  onViewResults: (proposal: Proposal) => void;
+}
+
+export default function ProposalCard({ proposal, onVote, onViewResults }: ProposalCardProps) {
   const {
     title = 'Untitled Proposal',
     description = '',

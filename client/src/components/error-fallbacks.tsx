@@ -1,7 +1,7 @@
-import { AlertTriangle, RefreshCcw, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, RefreshCcw, ShieldAlert } from 'lucide-react';
 
-function refreshPage() {
-  window.location.reload()
+function refreshPage(): void {
+  window.location.reload();
 }
 
 export function AppCrashPage() {
@@ -38,7 +38,14 @@ export function AppCrashPage() {
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+export interface SectionCrashCardProps {
+  className?: string;
+  title?: string;
+  description?: string;
+  onRetry?: () => void;
 }
 
 export function SectionCrashCard({
@@ -46,7 +53,7 @@ export function SectionCrashCard({
   title,
   description,
   onRetry,
-}) {
+}: SectionCrashCardProps) {
   return (
     <div className={`glass-card min-h-[400px] border-red-400/20 bg-red-500/5 ${className}`.trim()}>
       <div className="flex h-full flex-col items-start justify-center gap-4">
@@ -78,5 +85,5 @@ export function SectionCrashCard({
         </div>
       </div>
     </div>
-  )
+  );
 }

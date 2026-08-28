@@ -1,19 +1,25 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { useUIStore } from '../store';
+
+type Theme = 'light' | 'dark' | 'system';
 
 /**
  * ThemeToggle - Dark/Light/System Theme Switcher
  */
 const ThemeToggle = () => {
-  const { theme, setTheme, initTheme } = useUIStore();
+  const { theme, setTheme, initTheme } = useUIStore() as {
+    theme: Theme;
+    setTheme: (theme: Theme) => void;
+    initTheme: () => void;
+  };
 
   useEffect(() => {
     initTheme();
   }, [initTheme]);
 
   const cycleTheme = () => {
-    const cycle = ['light', 'dark', 'system'];
+    const cycle: Theme[] = ['light', 'dark', 'system'];
     const nextIndex = (cycle.indexOf(theme) + 1) % cycle.length;
     setTheme(cycle[nextIndex]);
   };
@@ -55,7 +61,7 @@ const ThemeToggle = () => {
       <span className="transition-transform duration-300 group-hover:scale-110">
         {getThemeIcon()}
       </span>
-      
+
       {/* Tiny active indicator */}
       <span
         className={`absolute bottom-1 w-1.5 h-1.5 rounded-full transition-colors ${

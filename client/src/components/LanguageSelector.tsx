@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
+import type { ChangeEvent } from 'react';
 
-const LANGUAGES = [
+const LANGUAGES: Array<{ code: string; label: string; dir: string }> = [
   { code: 'en', label: 'English', dir: 'ltr' },
   { code: 'ar', label: 'العربية', dir: 'rtl' },
 ];
@@ -8,7 +9,7 @@ const LANGUAGES = [
 export default function LanguageSelector() {
   const { i18n } = useTranslation();
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const lang = e.target.value;
     i18n.changeLanguage(lang);
     const selected = LANGUAGES.find((l) => l.code === lang);
