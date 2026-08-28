@@ -100,6 +100,7 @@
       "rejected": "Rejected",
       "signers": "Signers"
     }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "governance": "Governance",
@@ -179,5 +180,44 @@
       "failed": "Failed",
       "rate": "Success Rate"
     }
+  },
+  "oracle": {
+    "pageTitle": "Oracle",
+    "pageSubtitle": "Price feed aggregator — trusted source price reports & USD conversion",
+    "live": "Live",
+    "contractVersion": "Contract v{{version}}",
+    "priceFeed": "Price Feed",
+    "colAsset": "Asset",
+    "colPrice": "Price (USD)",
+    "colSource": "Source",
+    "colUpdated": "Updated",
+    "colStatus": "Status",
+    "fresh": "Fresh",
+    "stale": "Stale",
+    "noFeeds": "No price feeds reported yet.",
+    "trustedSources": "Trusted Sources",
+    "trustedSourcesHint": "Only these reporter addresses may submit price updates to the oracle.",
+    "source": "Source",
+    "noSources": "No trusted sources configured.",
+    "contractId": "Contract ID",
+    "staleAge": "Stale after",
+    "copy": "Copy to clipboard",
+    "metrics": {
+      "sources": "Trusted Sources",
+      "assets": "Tracked Assets",
+      "stale": "Stale Feeds",
+      "usd": "Reference Price"
+    },
+    "usdCalculator": "USD Value Calculator",
+    "usdCalculatorHint": "USD value = amount × price ÷ 10^decimals, matching calculate_usd_value on-chain.",
+    "tokenAmountLabel": "Token Amount",
+    "usdValue": "USD value",
+    "rate": "Rate: ${{price}} per token",
+    "selectRate": "Select an asset in the price feed above to use its rate.",
+    "refreshButton": "Refresh",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load oracle status",
+    "demoMode": "Showing demo data — backend not connected.",
+    "opsNote": "Price reports are submitted by trusted source wallets via the Soroban contract and will appear here automatically after the transaction settles."
   }
 }
