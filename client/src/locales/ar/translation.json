@@ -11,7 +11,8 @@
     "governance": "الحوكمة",
     "developer-hub": "مركز المطورين",
     "token-factory": "مصنع العملات",
-    "vault": "الخزنة"
+    "vault": "الخزنة",
+    "streaming": "الدفق"
   },
   "mint": {
     "title": "سك عملة جديدة",
@@ -219,6 +220,48 @@
       "active": "نشطة",
       "atRisk": "في خطر",
       "avgRatio": "متوسط التغطية"
+    }
+  },
+  "streaming": {
+    "pageTitle": "الدفق",
+    "pageSubtitle": "أنشئ وراقب دفقات الرموز — استحقاق خطّي عبر الوقت",
+    "live": "مباشر",
+    "demoBadge": "وضع تجريبي",
+    "refreshButton": "تحديث",
+    "demoMode": "وضع تجريبي — بيانات وهمية",
+    "demoHint": "وضع تجريبي — الخادم الخلفي غير متصل. تُعرض بيانات وهمية.",
+    "fetchError": "فشل تحميل بيانات الدفق",
+    "contractConfig": "إعدادات العقد",
+    "contractId": "معرّف العقد",
+    "contractLink": "رابط العقد",
+    "viewExplorer": "عرض في المستكشف",
+    "owner": "المسؤول",
+    "maxWindow": "أقصى نافذة للدفق",
+    "copy": "نسخ",
+    "copied": "تم نسخ العنوان إلى الحافظة",
+    "copyFailed": "فشل نسخ العنوان",
+    "colStreamId": "الدفق",
+    "colSender": "المرسِل",
+    "colRecipient": "المستلِم",
+    "colRate": "المعدل",
+    "colWindow": "النافذة",
+    "colWithdrawn": "المسحوب",
+    "colVisibility": "الظهور",
+    "colStatus": "الحالة",
+    "noStreams": "لا توجد دفقات",
+    "public": "عام",
+    "private": "خاص",
+    "status": {
+      "active": "نشط",
+      "scheduled": "مجدول",
+      "completed": "مكتمل",
+      "cancelled": "ملغى"
+    },
+    "metrics": {
+      "total": "إجمالي الدفقات",
+      "active": "نشطة",
+      "completed": "مكتملة",
+      "rate": "إجمالي المعدل / سجل"
     }
   }
 }
