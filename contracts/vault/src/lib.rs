@@ -8,6 +8,7 @@ mod storage;
 
 #[cfg(test)]
 mod test;
+mod fuzz;
 
 use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, Map, String, Vec};
 use storage::{CollateralConfig, ConfigKey, DataKey, TwapConfig, VaultPosition};

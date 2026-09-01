@@ -10,7 +10,7 @@ enum FeedKey {
 }
 
 #[contract]
-struct MockPriceFeed;
+pub struct MockPriceFeed;
 
 #[contractimpl]
 impl MockPriceFeed {
@@ -45,7 +45,7 @@ impl MockPriceFeed {
 }
 
 #[contract]
-struct MockToken;
+pub struct MockToken;
 
 #[contractimpl]
 impl MockToken {
@@ -274,3 +274,4 @@ fn test_aligned_oracles_allow_liquidation() {
     let position = vault.get_vault(&id);
     assert_eq!(position.debt, 50_0000000);
 }
+
